@@ -1,0 +1,79 @@
+# ST. BENEDICT'S EARLY YEARS BRITISH ACADEMY
+## Complete School Website & Management System
+
+### Version: 1.0.0
+### Release Date: 2024
+
+## Overview
+
+A comprehensive, production-ready school management system with public website and secure portal for administrators, teachers, students, and parents. Built with HTML5, CSS3, JavaScript, PHP (OOP), and MySQL.
+
+## Features
+
+### Public Website
+- Responsive design (mobile-first)
+- Complete branding with navy blue, red, and gold
+- Home page with hero section, mission, news preview
+- About Us with history, leadership, facilities
+- Admissions with online application form
+- Academics curriculum overview
+- News & Events with dynamic posts
+- Gallery with image management
+- Contact page with map and form
+
+### Management Portal
+- Role-based access (Admin, Teacher, Student, Parent)
+- Secure authentication with CSRF protection
+- Dashboard with statistics and charts
+- Student management (CRUD, promotion, photo upload)
+- Teacher management with subject assignment
+- Class and subject management
+- Attendance tracking with reports
+- Fee management with receipts
+- Results management with PDF reports
+- Communication system (announcements, messages)
+- Gallery management
+- Audit logs
+- Export to Excel/CSV
+
+### Security Features
+- Password hashing (bcrypt)
+- Prepared statements (PDO)
+- CSRF tokens
+- XSS prevention
+- SQL injection prevention
+- Session security
+- File upload validation
+- Account lockout
+- Activity logging
+- HTTPS ready
+
+## System Requirements
+
+### Server Requirements
+- PHP 7.4 or higher
+- MySQL 5.7 or higher
+- Apache/Nginx web server
+- SSL Certificate
+- 2GB RAM minimum
+- 20GB disk space
+
+### PHP Extensions Required
+- PDO PHP Extension
+- MySQLi PHP Extension
+- OpenSSL PHP Extension
+- GD PHP Extension
+- FileInfo PHP Extension
+- JSON PHP Extension
+- cURL PHP Extension
+- ZIP PHP Extension
+- mbstring PHP Extension
+
+## Installation Guide
+
+### 1. Download & Extract
+Download the system and extract to your web root directory.
+
+### 2. Create Database
+```sql
+CREATE DATABASE st_benedicts_academy CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
