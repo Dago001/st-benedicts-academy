@@ -1203,3 +1203,5 @@ window.onclick = function(event) {
 <?php
 // No footer include - removed as requested
 ?>
+
+<?php include __DIR__ . '/../includes/footer.php'; ?>

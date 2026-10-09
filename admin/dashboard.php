@@ -30,7 +30,8 @@ try {
     $totalClasses = $db->getRow("SELECT COUNT(*) as count FROM classes WHERE is_active = 1")['count'] ?? 0;
 
     // Pending admissions
-    $pendingAdmissions = $db->getRow("SELECT COUNT(*) as count FROM admissions WHERE status = 'pending'")['count'] ?? 0;
+    $pendingAdmissions = ($db->getRow("SELECT COUNT(*) as count FROM admissions WHERE status = 'pending'")['count'] ?? 0)
+        + ($db->getRow("SELECT COUNT(*) as count FROM applications WHERE status = 'pending'")['count'] ?? 0);
 
     // Pending fees (payments with pending status)
     $pendingFees = $db->getRow("SELECT COALESCE(SUM(amount), 0) as total FROM payments WHERE status = 'pending'")['total'] ?? 0;
@@ -679,3 +680,4 @@ if (feeCtx) {
 }
 </style>
 
+<?php include __DIR__ . '/../includes/footer.php'; ?>

@@ -38,6 +38,7 @@ $csrf_token = Security::generateCSRFToken();
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/mobile.css">
     <style>
         /* Page-specific styles */
         .login-page {
@@ -359,5 +360,6 @@ $csrf_token = Security::generateCSRFToken();
         }
     });
     </script>
+<script src="<?php echo BASE_URL; ?>/assets/js/main.js"></script>
 </body>
 </html>

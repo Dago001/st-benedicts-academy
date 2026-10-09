@@ -1177,6 +1177,4 @@ document.querySelectorAll('.receipt-link').forEach(link => {
 });
 </script>
 
-<?php
-// NO FOOTER INCLUDED
-?>
+<?php include __DIR__ . '/../includes/footer.php'; ?>

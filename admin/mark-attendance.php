@@ -648,3 +648,4 @@ document.getElementById('attendanceForm')?.addEventListener('input', function() 
 });
 </script>
 
+<?php include __DIR__ . '/../includes/footer.php'; ?>

@@ -692,3 +692,5 @@ setTimeout(() => {
     });
 }, 5000);
 </script>
+
+<?php include __DIR__ . '/../includes/footer.php'; ?>

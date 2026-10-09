@@ -37,6 +37,49 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Dashboard sidebar drawer (phones / tablets)
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+    const sidebarClose = document.getElementById('sidebarClose');
+    function setSidebar(open) {
+        document.body.classList.toggle('sidebar-open', open);
+        if (sidebarToggle) sidebarToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    if (sidebarToggle) {
+        sidebarToggle.addEventListener('click', function () { setSidebar(!document.body.classList.contains('sidebar-open')); });
+        if (sidebarOverlay) sidebarOverlay.addEventListener('click', function () { setSidebar(false); });
+        if (sidebarClose) sidebarClose.addEventListener('click', function () { setSidebar(false); });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') setSidebar(false); });
+        window.addEventListener('resize', function () { if (window.innerWidth > 991) setSidebar(false); });
+        // Following a link inside the drawer closes it
+        document.querySelectorAll('#appSidebar a').forEach(function (a) { a.addEventListener('click', function () { setSidebar(false); }); });
+    }
+
+    // Wrap bare tables so wide ones scroll inside their card instead of the page
+    document.querySelectorAll('table').forEach(function (t) {
+        if (t.closest('.table-responsive, .dataTables_wrapper, .timetable')) return;
+        const wrap = document.createElement('div');
+        wrap.className = 'table-responsive';
+        t.parentNode.insertBefore(wrap, t);
+        wrap.appendChild(t);
+    });
+
+    // Dropdown in the top navigation: tap to open on touch screens
+    document.querySelectorAll('.dropdown-toggle').forEach(function (toggle) {
+        toggle.addEventListener('click', function (e) {
+            e.preventDefault();
+            const li = toggle.closest('.dropdown');
+            if (li) { li.classList.toggle('open'); li.classList.toggle('active'); }
+        });
+    });
+
+    // aria-expanded for the main menu toggle
+    if (mobileToggle && navMenu) {
+        mobileToggle.addEventListener('click', function () {
+            mobileToggle.setAttribute('aria-expanded', navMenu.classList.contains('active') ? 'true' : 'false');
+        });
+    }
+
     // Initialize tooltips
     const tooltips = document.querySelectorAll('[data-tooltip]');
     tooltips.forEach(element => {
@@ -191,7 +234,8 @@ function showFormError(message) {
 
 // Notifications
 function checkNotifications() {
-    fetch(BASE_URL + '/api/notifications.php?action=get_count')
+    if (typeof BASE_URL === 'undefined') return;
+    fetch(BASE_URL + '/api/notifications.php?action=get_count', { credentials: 'same-origin' })
         .then(response => response.json())
         .then(data => {
             if (data.success && data.count > 0) {

@@ -1,31 +1,39 @@
-# Deployment Instructions - ST. BENEDICT'S EARLY YEARS BRITISH ACADEMY
+# Deployment & Testing
 
-## System Requirements
+## Requirements
+PHP 8.1+ (pdo_mysql, mbstring, fileinfo, gd), MySQL 5.7+/MariaDB 10.3+, Apache with `mod_rewrite`, `mod_headers` (or any server that honours the `.htaccess` rules).
 
-### Server Requirements
-- PHP 7.4 or higher
-- MySQL 5.7 or higher
-- Apache/Nginx web server
-- SSL Certificate (HTTPS)
-- 2GB RAM minimum
-- 20GB disk space minimum
+## Install
+1. Create the database and import the schema:
+   `mysql -u root -p < sql/database.sql`
+2. Configure the environment (nothing secret lives in git). Either export environment variables or create `config/local.php` (git-ignored):
+   ```php
+   <?php
+   define('DB_HOST', 'localhost');
+   define('DB_NAME', 'st_benedicts_prod');
+   define('DB_USER', 'app_user');
+   define('DB_PASS', 'a-strong-password');
+   define('ENVIRONMENT', 'production');   // or set APP_ENV
+   // define('BASE_URL', 'https://school.example.com'); // optional; auto-detected otherwise (APP_URL env also works)
+   ```
+3. Make `uploads/`, `storage/` and `logs/` writable by the web server. `storage/` (admission documents) is never served directly.
+4. Log in as `admin@stbenedicts.edu.ng` / `Admin@123` and **change the password immediately**.
+5. Schedule backups: `php scripts/backup.php` (CLI only) from cron.
 
-### PHP Extensions Required
-- PDO PHP Extension
-- MySQLi PHP Extension
-- OpenSSL PHP Extension
-- GD PHP Extension
-- FileInfo PHP Extension
-- JSON PHP Extension
-- cURL PHP Extension
-- ZIP PHP Extension
+Mail (password resets, confirmations) uses PHP `mail()`; configure sendmail/SMTP relay on the host.
 
-## Installation Steps
+## Tests (development only)
+Needs a local MariaDB/MySQL, `php -S 127.0.0.1:8080 -t .`, and Node + Playwright for the mobile audit.
 
-### 1. Upload Files
-Upload all files to your web server using FTP or SSH.
+| Command | Checks |
+|---|---|
+| `php tests/seed.php` | Loads demo users (password `Test@12345`) |
+| `tests/crawl.sh` | Every page as every role: no PHP errors, CSS/JS present, role separation |
+| `python3 tests/e2e.py` | ~230 end-to-end checks (CRUD, uploads, API authorization, IDOR, lockout, password reset). Resets the DB first |
+| `python3 tests/sqlcheck.py` | Tables/columns used in SQL exist in the schema |
+| `python3 tests/linkcheck.py` | No broken internal links |
+| `python3 tests/escape_scan.py` | Unescaped template output |
+| `php tests/models_smoke.php` | Model classes run their read methods |
+| `node tests/mobile/audit.js [--width=375]` | Horizontal overflow audit on every page (phone/tablet/desktop) |
 
-### 2. Database Setup
-```bash
-# Import database schema
-mysql -u username -p st_benedicts_academy < sql/database.sql
+The `tests/` directory is blocked by `.htaccess`; remove it from production.

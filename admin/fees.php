@@ -1477,3 +1477,4 @@ $(document).ready(function() {
 }
 </style>
 
+<?php include __DIR__ . '/../includes/footer.php'; ?>

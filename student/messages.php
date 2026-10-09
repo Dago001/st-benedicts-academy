@@ -1359,3 +1359,4 @@ style.textContent = `
 document.head.appendChild(style);
 </script>
 
+<?php include __DIR__ . '/../includes/footer.php'; ?>

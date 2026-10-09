@@ -903,3 +903,5 @@ setTimeout(function() {
 <?php
 // NO FOOTER INCLUDED - As requested
 ?>
+
+<?php include __DIR__ . '/../includes/footer.php'; ?>

@@ -1,0 +1,262 @@
+/* ==========================================================================
+   mobile.css - responsive layer loaded LAST on every page.
+   Phone first fixes for the public site and all dashboards (admin, teacher,
+   student, parent). Selectors are prefixed with `body` so they win over the
+   inline <style> blocks that individual pages carry.
+   ========================================================================== */
+
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { overflow-x: hidden; }
+img, video, canvas, svg { max-width: 100%; }
+img { height: auto; }
+iframe { max-width: 100%; }
+pre, code { white-space: pre-wrap; word-break: break-word; }
+
+/* ---- Accessibility helpers ------------------------------------------------ */
+.skip-link {
+    position: absolute; left: -9999px; top: 0; z-index: 10000;
+    background: #ffd700; color: #002855; padding: 10px 16px; font-weight: 600; border-radius: 0 0 8px 0; text-decoration: none;
+}
+.skip-link:focus { left: 0; }
+:focus-visible { outline: 3px solid #ffd700; outline-offset: 2px; }
+
+/* ---- Components added by the new modules (all sizes) ---------------------- */
+.detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 24px; }
+.detail-row { display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid #eef1f6; min-width: 0; }
+.detail-label { flex: 0 0 38%; color: #667085; font-size: .9rem; }
+.detail-value { flex: 1; min-width: 0; overflow-wrap: anywhere; font-weight: 500; }
+.check-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+.check-card { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid #e3e8ef; border-radius: 10px; background: #fff; cursor: pointer; }
+.check-card input { margin-top: 4px; flex: 0 0 auto; }
+.simple-list { list-style: none; margin: 0; padding: 0; }
+.simple-list li { padding: 8px 0; border-bottom: 1px solid #eef1f6; }
+.child-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.card-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.app-item { border: 1px solid #e3e8ef; border-radius: 10px; padding: 10px 14px; margin-bottom: 10px; background: #fff; }
+.app-item summary { cursor: pointer; padding: 6px 0; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.inline-grade { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.card-footer { padding: 14px 20px; border-top: 1px solid #eef1f6; }
+.form-inline { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.sidebar-toggle-mobile, .sidebar-overlay, .sidebar-close { display: none; }
+
+/* ---- Tables: always scroll inside their own box, never the page ----------- */
+body .table-responsive, body .dataTables_wrapper { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+body .data-table, body .table { width: 100%; }
+
+/* ==========================================================================
+   Tablets and phones (<= 991px): off-canvas sidebar
+   ========================================================================== */
+@media (max-width: 991px) {
+    body .dashboard-container { display: block; min-height: 0; }
+
+    body .sidebar {
+        position: fixed; top: 0; left: 0; bottom: 0; height: 100%; height: 100dvh;
+        width: min(84vw, 320px); max-width: 320px;
+        transform: translateX(-105%); visibility: hidden;
+        transition: transform .25s ease, visibility 0s linear .25s;
+        z-index: 1200; overflow-y: auto; -webkit-overflow-scrolling: touch;
+        padding-bottom: env(safe-area-inset-bottom);
+        box-shadow: none;
+    }
+    body.sidebar-open .sidebar { transform: none; visibility: visible; transition: transform .25s ease; box-shadow: 8px 0 30px rgba(0,0,0,.35); }
+    body .sidebar .sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; }
+    body .sidebar .sidebar-header h3 { margin: 0; font-size: 1.1rem; }
+    body .sidebar .sidebar-nav ul { display: block; padding: 6px 0 24px; margin: 0; }
+    body .sidebar .sidebar-nav li { min-width: 0; flex: none; }
+    body .sidebar .sidebar-nav li a {
+        display: flex; flex-direction: row; align-items: center; gap: 12px; text-align: left;
+        padding: 14px 20px; min-height: 48px; font-size: 1rem;
+    }
+    body .sidebar .sidebar-nav li a i { width: 22px; text-align: center; margin: 0; }
+    body .sidebar .sidebar-nav li a .badge { margin-left: auto; }
+    body .sidebar .sidebar-close {
+        display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px;
+        background: rgba(255,255,255,.1); color: #fff; border: 0; border-radius: 50%; font-size: 1.1rem; cursor: pointer;
+    }
+    body .sidebar-overlay {
+        display: block; position: fixed; inset: 0; background: rgba(0,10,30,.55); z-index: 1150;
+        opacity: 0; pointer-events: none; transition: opacity .2s ease;
+    }
+    body.sidebar-open .sidebar-overlay { opacity: 1; pointer-events: auto; }
+    body.sidebar-open { overflow: hidden; }
+
+    body .sidebar-toggle-mobile {
+        display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px;
+        position: sticky; top: var(--header-height, 60px); z-index: 900;
+        background: #fff; color: #002855; border: 0; border-bottom: 1px solid #e3e8ef; border-radius: 0;
+        padding: 0 16px; font: inherit; font-weight: 600; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,.05);
+    }
+    body .sidebar-toggle-mobile i { font-size: 1.15rem; }
+
+    body .dashboard-main { margin-left: 0 !important; padding: 16px; width: 100%; max-width: 100%; min-width: 0; }
+}
+
+/* ==========================================================================
+   Tablets (<= 767px)
+   ========================================================================== */
+@media (max-width: 767px) {
+    body .container, body .page-section { padding-left: 16px; padding-right: 16px; }
+
+    /* Page header strip on public pages */
+    body .page-header { padding: 28px 16px; }
+    body .page-header h1 { font-size: 1.5rem !important; line-height: 1.25 !important; height: auto !important; display: block; }
+
+    /* Dashboard header: title above actions */
+    body .dashboard-header { flex-direction: column; align-items: stretch; gap: 12px; margin-bottom: 16px; padding-bottom: 12px; }
+    body .dashboard-header h1 { font-size: 1.4rem; margin: 0; }
+    body .dashboard-header .header-actions, body .header-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    body .header-actions .btn, body .header-actions button { flex: 1 1 calc(50% - 8px); justify-content: center; text-align: center; }
+    body .dashboard-header .user-info { flex-wrap: wrap; }
+
+    /* Cards and grids */
+    body .stats-grid, body .actions-grid, body .summary-grid, body .dashboard-grid, body .info-grid,
+    body .charts-grid, body .quick-actions, body .grid-2, body .grid-3, body .grid-4 { grid-template-columns: 1fr !important; }
+    body .stats-grid { gap: 12px; }
+    body .stat-card { padding: 14px; }
+    body .card-header { flex-wrap: wrap; gap: 8px; padding: 14px 16px; }
+    body .card-header h3 { font-size: 1.05rem; }
+    body .card-body { padding: 14px 16px; }
+    body .card-tools { display: flex; flex-wrap: wrap; gap: 6px; }
+    body .detail-grid { grid-template-columns: 1fr; }
+    body .detail-label { flex-basis: 42%; }
+
+    /* Forms: single column, comfortable touch size, no iOS zoom */
+    body .form-row, body .form-grid, body .row { display: flex; flex-direction: column; gap: 0; }
+    body [class*="col-md-"], body [class*="col-lg-"], body [class*="col-sm-"] { width: 100%; max-width: 100%; flex: 0 0 100%; }
+    body .form-row > .form-group, body .form-row > div { width: 100%; flex: 1 1 auto; min-width: 0; }
+    body .form-control, body input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]), body select, body textarea {
+        font-size: 16px; min-height: 44px; max-width: 100%;
+    }
+    body textarea { min-height: 96px; }
+    body .form-control-sm { min-height: 40px; }
+    body input[type="checkbox"], body input[type="radio"] { width: 20px; height: 20px; }
+    body label { display: block; }
+    body .checkbox-label { display: flex; align-items: center; gap: 10px; min-height: 40px; }
+    body .form-actions, body .modal-footer { display: flex; flex-direction: column-reverse; gap: 8px; }
+    body .form-actions .btn, body .form-actions button, body .modal-footer .btn { width: 100%; }
+    body .form-inline { flex-direction: column; align-items: stretch; }
+    body .inline-grade { flex-direction: column; align-items: stretch; }
+    body .inline-grade .form-control { width: 100% !important; }
+
+    /* Buttons: touch targets */
+    body .btn, body button.btn, body a.btn { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 16px; }
+    body .btn-sm { min-height: 40px; padding: 8px 14px; }
+    body .btn-icon { min-width: 40px; min-height: 40px; }
+    body .action-buttons { gap: 8px; }
+    body .export-options { display: flex; flex-direction: column; gap: 8px; }
+
+    /* Tables: scroll sideways inside the card; keep tap-friendly rows */
+    body table { font-size: .92rem; }
+    body th, body td { padding: 10px 12px; }
+    body .table-responsive table, body .dataTables_wrapper table { min-width: 560px; }
+    body .dataTables_wrapper .dataTables_length, body .dataTables_wrapper .dataTables_filter,
+    body .dataTables_wrapper .dataTables_info, body .dataTables_wrapper .dataTables_paginate { float: none; text-align: left; display: block; padding: 6px 0; }
+    body .dataTables_wrapper .dataTables_filter input { width: 100%; margin: 6px 0 0; min-height: 44px; }
+    body .dataTables_wrapper .dataTables_paginate .paginate_button { padding: 8px 12px !important; }
+
+    /* Pagination */
+    body .pagination { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+    body .pagination .page-link, body .pagination a, body .pagination span { min-width: 40px; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; }
+
+    /* Modals become full-height sheets */
+    body .modal { padding: 0 !important; }
+    body .modal-content, body .modal-dialog {
+        width: 100% !important; max-width: 100% !important; margin: 0 !important; min-height: 100vh; min-height: 100dvh;
+        border-radius: 0 !important; display: flex; flex-direction: column;
+    }
+    body .modal-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    body .modal-header { position: sticky; top: 0; background: #fff; z-index: 2; }
+    body .modal .close, body .modal-close, body button.close { min-width: 44px; min-height: 44px; font-size: 1.6rem; }
+
+    /* Alerts */
+    body .alert { padding: 12px 14px; font-size: .95rem; }
+
+    /* Messaging, timetable, applications */
+    body .message-content { max-width: 92%; }
+    body .check-grid, body .child-cards { grid-template-columns: 1fr; }
+
+    /* Pages with inline multi-column grids: two columns on phones, one on very small screens */
+    body [style*="grid-template-columns"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+    body [style*="display: flex"][style*="gap"] { flex-wrap: wrap; }
+
+    /* Charts keep a sensible height */
+    body canvas { max-height: 280px; }
+    body .chart-container { height: auto; min-height: 220px; }
+}
+
+/* ==========================================================================
+   Small phones (<= 480px)
+   ========================================================================== */
+@media (max-width: 480px) {
+    body .dashboard-main { padding: 12px; }
+    body .dashboard-header h1 { font-size: 1.25rem; }
+    body .header-actions .btn, body .header-actions button { flex: 1 1 100%; }
+    body .card-body, body .card-header { padding-left: 12px; padding-right: 12px; }
+    body h1 { font-size: 1.6rem; }
+    body h2 { font-size: 1.35rem; }
+    body h3 { font-size: 1.15rem; }
+    body .hero-title { font-size: 1.9rem !important; }
+    body .stat-card { gap: 12px; }
+    body .stat-icon { width: 46px; height: 46px; flex: 0 0 46px; }
+    body .logo .school-name { display: none; }
+    body [style*="grid-template-columns"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
+    body .footer-grid { gap: 24px; }
+}
+
+/* Touch devices: no hover-only affordances */
+@media (hover: none) {
+    body .btn:hover, body .stat-card:hover, body .card:hover { transform: none; }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    body .sidebar, body .sidebar-overlay { transition: none; }
+}
+
+/* Print: hide chrome */
+@media print {
+    .sidebar, .sidebar-toggle-mobile, .sidebar-overlay, .main-nav, .main-footer, .skip-link { display: none !important; }
+    body .dashboard-main { margin: 0 !important; padding: 0 !important; }
+}
+
+/* ==========================================================================
+   Top navigation: collapse into the hamburger menu up to 1100px so tablets
+   (and narrow laptop windows) never overflow horizontally.
+   ========================================================================== */
+@media (max-width: 1100px) {
+    body .mobile-menu-toggle { display: inline-flex; align-items: center; justify-content: center; min-width: 48px; min-height: 48px; background: none; border: 0; color: #fff; font-size: 1.5rem; cursor: pointer; }
+    body .nav-menu {
+        display: none; position: absolute; top: var(--header-height, 60px); left: 0; right: 0;
+        background-color: var(--navy, #002855); flex-direction: column; align-items: stretch;
+        padding: 16px; gap: 4px; box-shadow: 0 12px 24px rgba(0,0,0,.25);
+        max-height: calc(100vh - var(--header-height, 60px)); overflow-y: auto; -webkit-overflow-scrolling: touch;
+    }
+    body .nav-menu.active { display: flex; }
+    body .nav-menu li { width: 100%; }
+    body .nav-menu li a { width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: center; }
+    body .nav-buttons { margin-left: 0; flex-direction: column; width: 100%; gap: 8px; }
+    body .nav-buttons .btn { width: 100%; }
+    body .nav-menu .dropdown-menu { position: static; opacity: 1; visibility: visible; transform: none; box-shadow: none; background: rgba(255,255,255,.1); display: none; }
+    body .nav-menu .dropdown.active .dropdown-menu, body .nav-menu .dropdown.open .dropdown-menu { display: block; }
+    body .nav-menu .dropdown-menu li a { color: #fff; justify-content: flex-start; padding-left: 32px; }
+}
+
+/* Upload/document rows (admissions) must shrink with the screen */
+body .document-item, body .document-header, body .file-info, body .document-item input[type="file"] { max-width: 100%; min-width: 0; box-sizing: border-box; }
+body .document-header { flex-wrap: wrap; gap: 6px; }
+body input[type="file"] { width: 100%; }
+
+/* Desktop: the main column may shrink below its content so wide tables scroll inside their cards */
+@media (min-width: 992px) {
+    body .dashboard-main { min-width: 0; max-width: calc(100% - var(--sidebar-width, 280px)); box-sizing: border-box; }
+    body .dashboard-header { flex-wrap: wrap; gap: 12px; }
+    body .header-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+}
+
+@media (min-width: 1101px) {
+    body .nav-item.dropdown { position: relative; }
+    body .nav-menu .dropdown-menu { right: 0; left: auto; min-width: 180px; }
+}
+
+body .stats-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
+@media (max-width: 767px) { body .stats-grid { grid-template-columns: 1fr !important; } }

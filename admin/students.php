@@ -8,6 +8,8 @@ Security::requireRole('admin');
 $pageTitle = 'Student Management';
 $extraJS = ['students.js'];
 
+include __DIR__ . '/../includes/header.php';
+
 $db = Database::getInstance();
 
 [$message, $messageType] = flash_get();
@@ -944,3 +946,4 @@ window.onclick = function(event) {
 }
 </script>
 
+<?php include __DIR__ . '/../includes/footer.php'; ?>

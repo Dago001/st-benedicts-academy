@@ -10,6 +10,8 @@ check() { # role path
   local jar=$1 path=$2 out code
   out=$(curl -s -b /tmp/jar_$jar -c /tmp/jar_$jar -o /tmp/body.html -w '%{http_code}' "$BASE/$path")
   if [ "$out" != "200" ] && [ "$out" != "302" ]; then echo "HTTP $out  [$jar] $path"; fail=1; fi
+  if [ "$out" = "200" ] && grep -q "<html" /tmp/body.html && ! grep -q "assets/js/main.js" /tmp/body.html; then echo "NOFOOTER [$jar] $path"; case $path in login.php|*print*|*report-card*) ;; *) fail=1;; esac; fi
+  if [ "$out" = "200" ] && grep -q "<html" /tmp/body.html && ! grep -q "assets/css/style.css" /tmp/body.html && ! grep -q "<style" /tmp/body.html; then echo "NOCSS [$jar] $path"; fail=1; fi
   if grep -qE "(Fatal error|Parse error|Warning|Notice|Deprecated): |Uncaught|Stack trace" /tmp/body.html; then
      echo "PHPERR [$jar] $path: $(grep -E "(Fatal error|Parse error|Warning|Notice|Deprecated): |Uncaught" /tmp/body.html | head -2 | sed 's/<[^>]*>//g' | tr '\n' ' ' | cut -c1-220)"; fail=1; fi
 }

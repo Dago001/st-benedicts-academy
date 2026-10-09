@@ -10,3 +10,4 @@ uploads/*
 .DS_Store
 storage/applications/*
 !storage/applications/.gitkeep
+tests/mobile/shots/
