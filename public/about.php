@@ -17,20 +17,14 @@ $metaTags = [
     'og:title' => 'About Us - ST. BENEDICT\'S EARLY YEARS BRITISH ACADEMY',
     'og:description' => 'Learn about our school\'s history, mission, vision, and leadership.',
     'og:image' => BASE_URL . '/assets/images/og-image.jpg',
-    'og:url' => BASE_URL . '/public/about.php',
+    'og:url' => BASE_URL . '/public/about',
     'twitter:card' => 'summary_large_image'
 ];
 
 // Define school statements (if not defined in config)
-if (!defined('MISSION_STATEMENT')) {
-    define('MISSION_STATEMENT', 'Through Christ\'s guidance, we build strong minds and kind hearts for the future. As a family of God rooted in love and faith, we cherish every child as God\'s gift. We learn, play, and grow together in joy, peace, and love.');
-}
-if (!defined('VISION_STATEMENT')) {
-    define('VISION_STATEMENT', 'To nurture children who shine with wisdom, faith, and character, ready to shape a brighter, God-centred future.');
-}
-if (!defined('GOAL_STATEMENT')) {
-    define('GOAL_STATEMENT', 'To provide every child with a happy, safe, and faith-filled foundation for life, learning, and purpose.');
-}
+define('MISSION_STATEMENT', cms('home.mission'));
+define('VISION_STATEMENT', cms('home.vision'));
+define('GOAL_STATEMENT', cms('home.goal'));
 
 // Check if header exists
 $headerPath = __DIR__ . '/../includes/header.php';
@@ -52,10 +46,10 @@ $leadership = [];
 if ($db) {
     try {
         $leadership = $db->getRows(
-            "SELECT u.*, t.qualification, t.specialization 
-             FROM users u 
-             JOIN teachers t ON u.id = t.user_id 
-             WHERE u.role = 'teacher' AND u.is_active = 1 
+            "SELECT u.*, t.qualification, t.specialization
+             FROM users u
+             JOIN teachers t ON u.id = t.user_id
+             WHERE u.role = 'teacher' AND u.is_active = 1
              ORDER BY u.first_name, u.last_name
              LIMIT 4"
         );
@@ -523,17 +517,17 @@ if (empty($leadership)) {
         grid-template-columns: 1fr;
         gap: var(--spacing-lg);
     }
-    
+
     .history-image {
         order: -1;
     }
-    
+
     .mvg-grid {
         grid-template-columns: 1fr;
         max-width: 600px;
         margin: 0 auto;
     }
-    
+
     .facilities-grid {
         grid-template-columns: repeat(2, 1fr);
     }
@@ -543,23 +537,23 @@ if (empty($leadership)) {
     .page-header h1 {
         font-size: var(--text-2xl);
     }
-    
+
     .history-stats {
         grid-template-columns: 1fr;
     }
-    
+
     .leadership-grid {
         grid-template-columns: 1fr;
         max-width: 400px;
         margin: 0 auto;
     }
-    
+
     .facilities-grid {
         grid-template-columns: 1fr;
         max-width: 400px;
         margin: 0 auto;
     }
-    
+
     .leader-image {
         height: 250px;
     }
@@ -569,19 +563,19 @@ if (empty($leadership)) {
     .section-title {
         font-size: var(--text-2xl);
     }
-    
+
     .history-content .lead {
         font-size: var(--text-lg);
     }
-    
+
     .mvg-card {
         padding: var(--spacing-lg);
     }
-    
+
     .facility-card {
         padding: var(--spacing-lg);
     }
-    
+
     .facility-icon {
         width: 60px;
         height: 60px;
@@ -616,7 +610,7 @@ if (empty($leadership)) {
     <div class="container">
         <h1>About Us</h1>
         <div class="breadcrumb">
-            <a href="<?php echo BASE_URL; ?>/index.php">Home</a> / About Us
+            <a href="<?php echo BASE_URL; ?>/">Home</a> / About Us
         </div>
     </div>
 </section>
@@ -626,28 +620,28 @@ if (empty($leadership)) {
     <div class="container">
         <div class="history-grid">
             <div class="history-content animate-fade-in">
-                <h2>Our Story</h2>
-                <p class="lead">Founded in 2010, ST. BENEDICT'S EARLY YEARS BRITISH ACADEMY has been a beacon of excellence in early childhood education in Enugu.</p>
-                <p>What began as a small nursery with just 15 children has grown into one of the most respected British early years institutions in the region. Our journey has been guided by the Benedictine values of prayer, work, and community.</p>
-                <p>Today, we serve over 300 children from Nursery through Year 2, providing them with a solid foundation for lifelong learning, grounded in faith and academic excellence.</p>
-                
+                <h2><?php echo cms_e('about.story_title'); ?></h2>
+                <p class="lead"><?php echo cms_e('about.story_lead'); ?></p>
+                <p><?php echo cms_e('about.story_p1'); ?></p>
+                <p><?php echo cms_e('about.story_p2'); ?></p>
+
                 <div class="history-stats">
                     <div class="stat">
-                        <span class="stat-value">2010</span>
-                        <span class="stat-label">Year Founded</span>
+                        <span class="stat-value"><?php echo cms_e('about.stat1_value'); ?></span>
+                        <span class="stat-label"><?php echo cms_e('about.stat1_label'); ?></span>
                     </div>
                     <div class="stat">
-                        <span class="stat-value">300+</span>
-                        <span class="stat-label">Students</span>
+                        <span class="stat-value"><?php echo cms_e('about.stat2_value'); ?></span>
+                        <span class="stat-label"><?php echo cms_e('about.stat2_label'); ?></span>
                     </div>
                     <div class="stat">
-                        <span class="stat-value">25+</span>
-                        <span class="stat-label">Teachers</span>
+                        <span class="stat-value"><?php echo cms_e('about.stat3_value'); ?></span>
+                        <span class="stat-label"><?php echo cms_e('about.stat3_label'); ?></span>
                     </div>
                 </div>
             </div>
             <div class="history-image animate-fade-in" style="animation-delay: 0.2s;">
-                <img src="<?php echo BASE_URL; ?>/assets/images/school-history.jpg" 
+                <img src="<?php echo e(cms_img('about.history_image', BASE_URL . '/assets/images/school-history.jpg')); ?>"
                      alt="School History">
             </div>
         </div>
@@ -661,17 +655,17 @@ if (empty($leadership)) {
             <div class="mvg-card mission animate-fade-in">
                 <i class="fas fa-heart"></i>
                 <h3>Our Mission</h3>
-                <p><?php echo MISSION_STATEMENT; ?></p>
+                <p><?php echo e(MISSION_STATEMENT); ?></p>
             </div>
             <div class="mvg-card vision animate-fade-in" style="animation-delay: 0.2s;">
                 <i class="fas fa-eye"></i>
                 <h3>Our Vision</h3>
-                <p><?php echo VISION_STATEMENT; ?></p>
+                <p><?php echo e(VISION_STATEMENT); ?></p>
             </div>
             <div class="mvg-card goal animate-fade-in" style="animation-delay: 0.4s;">
                 <i class="fas fa-bullseye"></i>
                 <h3>Our Goal</h3>
-                <p><?php echo GOAL_STATEMENT; ?></p>
+                <p><?php echo e(GOAL_STATEMENT); ?></p>
             </div>
         </div>
     </div>
@@ -681,13 +675,13 @@ if (empty($leadership)) {
 <section class="leadership">
     <div class="container">
         <h2 class="section-title">Our Leadership</h2>
-        
+
         <div class="leadership-grid">
             <?php foreach ($leadership as $index => $leader): ?>
             <div class="leader-card animate-fade-in" style="animation-delay: <?php echo $index * 0.1; ?>s;">
                 <div class="leader-image">
                     <?php if (!empty($leader['profile_image'])): ?>
-                    <img src="<?php echo BASE_URL; ?>/uploads/teachers/<?php echo $leader['profile_image']; ?>" 
+                    <img src="<?php echo BASE_URL; ?>/uploads/teachers/<?php echo e($leader['profile_image']); ?>"
                          alt="<?php echo htmlspecialchars($leader['first_name'] . ' ' . $leader['last_name']); ?>">
                     <?php else: ?>
                     <div class="placeholder-image">
@@ -709,50 +703,50 @@ if (empty($leadership)) {
 <!-- Facilities -->
 <section class="facilities">
     <div class="container">
-        <h2 class="section-title">Our Facilities</h2>
-        
+        <h2 class="section-title"><?php echo cms_e('about.facilities_title'); ?></h2>
+
         <div class="facilities-grid">
             <div class="facility-card animate-fade-in">
                 <div class="facility-icon">
                     <i class="fas fa-book"></i>
                 </div>
-                <h3>Modern Classrooms</h3>
-                <p>Air-conditioned, well-lit classrooms with age-appropriate furniture and learning materials</p>
+                <h3><?php echo cms_e('about.fac1_title'); ?></h3>
+                <p><?php echo cms_e('about.fac1_text'); ?></p>
             </div>
             <div class="facility-card animate-fade-in" style="animation-delay: 0.1s;">
                 <div class="facility-icon">
                     <i class="fas fa-laptop"></i>
                 </div>
-                <h3>Computer Lab</h3>
-                <p>Child-friendly computers with educational software and internet safety measures</p>
+                <h3><?php echo cms_e('about.fac2_title'); ?></h3>
+                <p><?php echo cms_e('about.fac2_text'); ?></p>
             </div>
             <div class="facility-card animate-fade-in" style="animation-delay: 0.2s;">
                 <div class="facility-icon">
                     <i class="fas fa-dumbbell"></i>
                 </div>
-                <h3>Indoor Play Area</h3>
-                <p>Safe, equipped indoor space for physical activities during inclement weather</p>
+                <h3><?php echo cms_e('about.fac3_title'); ?></h3>
+                <p><?php echo cms_e('about.fac3_text'); ?></p>
             </div>
             <div class="facility-card animate-fade-in" style="animation-delay: 0.3s;">
                 <div class="facility-icon">
                     <i class="fas fa-tree"></i>
                 </div>
-                <h3>Outdoor Playground</h3>
-                <p>Secure outdoor area with modern play equipment and safety surfaces</p>
+                <h3><?php echo cms_e('about.fac4_title'); ?></h3>
+                <p><?php echo cms_e('about.fac4_text'); ?></p>
             </div>
             <div class="facility-card animate-fade-in" style="animation-delay: 0.4s;">
                 <div class="facility-icon">
                     <i class="fas fa-first-aid"></i>
                 </div>
-                <h3>School Clinic</h3>
-                <p>Well-equipped sick bay with qualified nurse on duty</p>
+                <h3><?php echo cms_e('about.fac5_title'); ?></h3>
+                <p><?php echo cms_e('about.fac5_text'); ?></p>
             </div>
             <div class="facility-card animate-fade-in" style="animation-delay: 0.5s;">
                 <div class="facility-icon">
                     <i class="fas fa-bus"></i>
                 </div>
-                <h3>Transportation</h3>
-                <p>Safe, monitored school buses with trained drivers and attendants</p>
+                <h3><?php echo cms_e('about.fac6_title'); ?></h3>
+                <p><?php echo cms_e('about.fac6_text'); ?></p>
             </div>
         </div>
     </div>

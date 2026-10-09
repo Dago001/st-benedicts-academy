@@ -1,7 +1,6 @@
 <?php
 // parent/fees.php - View Fee Status
 require_once '../config/config.php';
-require_once '../config/database.php';
 require_once '../config/security.php';
 
 Security::requireRole('parent');
@@ -16,27 +15,37 @@ $userId = $_SESSION['user_id'];
 
 // Get parent info
 $parent = $db->getRow(
-    "SELECT p.*, u.first_name, u.last_name 
-     FROM parents p 
-     JOIN users u ON p.user_id = u.id 
+    "SELECT p.*, u.first_name, u.last_name
+     FROM parents p
+     JOIN users u ON p.user_id = u.id
      WHERE p.user_id = ?",
     [$userId]
 );
+
+if (!$parent) {
+    echo '<div class="container" style="padding:24px"><div class="alert alert-error">Your parent profile is incomplete. Please contact the school office.</div></div>';
+    include __DIR__ . '/../includes/footer.php';
+    exit;
+}
 
 // Get children of this parent
 $children = $db->getRows(
     "SELECT s.*, u.first_name, u.last_name, u.email,
             c.class_name, c.section
-     FROM students s 
-     JOIN users u ON s.user_id = u.id 
-     LEFT JOIN classes c ON s.class_id = c.id 
+     FROM students s
+     JOIN users u ON s.user_id = u.id
+     LEFT JOIN classes c ON s.class_id = c.id
      WHERE s.parent_id = ? AND u.is_active = 1",
     [$parent['id']]
 );
 
 // Get selected child
-$selectedChildId = $_GET['child'] ?? ($children[0]['id'] ?? null);
-$selectedYear = $_GET['year'] ?? (date('Y') . '-' . (date('Y') + 1));
+// A parent may only look at their own children: unknown ids fall back to the first child
+$selectedChildId = $children[0]['id'] ?? null;
+if (isset($_GET['child']) && in_array((int)$_GET['child'], array_map('intval', array_column($children, 'id')), true)) {
+    $selectedChildId = (int)$_GET['child'];
+}
+$selectedYear = $_GET['year'] ?? (currentAcademicYear());
 
 // Get academic years for filter
 $academicYears = $db->getRows(
@@ -57,36 +66,36 @@ if ($selectedChildId) {
          WHERE s.id = ?",
         [$selectedChildId]
     );
-    
+
     if ($child && $child['class_id']) {
         // Get fee structure for child's class
         $feeStructure = $db->getRows(
-            "SELECT * FROM fee_structure 
-             WHERE class_id = ? AND academic_year = ? 
+            "SELECT * FROM fee_structure
+             WHERE class_id = ? AND academic_year = ?
              ORDER BY term, is_mandatory DESC",
             [$child['class_id'], $selectedYear]
         );
-        
+
         // Get payments made
         $payments = $db->getRows(
-            "SELECT p.*, 
+            "SELECT p.*,
                     CONCAT(ru.first_name, ' ', ru.last_name) as recorded_by_name
              FROM payments p
              LEFT JOIN users ru ON p.recorded_by = ru.id
-             WHERE p.student_id = ? AND p.academic_year = ? 
+             WHERE p.student_id = ? AND p.academic_year = ?
              ORDER BY p.payment_date DESC",
             [$selectedChildId, $selectedYear]
         );
-        
+
         // Calculate summary
         $totalFees = 0;
         $totalPaid = 0;
         $totalPending = 0;
-        
+
         foreach ($feeStructure as $fee) {
             $totalFees += $fee['amount'];
         }
-        
+
         foreach ($payments as $payment) {
             if ($payment['status'] === 'completed') {
                 $totalPaid += $payment['amount'];
@@ -94,9 +103,9 @@ if ($selectedChildId) {
                 $totalPending += $payment['amount'];
             }
         }
-        
+
         $balance = $totalFees - $totalPaid;
-        
+
         $summary = [
             'total_fees' => $totalFees,
             'total_paid' => $totalPaid,
@@ -109,34 +118,20 @@ if ($selectedChildId) {
 ?>
 
 <div class="dashboard-container">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <h3>Parent Portal</h3>
-        </div>
-        <nav class="sidebar-nav">
-            <ul>
-                <li><a href="dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
-                <li><a href="child-performance.php"><i class="fas fa-chart-line"></i> Child Performance</a></li>
-                <li class="active"><a href="fees.php"><i class="fas fa-money-bill"></i> Fee Status</a></li>
-                <li><a href="messages.php"><i class="fas fa-envelope"></i> Messages</a></li>
-                <li><a href="profile.php"><i class="fas fa-user-cog"></i> Profile</a></li>
-            </ul>
-        </nav>
-    </aside>
-    
+    <?php render_sidebar('parent'); ?>
+
     <main class="dashboard-main">
         <div class="dashboard-header">
             <h1>Fee Status</h1>
         </div>
-        
+
         <?php if (empty($children)): ?>
         <div class="alert alert-info">
             <i class="fas fa-info-circle"></i>
             No children are linked to your account. Please contact the school administration.
         </div>
         <?php else: ?>
-        
+
         <!-- Child and Year Selector -->
         <div class="card">
             <div class="card-body">
@@ -145,23 +140,23 @@ if ($selectedChildId) {
                         <label for="child">Select Child</label>
                         <select id="child" name="child" class="form-control" onchange="this.form.submit()">
                             <?php foreach ($children as $child): ?>
-                            <option value="<?php echo $child['id']; ?>" <?php echo $selectedChildId == $child['id'] ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($child['first_name'] . ' ' . $child['last_name']); ?> 
+                            <option value="<?php echo e($child['id']); ?>" <?php echo $selectedChildId == $child['id'] ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($child['first_name'] . ' ' . $child['last_name']); ?>
                                 - <?php echo htmlspecialchars($child['class_name'] . ' ' . $child['section']); ?>
                             </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    
+
                     <div class="form-group col-md-5">
                         <label for="year">Academic Year</label>
                         <select id="year" name="year" class="form-control" onchange="this.form.submit()">
                             <?php foreach ($academicYears as $year): ?>
-                            <option value="<?php echo $year['academic_year']; ?>" <?php echo $selectedYear == $year['academic_year'] ? 'selected' : ''; ?>>
-                                <?php echo $year['academic_year']; ?>
+                            <option value="<?php echo e($year['academic_year']); ?>" <?php echo $selectedYear == $year['academic_year'] ? 'selected' : ''; ?>>
+                                <?php echo e($year['academic_year']); ?>
                             </option>
                             <?php endforeach; ?>
-                            <option value="<?php echo date('Y') . '-' . (date('Y') + 1); ?>" <?php echo $selectedYear == (date('Y') . '-' . (date('Y') + 1)) ? 'selected' : ''; ?>>
+                            <option value="<?php echo currentAcademicYear(); ?>" <?php echo $selectedYear == (currentAcademicYear()) ? 'selected' : ''; ?>>
                                 Current Year
                             </option>
                         </select>
@@ -169,9 +164,9 @@ if ($selectedChildId) {
                 </form>
             </div>
         </div>
-        
+
         <?php if ($selectedChildId && isset($child)): ?>
-        
+
         <!-- Fee Summary Cards -->
         <div class="stats-grid">
             <div class="stat-card">
@@ -183,7 +178,7 @@ if ($selectedChildId) {
                     <p>Total Fees</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(40,167,69,0.1);">
                     <i class="fas fa-check-circle" style="color: #28a745;"></i>
@@ -193,7 +188,7 @@ if ($selectedChildId) {
                     <p>Total Paid</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(255,193,7,0.1);">
                     <i class="fas fa-clock" style="color: #ffc107;"></i>
@@ -203,7 +198,7 @@ if ($selectedChildId) {
                     <p>Pending</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(220,53,69,0.1);">
                     <i class="fas fa-exclamation-triangle" style="color: #dc3545;"></i>
@@ -214,7 +209,7 @@ if ($selectedChildId) {
                 </div>
             </div>
         </div>
-        
+
         <!-- Payment Progress -->
         <div class="card">
             <div class="card-header">
@@ -222,9 +217,9 @@ if ($selectedChildId) {
             </div>
             <div class="card-body">
                 <div class="progress" style="height: 30px;">
-                    <div class="progress-bar bg-success" 
-                         style="width: <?php echo $summary['payment_percentage']; ?>%;">
-                        <?php echo $summary['payment_percentage']; ?>% Paid
+                    <div class="progress-bar bg-success"
+                         style="width: <?php echo e($summary['payment_percentage']); ?>%;">
+                        <?php echo e($summary['payment_percentage']); ?>% Paid
                     </div>
                 </div>
                 <div class="row mt-4">
@@ -243,7 +238,7 @@ if ($selectedChildId) {
                                 <?php foreach ($feeStructure as $fee): ?>
                                 <tr>
                                     <td><?php echo htmlspecialchars($fee['fee_type']); ?></td>
-                                    <td><?php echo $fee['term']; ?></td>
+                                    <td><?php echo e($fee['term']); ?></td>
                                     <td class="text-right"><?php echo number_format($fee['amount'], 2); ?></td>
                                     <td>
                                         <?php
@@ -274,7 +269,7 @@ if ($selectedChildId) {
                             </tfoot>
                         </table>
                     </div>
-                    
+
                     <div class="col-md-6">
                         <h5>Payment History</h5>
                         <?php if (!empty($payments)): ?>
@@ -293,19 +288,19 @@ if ($selectedChildId) {
                                 <tr>
                                     <td><?php echo date('d/m/Y', strtotime($payment['payment_date'])); ?></td>
                                     <td>
-                                        <a href="view-receipt.php?id=<?php echo $payment['id']; ?>" target="_blank">
-                                            <?php echo $payment['receipt_number']; ?>
+                                        <a href="view-receipt?id=<?php echo e($payment['id']); ?>" target="_blank">
+                                            <?php echo e($payment['receipt_number']); ?>
                                         </a>
                                     </td>
                                     <td class="text-right"><?php echo number_format($payment['amount'], 2); ?></td>
-                                    <td><?php echo ucfirst($payment['payment_method']); ?></td>
+                                    <td><?php echo e(ucfirst($payment['payment_method'])); ?></td>
                                     <td>
                                         <?php if ($payment['status'] == 'completed'): ?>
                                         <span class="badge badge-success">Completed</span>
                                         <?php elseif ($payment['status'] == 'pending'): ?>
                                         <span class="badge badge-warning">Pending</span>
                                         <?php else: ?>
-                                        <span class="badge badge-danger"><?php echo $payment['status']; ?></span>
+                                        <span class="badge badge-danger"><?php echo e($payment['status']); ?></span>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
@@ -319,7 +314,7 @@ if ($selectedChildId) {
                 </div>
             </div>
         </div>
-        
+
         <!-- Payment Instructions -->
         <div class="card">
             <div class="card-header">
@@ -346,7 +341,7 @@ if ($selectedChildId) {
                 </div>
             </div>
         </div>
-        
+
         <?php endif; ?>
         <?php endif; ?>
     </main>

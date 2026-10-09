@@ -1,62 +1,39 @@
 <?php
 // student/assignments.php - View and Submit Assignments
 require_once __DIR__ . '/../config/config.php';
-require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/security.php';
 
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Require student role
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'student') {
-    header('Location: ' . BASE_URL . '/login.php');
-    exit;
-}
+Security::requireRole('student');
 
 $pageTitle = 'Assignments';
 $extraCSS = ['dashboard.css'];
 $extraJS = ['assignments.js'];
 
-// Check if header exists
-$headerPath = __DIR__ . '/../includes/header.php';
-if (!file_exists($headerPath)) {
-    die("Error: Header file not found at: $headerPath");
-}
-include $headerPath;
+include __DIR__ . '/../includes/header.php';
 
 // Get database instance
 try {
     $db = Database::getInstance();
 } catch (Exception $e) {
-    echo '<div class="alert alert-danger">Database connection error: ' . htmlspecialchars($e->getMessage()) . '</div>';
+    echo '<div class="alert alert-danger">Database connection error: ' . htmlspecialchars(DEBUG_MODE ? $e->getMessage() : 'Please try again later.') . '</div>';
     exit;
 }
 
 $userId = $_SESSION['user_id'];
-$message = '';
-$messageType = '';
+[$message, $messageType] = flash_get();
 
-// Define upload path if not defined
-if (!defined('UPLOAD_PATH')) {
-    define('UPLOAD_PATH', __DIR__ . '/../uploads/');
-}
-
-// Create upload directory if it doesn't exist
-$uploadDir = UPLOAD_PATH . 'assignments/';
-if (!file_exists($uploadDir)) {
-    if (!mkdir($uploadDir, 0777, true)) {
-        error_log("Failed to create upload directory: " . $uploadDir);
-    }
+// Submissions are stored in their own upload folder
+$uploadDir = UPLOAD_PATH . 'submissions/';
+if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
+    error_log("Failed to create upload directory: " . $uploadDir);
 }
 
 // Get student info
 $student = $db->getRow(
     "SELECT s.*, u.first_name, u.last_name, u.email, c.class_name, c.section, c.id as class_id
-     FROM students s 
-     JOIN users u ON s.user_id = u.id 
-     LEFT JOIN classes c ON s.class_id = c.id 
+     FROM students s
+     JOIN users u ON s.user_id = u.id
+     LEFT JOIN classes c ON s.class_id = c.id
      WHERE s.user_id = ?",
     [$userId]
 );
@@ -73,86 +50,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_assignment']))
         $messageType = 'error';
     } else {
         $assignmentId = (int)($_POST['assignment_id'] ?? 0);
-        $submissionText = Security::sanitize($_POST['submission_text'] ?? '');
-        
-        if (!$assignmentId) {
-            $message = 'Invalid assignment ID';
+        $submissionText = mb_substr(Security::sanitize($_POST['submission_text'] ?? ''), 0, 10000);
+        // Only published assignments of the student's own class can be submitted
+        $homework = $assignmentId ? $db->getRow('SELECT id, due_date FROM homework WHERE id = ? AND class_id = ? AND is_published = 1', [$assignmentId, $student['class_id'] ?? 0]) : null;
+        $hasFile = isset($_FILES['attachment']) && $_FILES['attachment']['error'] !== UPLOAD_ERR_NO_FILE;
+
+        if (!$homework) {
+            $message = 'Assignment not found';
+            $messageType = 'error';
+        } elseif ($db->getRow("SELECT id FROM homework_submissions WHERE homework_id = ? AND student_id = ?", [$assignmentId, $student['id']])) {
+            $message = 'You have already submitted this assignment';
+            $messageType = 'error';
+        } elseif ($submissionText === '' && !$hasFile) {
+            $message = 'Please write your answer or attach a file';
             $messageType = 'error';
         } else {
-            // Check if already submitted
-            $existing = $db->getRow(
-                "SELECT id FROM homework_submissions WHERE homework_id = ? AND student_id = ?",
-                [$assignmentId, $student['id']]
-            );
-            
-            if ($existing) {
-                $message = 'You have already submitted this assignment';
-                $messageType = 'error';
-            } else {
-                // Handle file upload
-                $attachmentPath = null;
-                if (isset($_FILES['attachment']) && $_FILES['attachment']['error'] === UPLOAD_ERR_OK) {
-                    $upload = Security::validateFileUpload($_FILES['attachment']);
-                    if ($upload['valid']) {
-                        $fileName = 'submission_' . $assignmentId . '_' . $student['id'] . '_' . time() . '.' . $upload['extension'];
-                        $fullPath = $uploadDir . $fileName;
-                        
-                        if (move_uploaded_file($_FILES['attachment']['tmp_name'], $fullPath)) {
-                            $attachmentPath = $fileName;
-                            chmod($fullPath, 0644);
-                        } else {
-                            $message = 'Failed to upload file';
-                            $messageType = 'error';
-                        }
+            $attachmentPath = null;
+            if ($hasFile) {
+                $upload = Security::validateFileUpload($_FILES['attachment']);
+                if (!$upload['valid']) {
+                    $message = 'Invalid file: ' . $upload['message'];
+                    $messageType = 'error';
+                } else {
+                    $fileName = 'submission_' . $assignmentId . '_' . $student['id'] . '_' . bin2hex(random_bytes(6)) . '.' . $upload['extension'];
+                    if (move_uploaded_file($_FILES['attachment']['tmp_name'], $uploadDir . $fileName)) {
+                        $attachmentPath = $fileName;
+                        @chmod($uploadDir . $fileName, 0644);
                     } else {
-                        $message = 'Invalid file: ' . implode(', ', $upload['errors']);
+                        $message = 'Failed to upload file';
                         $messageType = 'error';
                     }
                 }
-                
-                if (empty($message)) {
-                    try {
-                        $db->insert(
-                            "INSERT INTO homework_submissions (homework_id, student_id, submission_text, attachment_path, status, submission_date) 
-                             VALUES (?, ?, ?, ?, 'submitted', NOW())",
-                            [$assignmentId, $student['id'], $submissionText, $attachmentPath]
-                        );
-                        
-                        Security::logAudit('SUBMITTED_ASSIGNMENT', 'homework_submissions');
-                        
-                        $message = 'Assignment submitted successfully';
-                        $messageType = 'success';
-                        
-                        // Redirect to refresh the page
-                        echo '<script>window.location.href = "assignments.php?success=1";</script>';
-                        exit;
-                        
-                    } catch (Exception $e) {
-                        $message = 'Error submitting assignment: ' . $e->getMessage();
-                        $messageType = 'error';
-                        error_log("Assignment submission error: " . $e->getMessage());
-                    }
+            }
+            if (empty($message)) {
+                try {
+                    $late = strtotime($homework['due_date']) < time();
+                    $newId = $db->insert(
+                        "INSERT INTO homework_submissions (homework_id, student_id, submission_text, attachment_path, status, submission_date)
+                         VALUES (?, ?, ?, ?, ?, NOW())",
+                        [$assignmentId, $student['id'], $submissionText, $attachmentPath, $late ? 'late' : 'submitted']
+                    );
+                    Security::logAudit('SUBMITTED_ASSIGNMENT', 'homework_submissions', $newId);
+                    flash_redirect($late ? 'Assignment submitted (marked late)' : 'Assignment submitted successfully', 'success', BASE_URL . '/student/assignments');
+                } catch (Exception $e) {
+                    if ($attachmentPath) { @unlink($uploadDir . $attachmentPath); }
+                    $message = 'Error submitting assignment. Please try again.';
+                    $messageType = 'error';
+                    error_log("Assignment submission error: " . $e->getMessage());
                 }
             }
         }
     }
 }
 
-// Check for success message
-if (isset($_GET['success'])) {
-    $message = 'Assignment submitted successfully';
-    $messageType = 'success';
-}
-
 // Get filter
-$filter = isset($_GET['filter']) ? $_GET['filter'] : 'pending';
+$filter = in_array($_GET['filter'] ?? '', ['pending', 'submitted', 'graded', 'all'], true) ? $_GET['filter'] : 'pending';
 $subjectId = isset($_GET['subject']) ? (int)$_GET['subject'] : 0;
 
 // Get subjects for filter
 $subjects = [];
 if ($student['class_id']) {
     $subjects = $db->getRows(
-        "SELECT DISTINCT s.id, s.subject_name 
+        "SELECT DISTINCT s.id, s.subject_name
          FROM subjects s
          JOIN homework h ON s.id = h.subject_id
          WHERE h.class_id = ?
@@ -697,25 +656,25 @@ $submissions = $db->getRows(
     .assignments-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .dashboard-header {
         flex-direction: column;
         text-align: center;
     }
-    
+
     .user-info {
         width: 100%;
         justify-content: center;
     }
-    
+
     .form-row {
         flex-direction: column;
     }
-    
+
     .form-group {
         width: 100%;
     }
-    
+
     .modal-content {
         width: 95%;
         margin: 10% auto;
@@ -724,24 +683,8 @@ $submissions = $db->getRows(
 </style>
 
 <div class="dashboard-container">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <h3>Student Panel</h3>
-        </div>
-        <nav class="sidebar-nav">
-            <ul>
-                <li><a href="dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
-                <li><a href="results.php"><i class="fas fa-chart-line"></i> My Results</a></li>
-                <li><a href="attendance.php"><i class="fas fa-calendar-check"></i> Attendance</a></li>
-                <li class="active"><a href="assignments.php"><i class="fas fa-tasks"></i> Assignments</a></li>
-                <li><a href="fees.php"><i class="fas fa-money-bill"></i> Fees</a></li>
-                <li><a href="messages.php"><i class="fas fa-envelope"></i> Messages</a></li>
-                <li><a href="profile.php"><i class="fas fa-user-cog"></i> Profile</a></li>
-            </ul>
-        </nav>
-    </aside>
-    
+    <?php render_sidebar('student'); ?>
+
     <main class="dashboard-main">
         <div class="dashboard-header">
             <h1>My Assignments</h1>
@@ -753,21 +696,21 @@ $submissions = $db->getRows(
                 </div>
             </div>
         </div>
-        
+
         <?php if ($message): ?>
-        <div class="alert alert-<?php echo $messageType; ?> alert-dismissible">
+        <div class="alert alert-<?php echo e($messageType); ?> alert-dismissible">
             <i class="fas <?php echo $messageType === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'; ?>"></i>
             <?php echo htmlspecialchars($message); ?>
             <button type="button" class="close" onclick="this.parentElement.remove()">&times;</button>
         </div>
         <?php endif; ?>
-        
+
         <!-- Quick Stats -->
-        <?php 
+        <?php
         $pendingCount = 0;
         $submittedCount = 0;
         $gradedCount = 0;
-        
+
         foreach ($assignments as $ass) {
             if ($ass['submitted_id']) {
                 if ($ass['obtained_marks'] !== null) {
@@ -780,26 +723,26 @@ $submissions = $db->getRows(
             }
         }
         ?>
-        
+
         <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px;">
             <div style="background: white; border-radius: 8px; padding: 15px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
                 <div style="font-size: 24px; font-weight: 700; color: #002855;"><?php echo count($assignments); ?></div>
                 <div style="color: #6c757d;">Total</div>
             </div>
             <div style="background: white; border-radius: 8px; padding: 15px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-                <div style="font-size: 24px; font-weight: 700; color: #ffc107;"><?php echo $pendingCount; ?></div>
+                <div style="font-size: 24px; font-weight: 700; color: #ffc107;"><?php echo e($pendingCount); ?></div>
                 <div style="color: #6c757d;">Pending</div>
             </div>
             <div style="background: white; border-radius: 8px; padding: 15px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-                <div style="font-size: 24px; font-weight: 700; color: #17a2b8;"><?php echo $submittedCount; ?></div>
+                <div style="font-size: 24px; font-weight: 700; color: #17a2b8;"><?php echo e($submittedCount); ?></div>
                 <div style="color: #6c757d;">Submitted</div>
             </div>
             <div style="background: white; border-radius: 8px; padding: 15px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-                <div style="font-size: 24px; font-weight: 700; color: #28a745;"><?php echo $gradedCount; ?></div>
+                <div style="font-size: 24px; font-weight: 700; color: #28a745;"><?php echo e($gradedCount); ?></div>
                 <div style="color: #6c757d;">Graded</div>
             </div>
         </div>
-        
+
         <!-- Filters -->
         <div class="card">
             <div class="card-header">
@@ -816,35 +759,35 @@ $submissions = $db->getRows(
                             <option value="graded" <?php echo $filter == 'graded' ? 'selected' : ''; ?>>Graded Assignments</option>
                         </select>
                     </div>
-                    
+
                     <div class="form-group col-md-5">
                         <label for="subject">Filter by Subject</label>
                         <select id="subject" name="subject" class="form-control" onchange="this.form.submit()">
                             <option value="0">All Subjects</option>
                             <?php foreach ($subjects as $sub): ?>
-                            <option value="<?php echo $sub['id']; ?>" <?php echo $subjectId == $sub['id'] ? 'selected' : ''; ?>>
+                            <option value="<?php echo e($sub['id']); ?>" <?php echo $subjectId == $sub['id'] ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($sub['subject_name']); ?>
                             </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    
+
                     <div class="form-group col-md-2">
                         <label>&nbsp;</label>
-                        <a href="assignments.php" class="btn btn-secondary" style="display: block; text-align: center; padding: 8px; background: #6c757d; color: white; text-decoration: none; border-radius: 4px;">
+                        <a href="assignments" class="btn btn-secondary" style="display: block; text-align: center; padding: 8px; background: #6c757d; color: white; text-decoration: none; border-radius: 4px;">
                             <i class="fas fa-redo"></i> Reset
                         </a>
                     </div>
                 </form>
             </div>
         </div>
-        
+
         <!-- Assignments List -->
         <div class="card">
             <div class="card-header">
                 <h3>
-                    <i class="fas fa-tasks"></i> 
-                    <?php 
+                    <i class="fas fa-tasks"></i>
+                    <?php
                     if ($filter == 'pending') echo 'Pending Assignments';
                     elseif ($filter == 'submitted') echo 'Submitted Assignments';
                     elseif ($filter == 'graded') echo 'Graded Assignments';
@@ -856,7 +799,7 @@ $submissions = $db->getRows(
             <div class="card-body">
                 <?php if (!empty($assignments)): ?>
                 <div class="assignments-grid">
-                    <?php foreach ($assignments as $assignment): 
+                    <?php foreach ($assignments as $assignment):
                         $isOverdue = strtotime($assignment['due_date']) < time();
                         $isSubmitted = !is_null($assignment['submitted_id']);
                         $isGraded = !is_null($assignment['obtained_marks']);
@@ -867,7 +810,7 @@ $submissions = $db->getRows(
                             <h4><?php echo htmlspecialchars($assignment['title']); ?></h4>
                             <span class="subject-badge"><?php echo htmlspecialchars($assignment['subject_name']); ?></span>
                         </div>
-                        
+
                         <div class="assignment-meta">
                             <div class="meta-item">
                                 <i class="fas fa-calendar"></i>
@@ -875,7 +818,7 @@ $submissions = $db->getRows(
                             </div>
                             <div class="meta-item">
                                 <i class="fas fa-star"></i>
-                                <span>Total Marks: <?php echo $assignment['total_marks']; ?></span>
+                                <span>Total Marks: <?php echo e($assignment['total_marks']); ?></span>
                             </div>
                             <?php if ($isSubmitted && $assignment['submission_date']): ?>
                             <div class="meta-item">
@@ -884,13 +827,13 @@ $submissions = $db->getRows(
                             </div>
                             <?php endif; ?>
                         </div>
-                        
+
                         <?php if (!empty($assignment['description'])): ?>
                         <div class="assignment-description">
                             <p><?php echo nl2br(htmlspecialchars($assignment['description'])); ?></p>
                         </div>
                         <?php endif; ?>
-                        
+
                         <?php if ($assignment['attachment_path']): ?>
                         <div class="assignment-attachment">
                             <i class="fas fa-paperclip"></i>
@@ -899,17 +842,17 @@ $submissions = $db->getRows(
                             </a>
                         </div>
                         <?php endif; ?>
-                        
+
                         <div class="assignment-footer">
                             <div class="submission-status">
                                 <?php if ($isSubmitted): ?>
-                                    <span class="badge badge-<?php echo $statusClass; ?>">
+                                    <span class="badge badge-<?php echo e($statusClass); ?>">
                                         <i class="fas <?php echo $isGraded ? 'fa-check-circle' : 'fa-clock'; ?>"></i>
                                         <?php echo $isGraded ? 'Graded' : 'Submitted'; ?>
                                     </span>
                                     <?php if ($isGraded): ?>
                                         <span class="badge badge-success">
-                                            Score: <?php echo $assignment['obtained_marks']; ?>/<?php echo $assignment['total_marks']; ?>
+                                            Score: <?php echo e($assignment['obtained_marks']); ?>/<?php echo e($assignment['total_marks']); ?>
                                         </span>
                                     <?php endif; ?>
                                 <?php else: ?>
@@ -918,18 +861,18 @@ $submissions = $db->getRows(
                                     </span>
                                 <?php endif; ?>
                             </div>
-                            
+
                             <?php if (!$isSubmitted): ?>
-                                <button class="btn btn-primary btn-sm" onclick="showSubmitModal(<?php echo $assignment['id']; ?>, '<?php echo htmlspecialchars(addslashes($assignment['title'])); ?>')">
+                                <button class="btn btn-primary btn-sm" onclick="showSubmitModal(<?php echo e($assignment['id']); ?>, '<?php echo htmlspecialchars(addslashes($assignment['title'])); ?>')">
                                     <i class="fas fa-upload"></i> Submit
                                 </button>
                             <?php endif; ?>
-                            
+
                             <?php if ($isOverdue && !$isSubmitted): ?>
                                 <span class="overdue-badge">Overdue!</span>
                             <?php endif; ?>
                         </div>
-                        
+
                         <?php if ($isGraded && $assignment['feedback']): ?>
                         <div class="feedback">
                             <strong><i class="fas fa-comment"></i> Teacher's Feedback:</strong>
@@ -947,7 +890,7 @@ $submissions = $db->getRows(
                 <?php endif; ?>
             </div>
         </div>
-        
+
         <!-- Submission History -->
         <?php if (!empty($submissions)): ?>
         <div class="card">
@@ -982,7 +925,7 @@ $submissions = $db->getRows(
                                 </td>
                                 <td>
                                     <?php if ($sub['obtained_marks'] !== null): ?>
-                                        <?php echo $sub['obtained_marks']; ?> / <?php echo $sub['total_marks']; ?>
+                                        <?php echo e($sub['obtained_marks']); ?> / <?php echo e($sub['total_marks']); ?>
                                     <?php else: ?>
                                         -
                                     <?php endif; ?>
@@ -1011,20 +954,20 @@ $submissions = $db->getRows(
                 <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
                 <input type="hidden" name="submit_assignment" value="1">
                 <input type="hidden" name="assignment_id" id="assignment_id">
-                
+
                 <h4 id="assignment_title" style="color: #002855; margin-bottom: 15px;"></h4>
-                
+
                 <div class="form-group">
                     <label for="submission_text">Your Answer / Notes</label>
                     <textarea id="submission_text" name="submission_text" class="form-control" rows="5" placeholder="Type your answer here..."></textarea>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="attachment">Attachment (Optional)</label>
                     <input type="file" id="attachment" name="attachment" class="form-control-file">
                     <small class="form-text text-muted">Allowed: PDF, DOC, DOCX, JPG, PNG (Max: 5MB)</small>
                 </div>
-                
+
                 <div class="alert alert-info">
                     <i class="fas fa-info-circle"></i>
                     Make sure your submission is complete before submitting. You cannot submit twice.
@@ -1038,13 +981,13 @@ $submissions = $db->getRows(
     </div>
 </div>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 // Global functions for modal handling
 function showSubmitModal(id, title) {
     document.getElementById('assignment_id').value = id;
     document.getElementById('assignment_title').textContent = 'Assignment: ' + title;
     document.getElementById('submitModal').style.display = 'block';
-    
+
     // Prevent body scrolling when modal is open
     document.body.style.overflow = 'hidden';
 }
@@ -1052,7 +995,7 @@ function showSubmitModal(id, title) {
 function closeModal() {
     document.getElementById('submitModal').style.display = 'none';
     document.getElementById('submitForm').reset();
-    
+
     // Restore body scrolling
     document.body.style.overflow = 'auto';
 }
@@ -1089,8 +1032,8 @@ document.getElementById('attachment')?.addEventListener('change', function(e) {
             alert('File size must be less than 5MB');
             this.value = '';
         }
-        
-        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'application/msword', 
+
+        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'application/msword',
                               'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
         if (!allowedTypes.includes(file.type)) {
             alert('File type not allowed. Please upload PDF, DOC, DOCX, JPG, or PNG files.');
@@ -1103,7 +1046,7 @@ document.getElementById('attachment')?.addEventListener('change', function(e) {
 document.getElementById('submitForm')?.addEventListener('submit', function(e) {
     const text = document.getElementById('submission_text').value.trim();
     const file = document.getElementById('attachment').files[0];
-    
+
     if (!text && !file) {
         e.preventDefault();
         alert('Please provide either text answer or upload a file.');

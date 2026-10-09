@@ -1,86 +1,40 @@
 <?php
 // login.php
-require_once 'config/config.php';
-require_once 'config/database.php';
-require_once 'includes/helpers.php'; // Add this
-require_once 'config/security.php';
-
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once __DIR__ . '/config/config.php';
+require_once __DIR__ . '/config/security.php';
+require_once __DIR__ . '/includes/auth.php';
 
 // Redirect if already logged in
 if (Security::isLoggedIn()) {
-    header('Location: ' . BASE_URL . '/' . $_SESSION['user_role'] . '/dashboard.php');
+    header('Location: ' . BASE_URL . '/' . $_SESSION['user_role'] . '/dashboard');
     exit;
 }
 
 $error = '';
+if (isset($_GET['restart'])) { unset($_SESSION['pending_2fa']); }
+$notice = isset($_GET['reset']) ? 'Your password has been reset. Please sign in.' : '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Verify CSRF token
-    if (!isset($_POST['csrf_token']) || !Security::verifyCSRFToken($_POST['csrf_token'])) {
+    if (!Security::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
         $error = 'Invalid security token. Please refresh the page and try again.';
-        error_log("CSRF validation failed");
     } else {
-        $email = Security::sanitize($_POST['email'] ?? '');
-        $password = $_POST['password'] ?? '';
-        
-        // Validate input
-        if (empty($email) || empty($password)) {
-            $error = 'Please enter both email and password';
+        $auth = new Auth();
+        if (isset($_POST['otp'])) {
+            $result = $auth->completeTwoFactor($_POST['otp']);
         } else {
-            // Check login attempts
-            if (!Security::checkLoginAttempts($email)) {
-                $error = 'Account temporarily locked. Please try again after 15 minutes.';
-            } else {
-                $db = db();
-                $user = $db->getRow(
-                    "SELECT id, username, email, password_hash, first_name, last_name, role, is_active 
-                     FROM users WHERE email = ? AND deleted_at IS NULL",
-                    [$email]
-                );
-                
-                if ($user && Security::verifyPassword($password, $user['password_hash'])) {
-                    if (!$user['is_active']) {
-                        $error = 'Your account has been deactivated. Please contact administration.';
-                    } else {
-                        // Clear any existing session data
-                        $_SESSION = array();
-                        
-                        // Regenerate session ID for security
-                        session_regenerate_id(true);
-                        
-                        // Set session variables
-                        $_SESSION['user_id'] = $user['id'];
-                        $_SESSION['user_name'] = $user['first_name'] . ' ' . $user['last_name'];
-                        $_SESSION['user_role'] = $user['role'];
-                        $_SESSION['user_email'] = $user['email'];
-                        $_SESSION['logged_in'] = true;
-                        $_SESSION['login_time'] = time();
-                        
-                        // Update last login and reset attempts
-                        $db->query(
-                            "UPDATE users SET last_login = NOW(), login_attempts = 0, locked_until = NULL WHERE id = ?",
-                            [$user['id']]
-                        );
-                        
-                        // Log audit
-                        Security::logAudit('LOGIN_SUCCESS', 'users', $user['id']);
-                        
-                        // Redirect to appropriate dashboard using header
-                        header('Location: ' . BASE_URL . '/' . $user['role'] . '/dashboard.php');
-                        exit;
-                    }
-                } else {
-                    Security::logFailedAttempt($email);
-                    $error = 'Invalid email or password';
-                }
-            }
+            unset($_SESSION['pending_2fa']);
+            $result = $auth->login(Security::sanitize($_POST['email'] ?? ''), $_POST['password'] ?? '');
         }
+        if ($result['success']) {
+            header('Location: ' . $result['redirect']);
+            exit;
+        }
+        // needs_2fa is a prompt, not an error
+        $error = !empty($result['needs_2fa']) && !isset($_POST['otp']) ? '' : $result['message'];
     }
 }
+
+$pending2fa = !empty($_SESSION['pending_2fa']) && $_SESSION['pending_2fa']['expires'] >= time();
 
 // Generate new CSRF token for the form
 $csrf_token = Security::generateCSRFToken();
@@ -91,13 +45,14 @@ $csrf_token = Security::generateCSRFToken();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - <?php echo SITE_NAME; ?></title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/fonts.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/vendor/fontawesome/all.min.css">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/mobile.css">
     <style>
         /* Page-specific styles */
         .login-page {
-            background: linear-gradient(135deg, rgba(0, 40, 85, 0.85) 0%, rgba(0, 26, 58, 0.9) 100%), 
+            background: linear-gradient(135deg, rgba(0, 40, 85, 0.85) 0%, rgba(0, 26, 58, 0.9) 100%),
                         url('<?php echo BASE_URL; ?>/assets/images/background.png') center/cover no-repeat fixed;
             min-height: 100vh;
             display: flex;
@@ -106,13 +61,13 @@ $csrf_token = Security::generateCSRFToken();
             padding: 20px;
             position: relative;
         }
-        
+
         .login-container {
             width: 100%;
             max-width: 400px;
             margin: 0 auto;
         }
-        
+
         .login-box {
             background-color: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
@@ -122,39 +77,39 @@ $csrf_token = Security::generateCSRFToken();
             animation: fadeInUp 0.5s ease;
             border: 1px solid rgba(255, 255, 255, 0.2);
         }
-        
+
         .login-header {
             text-align: center;
             margin-bottom: 25px;
         }
-        
+
         .login-logo {
             width: 80px;
             height: auto;
             margin: 0 auto 15px;
         }
-        
+
         .login-header h1 {
             font-size: 1.5rem;
             color: var(--navy);
             margin-bottom: 5px;
             line-height: 1.3;
         }
-        
+
         .login-header p {
             color: var(--gray);
             font-size: 0.9rem;
         }
-        
+
         .login-form .form-group {
             margin-bottom: 20px;
         }
-        
+
         .password-wrapper {
             position: relative;
             width: 100%;
         }
-        
+
         .password-wrapper input {
             width: 100%;
             padding: 12px 45px 12px 15px;
@@ -164,13 +119,13 @@ $csrf_token = Security::generateCSRFToken();
             transition: all 0.3s ease;
             background-color: white;
         }
-        
+
         .password-wrapper input:focus {
             outline: none;
             border-color: var(--gold);
             box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.1);
         }
-        
+
         .toggle-password {
             position: absolute;
             right: 15px;
@@ -187,11 +142,11 @@ $csrf_token = Security::generateCSRFToken();
             align-items: center;
             justify-content: center;
         }
-        
+
         .toggle-password:hover {
             color: var(--gold);
         }
-        
+
         .btn-primary {
             background-color: var(--red);
             color: white;
@@ -207,13 +162,13 @@ $csrf_token = Security::generateCSRFToken();
             justify-content: center;
             gap: 8px;
         }
-        
+
         .btn-primary:hover {
             background-color: var(--red-dark);
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(196, 30, 58, 0.3);
         }
-        
+
         .alert {
             padding: 12px 15px;
             border-radius: 8px;
@@ -223,23 +178,23 @@ $csrf_token = Security::generateCSRFToken();
             gap: 10px;
             font-size: 0.9rem;
         }
-        
+
         .alert-error {
             background-color: #fee;
             color: var(--danger);
             border: 1px solid #fcc;
         }
-        
+
         .alert-success {
             background-color: #e8f5e9;
             color: var(--success);
             border: 1px solid #c8e6c9;
         }
-        
+
         .alert i {
             font-size: 1.1rem;
         }
-        
+
         .login-footer {
             display: flex;
             justify-content: space-between;
@@ -249,7 +204,7 @@ $csrf_token = Security::generateCSRFToken();
             border-top: 1px solid var(--light-gray);
             font-size: 0.9rem;
         }
-        
+
         .login-footer a {
             color: var(--navy);
             text-decoration: none;
@@ -258,11 +213,11 @@ $csrf_token = Security::generateCSRFToken();
             align-items: center;
             gap: 5px;
         }
-        
+
         .login-footer a:hover {
             color: var(--gold);
         }
-        
+
         .login-form label {
             display: flex;
             align-items: center;
@@ -272,12 +227,12 @@ $csrf_token = Security::generateCSRFToken();
             font-weight: 500;
             font-size: 0.9rem;
         }
-        
+
         .login-form label i {
             color: var(--gold);
             width: 18px;
         }
-        
+
         @keyframes fadeInUp {
             from {
                 opacity: 0;
@@ -288,24 +243,24 @@ $csrf_token = Security::generateCSRFToken();
                 transform: translateY(0);
             }
         }
-        
+
         @media (max-width: 480px) {
             .login-container {
                 max-width: 100%;
             }
-            
+
             .login-box {
                 padding: 25px 20px;
             }
-            
+
             .login-header h1 {
                 font-size: 1.3rem;
             }
-            
+
             .login-logo {
                 width: 70px;
             }
-            
+
             .login-footer {
                 flex-direction: column;
                 gap: 10px;
@@ -322,72 +277,89 @@ $csrf_token = Security::generateCSRFToken();
                 <h1><?php echo SITE_NAME; ?></h1>
                 <p>Please sign in to continue</p>
             </div>
-            
+
+            <?php if ($notice): ?>
+            <div class="alert alert-success"><i class="fas fa-check-circle"></i> <?php echo e($notice); ?></div>
+            <?php endif; ?>
+
             <?php if ($error): ?>
             <div class="alert alert-error">
                 <i class="fas fa-exclamation-circle"></i>
-                <?php echo $error; ?>
+                <?php echo e($error); ?>
             </div>
             <?php endif; ?>
-            
+
+            <?php if ($pending2fa): ?>
+            <form method="POST" action="" class="login-form" id="otpForm">
+                <input type="hidden" name="csrf_token" value="<?php echo e($csrf_token); ?>">
+                <p style="margin-bottom:14px;color:#555;font-size:.95rem">Two-step verification: enter the 6-digit code from your authenticator app.</p>
+                <div class="form-group">
+                    <label for="otp"><i class="fas fa-shield-alt"></i> Authentication code</label>
+                    <input type="text" id="otp" name="otp" inputmode="numeric" pattern="[0-9 ]*" maxlength="7" autocomplete="one-time-code" placeholder="123456" required autofocus>
+                </div>
+                <div class="form-group"><button type="submit" class="btn btn-primary"><i class="fas fa-check"></i> Verify</button></div>
+                <div class="login-footer"><a href="<?php echo BASE_URL; ?>/login?restart=1"><i class="fas fa-arrow-left"></i> Start over</a></div>
+            </form>
+            <?php else: ?>
             <form method="POST" action="" class="login-form" id="loginForm">
-                <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
-                
+                <input type="hidden" name="csrf_token" value="<?php echo e($csrf_token); ?>">
+
                 <div class="form-group">
                     <label for="email">
                         <i class="fas fa-envelope"></i>
                         Email Address
                     </label>
-                    <input type="email" id="email" name="email" 
-                           value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>" 
-                           placeholder="Enter your email"
+                    <input type="email" id="email" name="email"
+                           value="<?php echo e($_POST['email'] ?? ''); ?>"
+                           placeholder="Enter your email" autocomplete="username" inputmode="email"
                            required autofocus>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="password">
                         <i class="fas fa-lock"></i>
                         Password
                     </label>
                     <div class="password-wrapper">
-                        <input type="password" id="password" name="password" 
-                               placeholder="Enter your password"
+                        <input type="password" id="password" name="password"
+                               placeholder="Enter your password" autocomplete="current-password"
                                required>
                         <button type="button" class="toggle-password" id="togglePassword" aria-label="Toggle password visibility">
                             <i class="fas fa-eye"></i>
                         </button>
                     </div>
                 </div>
-                
+
                 <div class="form-group">
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-sign-in-alt"></i> Sign In
                     </button>
                 </div>
-                
+
                 <div class="login-footer">
-                    <a href="forgot-password.php">
+                    <a href="<?php echo BASE_URL; ?>/forgot-password">
                         <i class="fas fa-question-circle"></i> Forgot Password?
                     </a>
-                    <a href="index.php">
+                    <a href="<?php echo BASE_URL; ?>/">
                         <i class="fas fa-home"></i> Back to Home
                     </a>
                 </div>
             </form>
+            <?php endif; ?>
         </div>
     </div>
 
-    <script>
+    <script nonce="<?php echo CSP_NONCE; ?>">
     document.addEventListener('DOMContentLoaded', function() {
         // Toggle password visibility
         const togglePassword = document.getElementById('togglePassword');
         const passwordInput = document.getElementById('password');
-        
+
         if (togglePassword && passwordInput) {
             togglePassword.addEventListener('click', function() {
                 const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
                 passwordInput.setAttribute('type', type);
-                
+
                 const icon = this.querySelector('i');
                 if (icon) {
                     icon.classList.toggle('fa-eye');
@@ -395,14 +367,14 @@ $csrf_token = Security::generateCSRFToken();
                 }
             });
         }
-        
+
         // Form validation
         const loginForm = document.getElementById('loginForm');
         if (loginForm) {
             loginForm.addEventListener('submit', function(e) {
                 const email = document.getElementById('email').value.trim();
                 const password = document.getElementById('password').value.trim();
-                
+
                 if (!email || !password) {
                     e.preventDefault();
                     alert('Please enter both email and password');
@@ -411,5 +383,6 @@ $csrf_token = Security::generateCSRFToken();
         }
     });
     </script>
+<script src="<?php echo BASE_URL; ?>/assets/js/main.js"></script>
 </body>
 </html>

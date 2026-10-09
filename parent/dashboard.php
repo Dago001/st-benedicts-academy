@@ -1,7 +1,6 @@
 <?php
 // parent/dashboard.php
 require_once '../config/config.php';
-require_once '../config/database.php';
 require_once '../config/security.php';
 
 Security::requireRole('parent');
@@ -16,26 +15,36 @@ $userId = $_SESSION['user_id'];
 
 // Get parent info
 $parent = $db->getRow(
-    "SELECT p.*, u.first_name, u.last_name, u.email, u.phone 
-     FROM parents p 
-     JOIN users u ON p.user_id = u.id 
+    "SELECT p.*, u.first_name, u.last_name, u.email, u.phone
+     FROM parents p
+     JOIN users u ON p.user_id = u.id
      WHERE p.user_id = ?",
     [$userId]
 );
+
+if (!$parent) {
+    echo '<div class="container" style="padding:24px"><div class="alert alert-error">Your parent profile is incomplete. Please contact the school office.</div></div>';
+    include __DIR__ . '/../includes/footer.php';
+    exit;
+}
 
 // Get children (students) of this parent
 $children = $db->getRows(
     "SELECT s.*, u.first_name, u.last_name, u.email, u.profile_image,
             c.class_name, c.section
-     FROM students s 
-     JOIN users u ON s.user_id = u.id 
-     LEFT JOIN classes c ON s.class_id = c.id 
+     FROM students s
+     JOIN users u ON s.user_id = u.id
+     LEFT JOIN classes c ON s.class_id = c.id
      WHERE s.parent_id = ? AND u.is_active = 1",
     [$parent['id']]
 );
 
 // Get selected child
-$selectedChildId = $_GET['child'] ?? ($children[0]['id'] ?? null);
+// A parent may only look at their own children: unknown ids fall back to the first child
+$selectedChildId = $children[0]['id'] ?? null;
+if (isset($_GET['child']) && in_array((int)$_GET['child'], array_map('intval', array_column($children, 'id')), true)) {
+    $selectedChildId = (int)$_GET['child'];
+}
 
 // Get child's performance summary if child selected
 $childPerformance = [];
@@ -53,29 +62,28 @@ if ($selectedChildId) {
          ORDER BY r.created_at DESC LIMIT 5",
         [$selectedChildId]
     );
-    
+
     // Get attendance summary
     $attendanceSummary = $db->getRow(
-        "SELECT 
+        "SELECT
             COUNT(*) as total_days,
             SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present,
             SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent,
             SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END) as late
-         FROM attendance 
+         FROM attendance
          WHERE student_id = ? AND date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)",
         [$selectedChildId]
     );
-    
-    // Get fee status
+
+    // Fee status: charged to the class this year vs. completed payments
     $feeStatus = $db->getRow(
-        "SELECT 
-            SUM(CASE WHEN status = 'completed' THEN amount ELSE 0 END) as paid,
-            SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END) as outstanding
-         FROM payments 
-         WHERE student_id = ? AND academic_year = ?",
-        [$selectedChildId, date('Y') . '-' . (date('Y') + 1)]
+        "SELECT
+            COALESCE((SELECT SUM(amount) FROM payments WHERE student_id = ? AND academic_year = ? AND status = 'completed'), 0) AS paid,
+            GREATEST(COALESCE((SELECT SUM(f.amount) FROM fee_structure f JOIN students st ON st.class_id = f.class_id WHERE st.id = ? AND f.academic_year = ?), 0)
+                   - COALESCE((SELECT SUM(amount) FROM payments WHERE student_id = ? AND academic_year = ? AND status = 'completed'), 0), 0) AS outstanding",
+        [$selectedChildId, currentAcademicYear(), $selectedChildId, currentAcademicYear(), $selectedChildId, currentAcademicYear()]
     );
-    
+
     // Calculate performance metrics
     if (!empty($recentResults)) {
         $totalPercentage = 0;
@@ -88,32 +96,17 @@ if ($selectedChildId) {
 
 // Get recent announcements for parents
 $announcements = $db->getRows(
-    "SELECT * FROM announcements 
-     WHERE (audience = 'all' OR audience = 'parents') 
-       AND is_published = 1 
+    "SELECT * FROM announcements
+     WHERE (audience = 'all' OR audience = 'parents')
+       AND is_published = 1
        AND (expires_at IS NULL OR expires_at > NOW())
      ORDER BY created_at DESC LIMIT 5"
 );
 ?>
 
 <div class="dashboard-container">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <h3>Parent Portal</h3>
-        </div>
-        
-        <nav class="sidebar-nav">
-            <ul>
-                <li class="active"><a href="dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
-                <li><a href="children.php"><i class="fas fa-child"></i> My Children</a></li>
-                <li><a href="fees.php"><i class="fas fa-money-bill"></i> Fee Status</a></li>
-                <li><a href="messages.php"><i class="fas fa-envelope"></i> Messages</a></li>
-                <li><a href="profile.php"><i class="fas fa-user-cog"></i> Profile</a></li>
-            </ul>
-        </nav>
-    </aside>
-    
+    <?php render_sidebar('parent'); ?>
+
     <!-- Main Content -->
     <main class="dashboard-main">
         <div class="dashboard-header">
@@ -123,7 +116,7 @@ $announcements = $db->getRows(
                 <span><?php echo count($children); ?> Child(ren) Enrolled</span>
             </div>
         </div>
-        
+
         <!-- Child Selection -->
         <?php if (count($children) > 1): ?>
         <div class="card">
@@ -133,9 +126,9 @@ $announcements = $db->getRows(
                         <label for="child">Select Child:</label>
                         <select name="child" id="child" onchange="this.form.submit()">
                             <?php foreach ($children as $child): ?>
-                            <option value="<?php echo $child['id']; ?>" 
+                            <option value="<?php echo e($child['id']); ?>"
                                 <?php echo ($selectedChildId == $child['id']) ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($child['first_name'] . ' ' . $child['last_name']); ?> 
+                                <?php echo htmlspecialchars($child['first_name'] . ' ' . $child['last_name']); ?>
                                 - <?php echo htmlspecialchars($child['class_name'] . ' ' . $child['section']); ?>
                             </option>
                             <?php endforeach; ?>
@@ -145,20 +138,20 @@ $announcements = $db->getRows(
             </div>
         </div>
         <?php endif; ?>
-        
-        <?php if ($selectedChildId && !empty($children)): 
+
+        <?php if ($selectedChildId && !empty($children)):
             $selectedChild = array_filter($children, function($c) use ($selectedChildId) {
                 return $c['id'] == $selectedChildId;
             });
             $selectedChild = reset($selectedChild);
         ?>
-        
+
         <!-- Child Overview -->
         <div class="child-header">
             <div class="child-info">
                 <div class="child-avatar">
                     <?php if ($selectedChild['profile_image']): ?>
-                    <img src="<?php echo BASE_URL; ?>/uploads/students/<?php echo $selectedChild['profile_image']; ?>" 
+                    <img src="<?php echo BASE_URL; ?>/uploads/students/<?php echo e($selectedChild['profile_image']); ?>"
                          alt="<?php echo htmlspecialchars($selectedChild['first_name']); ?>">
                     <?php else: ?>
                     <i class="fas fa-user-graduate"></i>
@@ -169,12 +162,12 @@ $announcements = $db->getRows(
                     <p class="class-info">
                         <i class="fas fa-school"></i> <?php echo htmlspecialchars($selectedChild['class_name'] . ' ' . $selectedChild['section']); ?>
                         <span class="separator">|</span>
-                        <i class="fas fa-id-card"></i> Adm No: <?php echo $selectedChild['admission_number']; ?>
+                        <i class="fas fa-id-card"></i> Adm No: <?php echo e($selectedChild['admission_number']); ?>
                     </p>
                 </div>
             </div>
         </div>
-        
+
         <!-- Quick Stats -->
         <div class="stats-grid">
             <div class="stat-card">
@@ -182,8 +175,8 @@ $announcements = $db->getRows(
                     <i class="fas fa-calendar-check" style="color: #002855;"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php 
-                        $attendanceRate = $attendanceSummary['total_days'] > 0 
+                    <h3><?php
+                        $attendanceRate = $attendanceSummary['total_days'] > 0
                             ? round(($attendanceSummary['present'] / $attendanceSummary['total_days']) * 100, 1)
                             : 0;
                         echo $attendanceRate . '%';
@@ -191,7 +184,7 @@ $announcements = $db->getRows(
                     <p>Attendance Rate</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(196, 30, 58, 0.1);">
                     <i class="fas fa-star" style="color: #c41e3a;"></i>
@@ -201,7 +194,7 @@ $announcements = $db->getRows(
                     <p>Results Available</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(255, 215, 0, 0.1);">
                     <i class="fas fa-trophy" style="color: #ffd700;"></i>
@@ -211,7 +204,7 @@ $announcements = $db->getRows(
                     <p>Average Performance</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(0, 128, 0, 0.1);">
                     <i class="fas fa-money-bill" style="color: #008000;"></i>
@@ -222,7 +215,7 @@ $announcements = $db->getRows(
                 </div>
             </div>
         </div>
-        
+
         <div class="dashboard-grid">
             <!-- Recent Results -->
             <div class="dashboard-card">
@@ -233,23 +226,23 @@ $announcements = $db->getRows(
                     <div class="result-item">
                         <div class="result-info">
                             <h4><?php echo htmlspecialchars($result['subject_name']); ?></h4>
-                            <p><?php echo $result['term']; ?> - <?php echo $result['academic_year']; ?></p>
+                            <p><?php echo e($result['term']); ?> - <?php echo e($result['academic_year']); ?></p>
                         </div>
                         <div class="result-score <?php echo $result['score'] >= 70 ? 'high' : ($result['score'] >= 50 ? 'medium' : 'low'); ?>">
-                            <?php echo $result['score']; ?>/<?php echo $result['max_score']; ?>
-                            <small>Grade <?php echo $result['grade']; ?></small>
+                            <?php echo e($result['score']); ?>/<?php echo e($result['max_score']); ?>
+                            <small>Grade <?php echo e($result['grade']); ?></small>
                         </div>
                     </div>
                     <?php endforeach; ?>
                 </div>
-                <a href="child-performance.php?child=<?php echo $selectedChildId; ?>" class="btn-link">
+                <a href="child-performance?child=<?php echo e($selectedChildId); ?>" class="btn-link">
                     View All Results <i class="fas fa-arrow-right"></i>
                 </a>
                 <?php else: ?>
                 <p class="no-data">No results available yet.</p>
                 <?php endif; ?>
             </div>
-            
+
             <!-- Attendance Summary -->
             <div class="dashboard-card">
                 <h3><i class="fas fa-calendar-alt"></i> Attendance (Last 30 Days)</h3>
@@ -261,22 +254,22 @@ $announcements = $db->getRows(
                         $absentPercent = ($attendanceSummary['absent'] / $attendanceSummary['total_days']) * 100;
                         $latePercent = ($attendanceSummary['late'] / $attendanceSummary['total_days']) * 100;
                         ?>
-                        <div class="progress-circle" data-value="<?php echo $presentPercent; ?>">
+                        <div class="progress-circle" data-value="<?php echo e($presentPercent); ?>">
                             <span><?php echo round($presentPercent); ?>%</span>
                         </div>
                     </div>
                     <div class="attendance-stats">
                         <div class="stat-row">
                             <span class="label present"><i class="fas fa-circle"></i> Present:</span>
-                            <span class="value"><?php echo $attendanceSummary['present']; ?> days</span>
+                            <span class="value"><?php echo e($attendanceSummary['present']); ?> days</span>
                         </div>
                         <div class="stat-row">
                             <span class="label absent"><i class="fas fa-circle"></i> Absent:</span>
-                            <span class="value"><?php echo $attendanceSummary['absent']; ?> days</span>
+                            <span class="value"><?php echo e($attendanceSummary['absent']); ?> days</span>
                         </div>
                         <div class="stat-row">
                             <span class="label late"><i class="fas fa-circle"></i> Late:</span>
-                            <span class="value"><?php echo $attendanceSummary['late']; ?> days</span>
+                            <span class="value"><?php echo e($attendanceSummary['late']); ?> days</span>
                         </div>
                     </div>
                 </div>
@@ -285,7 +278,7 @@ $announcements = $db->getRows(
                 <?php endif; ?>
             </div>
         </div>
-        
+
         <!-- Fee Status -->
         <div class="dashboard-card">
             <h3><i class="fas fa-money-check-alt"></i> Fee Status - Current Term</h3>
@@ -303,24 +296,24 @@ $announcements = $db->getRows(
                         </span>
                     </div>
                 </div>
-                <?php 
+                <?php
                 $totalFees = ($feeStatus['paid'] ?? 0) + ($feeStatus['outstanding'] ?? 0);
                 if ($totalFees > 0):
                     $paidPercent = ($feeStatus['paid'] / $totalFees) * 100;
                 ?>
                 <div class="progress-bar large">
-                    <div class="progress-fill success" style="width: <?php echo $paidPercent; ?>%">
+                    <div class="progress-fill success" style="width: <?php echo e($paidPercent); ?>%">
                         <?php echo round($paidPercent); ?>% Paid
                     </div>
                 </div>
                 <?php endif; ?>
             </div>
-            <a href="fees.php?child=<?php echo $selectedChildId; ?>" class="btn-link">View Fee Details</a>
+            <a href="fees?child=<?php echo e($selectedChildId); ?>" class="btn-link">View Fee Details</a>
             <?php else: ?>
             <p class="no-data">No fee records available.</p>
             <?php endif; ?>
         </div>
-        
+
         <?php else: ?>
         <!-- No children or no child selected -->
         <div class="alert alert-info">
@@ -332,14 +325,14 @@ $announcements = $db->getRows(
             <?php endif; ?>
         </div>
         <?php endif; ?>
-        
+
         <!-- School Announcements -->
         <div class="dashboard-card full-width">
             <h3><i class="fas fa-bullhorn"></i> School Announcements</h3>
             <?php if (!empty($announcements)): ?>
             <div class="announcements-list">
                 <?php foreach ($announcements as $announcement): ?>
-                <div class="announcement-item priority-<?php echo $announcement['priority']; ?>">
+                <div class="announcement-item priority-<?php echo e($announcement['priority']); ?>">
                     <div class="announcement-header">
                         <h4><?php echo htmlspecialchars($announcement['title']); ?></h4>
                         <span class="announcement-date">
@@ -354,26 +347,26 @@ $announcements = $db->getRows(
             <p class="no-data">No announcements at this time.</p>
             <?php endif; ?>
         </div>
-        
+
         <!-- Quick Actions -->
         <div class="quick-actions">
             <h3>Quick Actions</h3>
             <div class="actions-grid">
-                <a href="messages.php?compose" class="action-card">
+                <a href="messages?compose" class="action-card">
                     <i class="fas fa-envelope"></i>
                     <span>Message Teacher</span>
                 </a>
-                <a href="fees.php" class="action-card">
+                <a href="fees" class="action-card">
                     <i class="fas fa-credit-card"></i>
                     <span>Pay Fees</span>
                 </a>
-                <a href="schedule.php" class="action-card">
+                <a href="schedule" class="action-card">
                     <i class="fas fa-calendar-alt"></i>
                     <span>View Schedule</span>
                 </a>
-                <a href="documents.php" class="action-card">
+                <a href="children" class="action-card">
                     <i class="fas fa-file-alt"></i>
-                    <span>Download Reports</span>
+                    <span>My Children</span>
                 </a>
             </div>
         </div>

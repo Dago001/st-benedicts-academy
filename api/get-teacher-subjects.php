@@ -1,37 +1,19 @@
 <?php
 // api/get-teacher-subjects.php
-header('Content-Type: application/json');
-require_once '../config/config.php';
-require_once '../config/database.php';
-require_once '../config/security.php';
+require_once __DIR__ . '/../includes/api.php';
 
-Security::requireLogin();
-
-$response = ['success' => false];
-
-if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    $teacherId = Security::sanitize($_GET['teacher_id'] ?? '');
-    
-    if (!$teacherId) {
-        $response['message'] = 'Teacher ID required';
-        echo json_encode($response);
-        exit;
-    }
-    
-    $db = db();
-    
-    $subjects = $db->getRows(
-        "SELECT s.*, c.class_name 
-         FROM subjects s
-         JOIN classes c ON s.class_id = c.id
-         WHERE s.teacher_id = ? AND s.is_active = 1
-         ORDER BY c.class_name, s.subject_name",
-        [$teacherId]
-    );
-    
-    $response['success'] = true;
-    $response['subjects'] = $subjects;
+api_init(['GET'], ['admin', 'teacher']);
+$teacherId = api_int($_GET['teacher_id'] ?? null);
+if (!$teacherId) api_error('Teacher ID required');
+if (Security::hasRole('teacher') && Security::currentTeacherId() !== $teacherId) {
+    api_error('Permission denied', 403);
 }
 
-echo json_encode($response);
-?>
+$subjects = db()->getRows(
+    "SELECT s.*, c.class_name
+     FROM subjects s JOIN classes c ON s.class_id = c.id
+     WHERE s.teacher_id = ? AND s.is_active = 1
+     ORDER BY c.class_name, s.subject_name",
+    [$teacherId]
+);
+api_ok(['subjects' => $subjects]);

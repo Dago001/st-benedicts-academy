@@ -25,10 +25,10 @@ $db = db();
 // Fetch quick stats with error handling
 try {
     $stats = [
-        'students' => $db->getRow("SELECT COUNT(*) as count FROM students WHERE deleted_at IS NULL")['count'] ?? 320,
-        'teachers' => $db->getRow("SELECT COUNT(*) as count FROM teachers")['count'] ?? 28,
-        'classes' => $db->getRow("SELECT COUNT(*) as count FROM classes WHERE is_active = 1")['count'] ?? 12,
-        'years' => 14
+        'students' => $db->getRow("SELECT COUNT(*) as count FROM students s JOIN users u ON s.user_id = u.id WHERE u.deleted_at IS NULL")['count'] ?? 0,
+        'teachers' => $db->getRow("SELECT COUNT(*) as count FROM teachers t JOIN users u ON t.user_id = u.id WHERE u.deleted_at IS NULL AND u.is_active = 1")['count'] ?? 0,
+        'classes' => $db->getRow("SELECT COUNT(*) as count FROM classes WHERE is_active = 1")['count'] ?? 0,
+        'years' => max(1, (int)date('Y') - (int)cms('school.founded_year'))
     ];
 
     // Fetch latest news
@@ -842,244 +842,6 @@ try {
         min-width: 200px;
     }
 
-    /* ===== CHATBOT ===== */
-    .chatbot-widget {
-        position: fixed;
-        bottom: 30px;
-        right: 30px;
-        z-index: 1000;
-    }
-
-    .chatbot-button {
-        width: 70px;
-        height: 70px;
-        background: linear-gradient(135deg, var(--navy) 0%, var(--red) 100%);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 30px;
-        cursor: pointer;
-        box-shadow: var(--shadow-lg);
-        transition: all var(--transition-fast);
-        position: relative;
-        animation: pulse 2s infinite;
-    }
-
-    .chatbot-button:hover {
-        transform: scale(1.1);
-        box-shadow: var(--shadow-xl);
-    }
-
-    .chatbot-notification {
-        position: absolute;
-        top: -5px;
-        right: -5px;
-        background: var(--gold);
-        color: var(--navy);
-        width: 25px;
-        height: 25px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 14px;
-        font-weight: 700;
-        border: 2px solid white;
-    }
-
-    .chatbot-container {
-        position: absolute;
-        bottom: 90px;
-        right: 0;
-        width: 350px;
-        background: white;
-        border-radius: var(--radius-lg);
-        box-shadow: var(--shadow-xl);
-        overflow: hidden;
-        display: none;
-        animation: slideIn var(--transition-normal);
-    }
-
-    .chatbot-container.active {
-        display: block;
-    }
-
-    .chatbot-header {
-        background: linear-gradient(135deg, var(--navy) 0%, var(--red) 100%);
-        color: white;
-        padding: var(--spacing-lg);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-
-    .chatbot-title {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-    .chatbot-title i {
-        font-size: 24px;
-        color: var(--gold);
-    }
-
-    .chatbot-title h3 {
-        color: white;
-        margin: 0;
-        font-size: 1rem;
-    }
-
-    .chatbot-close {
-        background: rgba(255,255,255,0.2);
-        border: none;
-        color: white;
-        width: 30px;
-        height: 30px;
-        border-radius: 50%;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: background var(--transition-fast);
-    }
-
-    .chatbot-close:hover {
-        background: rgba(255,255,255,0.3);
-    }
-
-    .chatbot-messages {
-        height: 300px;
-        overflow-y: auto;
-        padding: var(--spacing-lg);
-        background: #f8f9fa;
-    }
-
-    .message {
-        display: flex;
-        gap: 10px;
-        margin-bottom: var(--spacing-md);
-        animation: fadeIn var(--transition-fast);
-    }
-
-    .bot-message .message-avatar {
-        width: 35px;
-        height: 35px;
-        background: var(--navy);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--gold);
-        flex-shrink: 0;
-    }
-
-    .user-message {
-        flex-direction: row-reverse;
-    }
-
-    .user-message .message-avatar {
-        width: 35px;
-        height: 35px;
-        background: var(--gold);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--navy);
-        flex-shrink: 0;
-    }
-
-    .message-content {
-        background: white;
-        padding: 12px 15px;
-        border-radius: 15px;
-        max-width: 70%;
-        box-shadow: var(--shadow-sm);
-    }
-
-    .user-message .message-content {
-        background: var(--navy);
-        color: white;
-    }
-
-    .message-content p {
-        margin: 0;
-        font-size: 0.9rem;
-        line-height: 1.5;
-    }
-
-    .quick-replies {
-        padding: var(--spacing-md);
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        background: white;
-        border-top: 1px solid #eee;
-    }
-
-    .quick-reply {
-        padding: 8px 15px;
-        background: var(--light-gray);
-        border: none;
-        border-radius: 20px;
-        font-size: 0.8rem;
-        color: var(--navy);
-        cursor: pointer;
-        transition: all var(--transition-fast);
-    }
-
-    .quick-reply:hover {
-        background: var(--gold);
-        color: var(--navy);
-    }
-
-    .chatbot-input {
-        display: flex;
-        padding: var(--spacing-md);
-        background: white;
-        gap: 10px;
-    }
-
-    .chatbot-input input {
-        flex: 1;
-        padding: 12px 15px;
-        border: 2px solid #eee;
-        border-radius: 25px;
-        outline: none;
-        font-size: 0.9rem;
-        transition: border-color var(--transition-fast);
-    }
-
-    .chatbot-input input:focus {
-        border-color: var(--gold);
-    }
-
-    .chatbot-input button {
-        width: 45px;
-        height: 45px;
-        background: linear-gradient(135deg, var(--navy) 0%, var(--red) 100%);
-        border: none;
-        border-radius: 50%;
-        color: white;
-        cursor: pointer;
-        transition: transform var(--transition-fast);
-    }
-
-    .chatbot-input button:hover {
-        transform: scale(1.1);
-    }
-
-    .chatbot-footer {
-        padding: var(--spacing-sm);
-        text-align: center;
-        background: #f8f9fa;
-        font-size: 0.7rem;
-        color: var(--gray);
-        border-top: 1px solid #eee;
-    }
 
     /* ===== ANIMATIONS ===== */
     @keyframes fadeInUp {
@@ -1148,30 +910,30 @@ try {
         .hero-title {
             font-size: 2.5rem;
         }
-        
+
         .welcome-grid {
             grid-template-columns: 1fr;
             gap: var(--spacing-lg);
         }
-        
+
         .welcome-content {
             padding-right: 0;
         }
-        
+
         .stats-grid,
         .stats-container {
             grid-template-columns: repeat(2, 1fr);
         }
-        
+
         .experience-badge {
             width: 100px;
             height: 100px;
         }
-        
+
         .experience-badge .years {
             font-size: 1.5rem;
         }
-        
+
         .mvg-container {
             min-height: 450px;
         }
@@ -1181,76 +943,65 @@ try {
         .hero-section {
             min-height: 80vh;
         }
-        
+
         .hero-title {
             font-size: 2rem;
         }
-        
+
         .hero-buttons {
             flex-direction: column;
             align-items: stretch;
         }
-        
+
         .hero-buttons .btn {
             width: 100%;
         }
-        
+
         .slider-controls {
             bottom: 120px;
         }
-        
+
         .slider-prev,
         .slider-next {
             width: 40px;
             height: 40px;
         }
-        
+
         .features-list {
             grid-template-columns: 1fr;
         }
-        
+
         .programs-grid {
             grid-template-columns: 1fr;
         }
-        
+
         .news-grid {
             grid-template-columns: 1fr;
         }
-        
+
         .floating-card {
             display: none;
         }
-        
+
         .experience-badge {
             width: 80px;
             height: 80px;
             bottom: 15px;
             right: 15px;
         }
-        
-        .chatbot-container {
-            width: 300px;
-            right: 0;
-        }
-        
-        .chatbot-button {
-            width: 60px;
-            height: 60px;
-            font-size: 24px;
-        }
-        
+
         .mvg-container {
             min-height: 500px;
         }
-        
+
         .mvg-slide {
             padding: var(--spacing-lg);
         }
-        
+
         .mvg-slide h2 {
             font-size: 1.8rem;
         }
-        
+
         .mvg-slide p {
             font-size: 1rem;
         }
@@ -1260,69 +1011,65 @@ try {
         .hero-title {
             font-size: 1.8rem;
         }
-        
+
         .section-title {
             font-size: 1.8rem;
         }
-        
+
         .stats-grid,
         .stats-container {
             grid-template-columns: 1fr;
         }
-        
+
         .slider-controls {
             bottom: 100px;
             gap: var(--spacing-sm);
         }
-        
+
         .slider-prev,
         .slider-next {
             width: 35px;
             height: 35px;
         }
-        
+
         .dot {
             width: 8px;
             height: 8px;
         }
-        
+
         .experience-badge {
             width: 60px;
             height: 60px;
         }
-        
+
         .experience-badge .years {
             font-size: 1.2rem;
         }
-        
+
         .experience-badge .text {
             font-size: 0.6rem;
         }
-        
+
         .cta-buttons {
             flex-direction: column;
         }
-        
+
         .cta-buttons .btn {
             width: 100%;
         }
-        
-        .quick-replies {
-            justify-content: center;
-        }
-        
+
         .mvg-container {
             min-height: 550px;
         }
-        
+
         .mvg-slide h2 {
             font-size: 1.5rem;
         }
-        
+
         .mvg-controls {
             gap: var(--spacing-md);
         }
-        
+
         .mvg-prev,
         .mvg-next {
             width: 40px;
@@ -1334,76 +1081,45 @@ try {
 <!-- ===== HERO SECTION WITH SLIDER ===== -->
 <section class="hero-section">
     <div class="hero-slider">
-        <!-- Slide 1 -->
-        <div class="hero-slide active" style="background-image: linear-gradient(135deg, rgba(0,40,85,0.85) 0%, rgba(196,30,58,0.85) 100%), url('<?php echo BASE_URL; ?>/assets/images/hero-bg-1.jpg');">
+        <?php $heroSlides = cms_slides(); $gradients = [
+            'linear-gradient(135deg, rgba(0,40,85,0.85) 0%, rgba(196,30,58,0.85) 100%)',
+            'linear-gradient(135deg, rgba(196,30,58,0.85) 0%, rgba(255,215,0,0.85) 100%)',
+            'linear-gradient(135deg, rgba(255,215,0,0.85) 0%, rgba(0,40,85,0.85) 100%)']; ?>
+        <?php foreach ($heroSlides as $i => $sl):
+            $bg = $gradients[(int)$sl['grad'] % 3];
+            if (!empty($sl['image']) && is_file(UPLOAD_PATH . 'site/' . basename($sl['image']))) {
+                $bg = 'linear-gradient(135deg, rgba(0,40,85,0.62) 0%, rgba(0,26,58,0.55) 100%), url(\'' . BASE_URL . '/uploads/site/' . rawurlencode(basename($sl['image'])) . '\') center/cover no-repeat';
+            } ?>
+        <div class="hero-slide<?php echo $i === 0 ? ' active' : ''; ?>" style="background: <?php echo e($bg); ?>;">
             <div class="container">
                 <div class="hero-content">
-                    <span class="hero-subtitle">Welcome to</span>
-                    <h1 class="hero-title">ST. BENEDICT'S <span>EARLY YEARS</span> BRITISH ACADEMY</h1>
-                    <p class="hero-motto"><?php echo defined('SCHOOL_MOTTO') ? SCHOOL_MOTTO : 'Christo Duce, Una Sapientia et Virtute Crescimus'; ?></p>
-                    <p class="hero-translation">With Christ as our guide, together we grow in wisdom and virtue</p>
+                    <?php if ($sl['subtitle'] !== '' && $sl['subtitle'] !== null): ?><span class="hero-subtitle"><?php echo e($sl['subtitle']); ?></span><?php endif; ?>
+                    <h1 class="hero-title"><?php echo preg_replace('/\*([^*]+)\*/', '<span>$1</span>', e($sl['title'])); ?></h1>
+                    <?php if (!empty($sl['use_motto'])): ?>
+                        <p class="hero-motto"><?php echo e(school_motto()); ?></p>
+                        <p class="hero-translation"><?php echo cms_e('school.motto_translation'); ?></p>
+                    <?php elseif (!empty($sl['text'])): ?>
+                        <p class="hero-motto"><?php echo e($sl['text']); ?></p>
+                    <?php endif; ?>
                     <div class="hero-buttons">
-                        <a href="<?php echo BASE_URL; ?>/public/apply.php" class="btn btn-primary btn-large">
-                            <i class="fas fa-graduation-cap"></i> Apply Now
-                        </a>
-                        <a href="<?php echo BASE_URL; ?>/public/contact.php" class="btn btn-outline-light btn-large">
-                            <i class="fas fa-calendar-alt"></i> Schedule a Visit
-                        </a>
+                        <?php if (!empty($sl['btn1_label'])): ?><a href="<?php echo e(cms_link($sl['btn1_url'])); ?>" class="btn btn-primary btn-large"><?php echo e($sl['btn1_label']); ?></a><?php endif; ?>
+                        <?php if (!empty($sl['btn2_label'])): ?><a href="<?php echo e(cms_link($sl['btn2_url'])); ?>" class="btn btn-outline-light btn-large"><?php echo e($sl['btn2_label']); ?></a><?php endif; ?>
                     </div>
                 </div>
             </div>
         </div>
-        
-        <!-- Slide 2 -->
-        <div class="hero-slide" style="background-image: linear-gradient(135deg, rgba(196,30,58,0.85) 0%, rgba(255,215,0,0.85) 100%), url('<?php echo BASE_URL; ?>/assets/images/hero-bg-2.jpg');">
-            <div class="container">
-                <div class="hero-content">
-                    <span class="hero-subtitle">Quality Education</span>
-                    <h1 class="hero-title">British <span>Early Years</span> Curriculum</h1>
-                    <p class="hero-motto">Nurturing young minds with the best educational practices</p>
-                    <div class="hero-buttons">
-                        <a href="<?php echo BASE_URL; ?>/public/academics.php" class="btn btn-primary btn-large">
-                            <i class="fas fa-book-open"></i> Our Curriculum
-                        </a>
-                        <a href="<?php echo BASE_URL; ?>/public/about.php" class="btn btn-outline-light btn-large">
-                            <i class="fas fa-info-circle"></i> Learn More
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Slide 3 -->
-        <div class="hero-slide" style="background-image: linear-gradient(135deg, rgba(255,215,0,0.85) 0%, rgba(0,40,85,0.85) 100%), url('<?php echo BASE_URL; ?>/assets/images/hero-bg-3.jpg');">
-            <div class="container">
-                <div class="hero-content">
-                    <span class="hero-subtitle">Faith-Based Learning</span>
-                    <h1 class="hero-title">Growing in <span>Wisdom & Virtue</span></h1>
-                    <p class="hero-motto">Building strong minds and kind hearts for the future</p>
-                    <div class="hero-buttons">
-                        <a href="<?php echo BASE_URL; ?>/public/gallery.php" class="btn btn-primary btn-large">
-                            <i class="fas fa-images"></i> View Gallery
-                        </a>
-                        <a href="<?php echo BASE_URL; ?>/public/contact.php" class="btn btn-outline-light btn-large">
-                            <i class="fas fa-map-marker-alt"></i> Find Us
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <?php endforeach; ?>
     </div>
-    
+
     <!-- Slider Controls -->
     <div class="slider-controls">
         <button class="slider-prev"><i class="fas fa-chevron-left"></i></button>
         <div class="slider-dots">
-            <span class="dot active"></span>
-            <span class="dot"></span>
-            <span class="dot"></span>
+            <?php foreach ($heroSlides as $di => $_): ?><span class="dot<?php echo $di === 0 ? ' active' : ''; ?>"></span><?php endforeach; ?>
         </div>
         <button class="slider-next"><i class="fas fa-chevron-right"></i></button>
     </div>
-    
+
     <!-- Hero Stats -->
     <div class="hero-stats">
         <div class="container">
@@ -1411,28 +1127,28 @@ try {
                 <div class="stat-item">
                     <div class="stat-icon"><i class="fas fa-users"></i></div>
                     <div class="stat-content">
-                        <span class="stat-number"><?php echo $stats['students']; ?>+</span>
+                        <span class="stat-number"><?php echo e($stats['students']); ?>+</span>
                         <span class="stat-label">Happy Students</span>
                     </div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-icon"><i class="fas fa-chalkboard-teacher"></i></div>
                     <div class="stat-content">
-                        <span class="stat-number"><?php echo $stats['teachers']; ?></span>
+                        <span class="stat-number"><?php echo e($stats['teachers']); ?></span>
                         <span class="stat-label">Expert Teachers</span>
                     </div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-icon"><i class="fas fa-school"></i></div>
                     <div class="stat-content">
-                        <span class="stat-number"><?php echo $stats['classes']; ?></span>
+                        <span class="stat-number"><?php echo e($stats['classes']); ?></span>
                         <span class="stat-label">Classes</span>
                     </div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-icon"><i class="fas fa-trophy"></i></div>
                     <div class="stat-content">
-                        <span class="stat-number"><?php echo $stats['years']; ?></span>
+                        <span class="stat-number"><?php echo e($stats['years']); ?></span>
                         <span class="stat-label">Years of Excellence</span>
                     </div>
                 </div>
@@ -1446,53 +1162,53 @@ try {
     <div class="container">
         <div class="welcome-grid">
             <div class="welcome-content">
-                <span class="section-tag">Welcome to St. Benedict's</span>
-                <h2 class="section-title">Nurturing <span class="text-highlight">Young Minds</span> with Faith & Excellence</h2>
-                <p class="welcome-text">At St. Benedict's Early Years British Academy, we believe that every child is a unique gift from God. Our approach combines the best of the British Early Years Foundation Stage curriculum with strong Christian values, creating an environment where children can flourish academically, socially, and spiritually.</p>
-                
+                <span class="section-tag"><?php echo cms_e('home.welcome_tag'); ?></span>
+                <h2 class="section-title"><?php echo cms_hl('home.welcome_title'); ?></h2>
+                <p class="welcome-text"><?php echo cms_e('home.welcome_text'); ?></p>
+
                 <div class="features-list">
                     <div class="feature-item">
                         <div class="feature-icon"><i class="fas fa-check-circle"></i></div>
                         <div class="feature-text">
-                            <h4>British Curriculum</h4>
-                            <p>Internationally recognized Early Years Foundation Stage</p>
+                            <h4><?php echo cms_e('home.feat1_title'); ?></h4>
+                            <p><?php echo cms_e('home.feat1_text'); ?></p>
                         </div>
                     </div>
                     <div class="feature-item">
                         <div class="feature-icon"><i class="fas fa-check-circle"></i></div>
                         <div class="feature-text">
-                            <h4>Qualified Teachers</h4>
-                            <p>Experienced and caring early years educators</p>
+                            <h4><?php echo cms_e('home.feat2_title'); ?></h4>
+                            <p><?php echo cms_e('home.feat2_text'); ?></p>
                         </div>
                     </div>
                     <div class="feature-item">
                         <div class="feature-icon"><i class="fas fa-check-circle"></i></div>
                         <div class="feature-text">
-                            <h4>Safe Environment</h4>
-                            <p>Secure, child-friendly facilities with modern equipment</p>
+                            <h4><?php echo cms_e('home.feat3_title'); ?></h4>
+                            <p><?php echo cms_e('home.feat3_text'); ?></p>
                         </div>
                     </div>
                     <div class="feature-item">
                         <div class="feature-icon"><i class="fas fa-check-circle"></i></div>
                         <div class="feature-text">
-                            <h4>Faith-Based</h4>
-                            <p>Christian values integrated into daily learning</p>
+                            <h4><?php echo cms_e('home.feat4_title'); ?></h4>
+                            <p><?php echo cms_e('home.feat4_text'); ?></p>
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="welcome-cta">
-                    <a href="<?php echo BASE_URL; ?>/public/about.php" class="btn btn-primary">
+                    <a href="<?php echo BASE_URL; ?>/public/about" class="btn btn-primary">
                         Discover More About Us <i class="fas fa-arrow-right"></i>
                     </a>
                 </div>
             </div>
-            
+
             <div class="welcome-image">
                 <div class="image-wrapper">
-                    <img src="<?php echo BASE_URL; ?>/assets/images/welcome-image.jpg" alt="Students learning at St. Benedict's" onerror="this.onerror=null; this.src='<?php echo BASE_URL; ?>/assets/images/placeholder.jpg';">
+                    <img src="<?php echo e(cms_img('home.welcome_image', BASE_URL . '/assets/images/welcome-image.jpg')); ?>" alt="Students learning at St. Benedict's" onerror="this.onerror=null; this.src='<?php echo BASE_URL; ?>/assets/images/placeholder.jpg';">
                     <div class="experience-badge">
-                        <span class="years"><?php echo $stats['years']; ?>+</span>
+                        <span class="years"><?php echo e($stats['years']); ?>+</span>
                         <span class="text">Years of Excellence</span>
                     </div>
                 </div>
@@ -1507,22 +1223,22 @@ try {
         <div class="stats-container">
             <div class="stat-box">
                 <i class="fas fa-users"></i>
-                <div class="number"><?php echo $stats['students']; ?>+</div>
+                <div class="number"><?php echo e($stats['students']); ?>+</div>
                 <div class="label">Students</div>
             </div>
             <div class="stat-box">
                 <i class="fas fa-chalkboard-teacher"></i>
-                <div class="number"><?php echo $stats['teachers']; ?></div>
+                <div class="number"><?php echo e($stats['teachers']); ?></div>
                 <div class="label">Teachers</div>
             </div>
             <div class="stat-box">
                 <i class="fas fa-school"></i>
-                <div class="number"><?php echo $stats['classes']; ?></div>
+                <div class="number"><?php echo e($stats['classes']); ?></div>
                 <div class="label">Classes</div>
             </div>
             <div class="stat-box">
                 <i class="fas fa-trophy"></i>
-                <div class="number"><?php echo $stats['years']; ?></div>
+                <div class="number"><?php echo e($stats['years']); ?></div>
                 <div class="label">Years</div>
             </div>
         </div>
@@ -1539,28 +1255,28 @@ try {
                     <i class="fas fa-cross"></i>
                 </div>
                 <h2>Our Mission</h2>
-                <p>Through Christ's guidance, we build strong minds and kind hearts for the future. As a family of God rooted in love and faith, we cherish every child as God's gift. We learn, play, and grow together in joy, peace, and love.</p>
+                <p><?php echo cms_e('home.mission'); ?></p>
             </div>
-            
+
             <!-- Vision Slide -->
             <div class="mvg-slide" id="slide-vision">
                 <div class="mvg-icon">
                     <i class="fas fa-eye"></i>
                 </div>
                 <h2>Our Vision</h2>
-                <p>To nurture children who shine with wisdom, faith, and character, ready to shape a brighter, God-centred future.</p>
+                <p><?php echo cms_e('home.vision'); ?></p>
             </div>
-            
+
             <!-- Goal Slide -->
             <div class="mvg-slide" id="slide-goal">
                 <div class="mvg-icon">
                     <i class="fas fa-bullseye"></i>
                 </div>
                 <h2>Our Goal</h2>
-                <p>To provide every child with a happy, safe, and faith-filled foundation for life, learning, and purpose.</p>
+                <p><?php echo cms_e('home.goal'); ?></p>
             </div>
         </div>
-        
+
         <!-- MVG Controls -->
         <div class="mvg-controls">
             <button class="mvg-prev" id="mvgPrev"><i class="fas fa-chevron-left"></i></button>
@@ -1577,48 +1293,48 @@ try {
 <!-- ===== PROGRAMS SECTION ===== -->
 <section class="programs-section">
     <div class="container">
-        <h2 class="section-title text-center">Our Programs</h2>
-        <p class="section-subtitle text-center">Age-appropriate learning pathways designed to nurture every child's potential</p>
-        
+        <h2 class="section-title text-center"><?php echo cms_e('home.programs_title'); ?></h2>
+        <p class="section-subtitle text-center"><?php echo cms_e('home.programs_subtitle'); ?></p>
+
         <div class="programs-grid">
             <div class="program-card">
                 <div class="program-icon">
                     <i class="fas fa-baby"></i>
                 </div>
-                <h3>Nursery</h3>
-                <p class="program-age">Ages 2-3</p>
-                <p class="program-desc">Introduction to structured play, social interaction, and early communication skills.</p>
-                <a href="<?php echo BASE_URL; ?>/public/academics.php" class="btn-link">Learn More <i class="fas fa-arrow-right"></i></a>
+                <h3><?php echo cms_e('home.prog1_title'); ?></h3>
+                <p class="program-age"><?php echo cms_e('home.prog1_age'); ?></p>
+                <p class="program-desc"><?php echo cms_e('home.prog1_text'); ?></p>
+                <a href="<?php echo BASE_URL; ?>/public/academics" class="btn-link">Learn More <i class="fas fa-arrow-right"></i></a>
             </div>
-            
+
             <div class="program-card">
                 <div class="program-icon">
                     <i class="fas fa-child"></i>
                 </div>
-                <h3>Reception</h3>
-                <p class="program-age">Ages 4-5</p>
-                <p class="program-desc">Preparation for formal learning with focus on early literacy, numeracy, and social skills.</p>
-                <a href="<?php echo BASE_URL; ?>/public/academics.php" class="btn-link">Learn More <i class="fas fa-arrow-right"></i></a>
+                <h3><?php echo cms_e('home.prog2_title'); ?></h3>
+                <p class="program-age"><?php echo cms_e('home.prog2_age'); ?></p>
+                <p class="program-desc"><?php echo cms_e('home.prog2_text'); ?></p>
+                <a href="<?php echo BASE_URL; ?>/public/academics" class="btn-link">Learn More <i class="fas fa-arrow-right"></i></a>
             </div>
-            
+
             <div class="program-card">
                 <div class="program-icon">
                     <i class="fas fa-user-graduate"></i>
                 </div>
-                <h3>Year 1-2</h3>
-                <p class="program-age">Ages 5-7</p>
-                <p class="program-desc">Building solid foundations in core subjects following the British curriculum.</p>
-                <a href="<?php echo BASE_URL; ?>/public/academics.php" class="btn-link">Learn More <i class="fas fa-arrow-right"></i></a>
+                <h3><?php echo cms_e('home.prog3_title'); ?></h3>
+                <p class="program-age"><?php echo cms_e('home.prog3_age'); ?></p>
+                <p class="program-desc"><?php echo cms_e('home.prog3_text'); ?></p>
+                <a href="<?php echo BASE_URL; ?>/public/academics" class="btn-link">Learn More <i class="fas fa-arrow-right"></i></a>
             </div>
-            
+
             <div class="program-card">
                 <div class="program-icon">
                     <i class="fas fa-music"></i>
                 </div>
-                <h3>Extra-Curricular</h3>
-                <p class="program-age">All Ages</p>
-                <p class="program-desc">Enrichment activities to discover and nurture individual talents.</p>
-                <a href="<?php echo BASE_URL; ?>/public/academics.php" class="btn-link">Learn More <i class="fas fa-arrow-right"></i></a>
+                <h3><?php echo cms_e('home.prog4_title'); ?></h3>
+                <p class="program-age"><?php echo cms_e('home.prog4_age'); ?></p>
+                <p class="program-desc"><?php echo cms_e('home.prog4_text'); ?></p>
+                <a href="<?php echo BASE_URL; ?>/public/academics" class="btn-link">Learn More <i class="fas fa-arrow-right"></i></a>
             </div>
         </div>
     </div>
@@ -1627,16 +1343,16 @@ try {
 <!-- ===== NEWS SECTION ===== -->
 <section class="news-section">
     <div class="container">
-        <h2 class="section-title text-center">Latest News & Events</h2>
-        <p class="section-subtitle text-center">Keep up with the exciting activities at our school</p>
-        
+        <h2 class="section-title text-center"><?php echo cms_e('home.news_title'); ?></h2>
+        <p class="section-subtitle text-center"><?php echo cms_e('home.news_subtitle'); ?></p>
+
         <div class="news-grid">
             <?php if (!empty($news)): ?>
                 <?php foreach ($news as $item): ?>
                 <div class="news-card">
                     <div class="news-image">
                         <?php if (!empty($item['image_path']) && file_exists(__DIR__ . '/../uploads/news/' . $item['image_path'])): ?>
-                        <img src="<?php echo BASE_URL; ?>/uploads/news/<?php echo $item['image_path']; ?>" alt="<?php echo htmlspecialchars($item['title']); ?>" onerror="this.onerror=null; this.src='<?php echo BASE_URL; ?>/assets/images/news-placeholder.jpg';">
+                        <img src="<?php echo BASE_URL; ?>/uploads/news/<?php echo e($item['image_path']); ?>" alt="<?php echo htmlspecialchars($item['title']); ?>" onerror="this.onerror=null; this.src='<?php echo BASE_URL; ?>/assets/images/news-placeholder.jpg';">
                         <?php else: ?>
                         <img src="<?php echo BASE_URL; ?>/assets/images/news-placeholder.jpg" alt="News">
                         <?php endif; ?>
@@ -1646,11 +1362,11 @@ try {
                         </div>
                     </div>
                     <div class="news-content">
-                        <h3><a href="<?php echo BASE_URL; ?>/public/news-detail.php?id=<?php echo $item['id']; ?>"><?php echo htmlspecialchars($item['title']); ?></a></h3>
-                        <p><?php echo substr(htmlspecialchars($item['content']), 0, 120); ?>...</p>
+                        <h3><a href="<?php echo BASE_URL; ?>/public/news-detail?id=<?php echo e($item['id']); ?>"><?php echo htmlspecialchars($item['title']); ?></a></h3>
+                        <p><?php echo htmlspecialchars(mb_substr($item['content'], 0, 120)); ?>...</p>
                         <div class="news-meta">
                             <span class="news-author"><i class="far fa-user"></i> Admin</span>
-                            <a href="<?php echo BASE_URL; ?>/public/news-detail.php?id=<?php echo $item['id']; ?>" class="read-more">Read More <i class="fas fa-arrow-right"></i></a>
+                            <a href="<?php echo BASE_URL; ?>/public/news-detail?id=<?php echo e($item['id']); ?>" class="read-more">Read More <i class="fas fa-arrow-right"></i></a>
                         </div>
                     </div>
                 </div>
@@ -1710,9 +1426,9 @@ try {
                 </div>
             <?php endif; ?>
         </div>
-        
+
         <div class="text-center mt-4">
-            <a href="<?php echo BASE_URL; ?>/public/news.php" class="btn btn-primary">View All News</a>
+            <a href="<?php echo BASE_URL; ?>/public/news" class="btn btn-primary">View All News</a>
         </div>
     </div>
 </section>
@@ -1721,13 +1437,13 @@ try {
 <section class="cta-section">
     <div class="container">
         <div class="cta-content">
-            <h2>Ready to Give Your Child the Best Start?</h2>
-            <p>Enroll today at St. Benedict's Early Years British Academy</p>
+            <h2><?php echo cms_e('home.cta_title'); ?></h2>
+            <p><?php echo cms_e('home.cta_text'); ?></p>
             <div class="cta-buttons">
-                <a href="<?php echo BASE_URL; ?>/public/apply.php" class="btn btn-primary btn-large">
+                <a href="<?php echo BASE_URL; ?>/public/apply" class="btn btn-primary btn-large">
                     <i class="fas fa-graduation-cap"></i> Apply Now
                 </a>
-                <a href="<?php echo BASE_URL; ?>/public/contact.php" class="btn btn-outline-light btn-large">
+                <a href="<?php echo BASE_URL; ?>/public/contact" class="btn btn-outline-light btn-large">
                     <i class="fas fa-calendar-alt"></i> Request Information
                 </a>
             </div>
@@ -1735,52 +1451,6 @@ try {
     </div>
 </section>
 
-<!-- ===== CHATBOT ===== -->
-<div class="chatbot-widget">
-    <div class="chatbot-button" id="chatbotButton">
-        <i class="fas fa-comment-dots"></i>
-        <span class="chatbot-notification">1</span>
-    </div>
-    
-    <div class="chatbot-container" id="chatbotContainer">
-        <div class="chatbot-header">
-            <div class="chatbot-title">
-                <i class="fas fa-robot"></i>
-                <h3>St. Benedict's Assistant</h3>
-            </div>
-            <button class="chatbot-close" id="chatbotClose">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        
-        <div class="chatbot-messages" id="chatbotMessages">
-            <div class="message bot-message">
-                <div class="message-avatar">
-                    <i class="fas fa-robot"></i>
-                </div>
-                <div class="message-content">
-                    <p>Hello! 👋 Welcome to St. Benedict's Early Years British Academy. How can I help you today?</p>
-                </div>
-            </div>
-        </div>
-        
-        <div class="quick-replies">
-            <button class="quick-reply">Admission Requirements</button>
-            <button class="quick-reply">School Fees</button>
-            <button class="quick-reply">Our Programs</button>
-            <button class="quick-reply">Contact Info</button>
-        </div>
-        
-        <div class="chatbot-input">
-            <input type="text" id="chatbotInput" placeholder="Type your message here...">
-            <button id="chatbotSend"><i class="fas fa-paper-plane"></i></button>
-        </div>
-        
-        <div class="chatbot-footer">
-            <span>Powered by St. Benedict's Academy</span>
-        </div>
-    </div>
-</div>
 
 <!-- Add a placeholder image if welcome-image.jpg doesn't exist -->
 <?php
@@ -1791,7 +1461,7 @@ if (!file_exists(__DIR__ . '/assets/images/welcome-image.jpg')) {
 ?>
 
 <!-- MVG Slideshow JavaScript -->
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 document.addEventListener('DOMContentLoaded', function() {
     // MVG Slideshow
     const mvgSlides = document.querySelectorAll('.mvg-slide');
@@ -1800,26 +1470,26 @@ document.addEventListener('DOMContentLoaded', function() {
     const mvgNext = document.getElementById('mvgNext');
     let mvgCurrentSlide = 0;
     let mvgInterval = setInterval(mvgNextSlide, 5000);
-    
+
     function mvgShowSlide(index) {
         mvgSlides.forEach(slide => slide.classList.remove('active'));
         mvgDots.forEach(dot => dot.classList.remove('active'));
-        
+
         mvgSlides[index].classList.add('active');
         mvgDots[index].classList.add('active');
         mvgCurrentSlide = index;
     }
-    
+
     function mvgNextSlide() {
         let next = (mvgCurrentSlide + 1) % mvgSlides.length;
         mvgShowSlide(next);
     }
-    
+
     function mvgPrevSlide() {
         let prev = (mvgCurrentSlide - 1 + mvgSlides.length) % mvgSlides.length;
         mvgShowSlide(prev);
     }
-    
+
     if (mvgPrev) {
         mvgPrev.addEventListener('click', function() {
             clearInterval(mvgInterval);
@@ -1827,7 +1497,7 @@ document.addEventListener('DOMContentLoaded', function() {
             mvgInterval = setInterval(mvgNextSlide, 5000);
         });
     }
-    
+
     if (mvgNext) {
         mvgNext.addEventListener('click', function() {
             clearInterval(mvgInterval);
@@ -1835,7 +1505,7 @@ document.addEventListener('DOMContentLoaded', function() {
             mvgInterval = setInterval(mvgNextSlide, 5000);
         });
     }
-    
+
     mvgDots.forEach((dot, index) => {
         dot.addEventListener('click', function() {
             clearInterval(mvgInterval);
@@ -1849,31 +1519,31 @@ document.addEventListener('DOMContentLoaded', function() {
     const dots = document.querySelectorAll('.dot');
     const prevBtn = document.querySelector('.slider-prev');
     const nextBtn = document.querySelector('.slider-next');
-    
+
     if (!slides.length) return;
-    
+
     let currentSlide = 0;
     let slideInterval = setInterval(nextSlide, 5000);
-    
+
     function showSlide(index) {
         slides.forEach(slide => slide.classList.remove('active'));
         dots.forEach(dot => dot.classList.remove('active'));
-        
+
         slides[index].classList.add('active');
         dots[index].classList.add('active');
         currentSlide = index;
     }
-    
+
     function nextSlide() {
         let next = (currentSlide + 1) % slides.length;
         showSlide(next);
     }
-    
+
     function prevSlide() {
         let prev = (currentSlide - 1 + slides.length) % slides.length;
         showSlide(prev);
     }
-    
+
     if (prevBtn) {
         prevBtn.addEventListener('click', function() {
             clearInterval(slideInterval);
@@ -1881,7 +1551,7 @@ document.addEventListener('DOMContentLoaded', function() {
             slideInterval = setInterval(nextSlide, 5000);
         });
     }
-    
+
     if (nextBtn) {
         nextBtn.addEventListener('click', function() {
             clearInterval(slideInterval);
@@ -1889,7 +1559,7 @@ document.addEventListener('DOMContentLoaded', function() {
             slideInterval = setInterval(nextSlide, 5000);
         });
     }
-    
+
     dots.forEach((dot, index) => {
         dot.addEventListener('click', function() {
             clearInterval(slideInterval);
@@ -1898,89 +1568,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Chatbot
-    const chatbotButton = document.getElementById('chatbotButton');
-    const chatbotContainer = document.getElementById('chatbotContainer');
-    const chatbotClose = document.getElementById('chatbotClose');
-    const chatbotInput = document.getElementById('chatbotInput');
-    const chatbotSend = document.getElementById('chatbotSend');
-    const chatbotMessages = document.getElementById('chatbotMessages');
-    const quickReplies = document.querySelectorAll('.quick-reply');
-    
-    // Toggle chatbot
-    if (chatbotButton) {
-        chatbotButton.addEventListener('click', function() {
-            chatbotContainer.classList.toggle('active');
-            if (chatbotContainer.classList.contains('active')) {
-                chatbotButton.style.display = 'none';
-                const notification = document.querySelector('.chatbot-notification');
-                if (notification) notification.style.display = 'none';
-            }
-        });
-    }
-    
-    if (chatbotClose) {
-        chatbotClose.addEventListener('click', function() {
-            chatbotContainer.classList.remove('active');
-            chatbotButton.style.display = 'flex';
-        });
-    }
-    
-    // Send message
-    function sendMessage() {
-        if (!chatbotInput) return;
-        const message = chatbotInput.value.trim();
-        if (message === '') return;
-        
-        addMessage(message, 'user');
-        chatbotInput.value = '';
-        
-        setTimeout(() => {
-            addMessage('Thank you for your message. Our team will get back to you soon!', 'bot');
-        }, 1000);
-    }
-    
-    if (chatbotSend) {
-        chatbotSend.addEventListener('click', sendMessage);
-    }
-    
-    if (chatbotInput) {
-        chatbotInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') sendMessage();
-        });
-    }
-    
-    function addMessage(text, sender) {
-        if (!chatbotMessages) return;
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${sender}-message`;
-        
-        const avatar = document.createElement('div');
-        avatar.className = 'message-avatar';
-        avatar.innerHTML = sender === 'bot' ? '<i class="fas fa-robot"></i>' : '<i class="fas fa-user"></i>';
-        
-        const content = document.createElement('div');
-        content.className = 'message-content';
-        content.innerHTML = `<p>${text}</p>`;
-        
-        messageDiv.appendChild(avatar);
-        messageDiv.appendChild(content);
-        chatbotMessages.appendChild(messageDiv);
-        
-        chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
-    }
-    
-    // Quick replies
-    if (quickReplies.length > 0) {
-        quickReplies.forEach(button => {
-            button.addEventListener('click', function() {
-                if (chatbotInput) {
-                    chatbotInput.value = this.textContent;
-                    sendMessage();
-                }
-            });
-        });
-    }
 });
 </script>
 

@@ -1,20 +1,18 @@
 <?php
 // student/profile.php - Student Profile
-require_once '../config/config.php';
-require_once '../config/database.php';
-require_once '../config/security.php';
+require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../config/security.php';
 
 Security::requireRole('student');
 
 $pageTitle = 'My Profile';
 $extraJS = ['profile.js'];
 
-include '../includes/header.php';
+include __DIR__ . '/../includes/header.php';
 
 $db = db();
 $userId = $_SESSION['user_id'];
-$message = '';
-$messageType = '';
+[$message, $messageType] = flash_get();
 
 // Get student profile
 $student = $db->getRow(
@@ -33,121 +31,83 @@ $student = $db->getRow(
 
 // Handle profile update
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!Security::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
+    if (!$student) {
+        $message = 'Student record not found';
+        $messageType = 'error';
+    } elseif (!Security::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
         $message = 'Invalid security token';
         $messageType = 'error';
     } else {
         $action = $_POST['action'] ?? '';
-        
+
         switch ($action) {
             case 'update_profile':
-                $data = [
-                    'phone' => Security::sanitize($_POST['phone']),
-                    'address' => Security::sanitize($_POST['address'])
-                ];
-                
+                $phone = Security::sanitize($_POST['phone'] ?? '');
+                $address = mb_substr(Security::sanitize($_POST['address'] ?? ''), 0, 500);
+                if ($phone !== '' && !Security::validatePhone($phone)) {
+                    $message = 'Please enter a valid Nigerian phone number';
+                    $messageType = 'error';
+                    break;
+                }
                 try {
-                    $db->query(
-                        "UPDATE users SET phone = ? WHERE id = ?",
-                        [$data['phone'], $userId]
-                    );
-                    
-                    $db->query(
-                        "UPDATE students SET address = ? WHERE user_id = ?",
-                        [$data['address'], $userId]
-                    );
-                    
+                    $db->query("UPDATE users SET phone = ? WHERE id = ?", [$phone, $userId]);
+                    $db->query("UPDATE students SET address = ? WHERE user_id = ?", [$address, $userId]);
                     Security::logAudit('UPDATED_PROFILE', 'students', $student['id']);
-                    
-                    $message = 'Profile updated successfully';
-                    $messageType = 'success';
-                    
-                    // Refresh student data
-                    $student = $db->getRow(
-                        "SELECT s.*, u.username, u.email, u.first_name, u.last_name, u.phone, u.profile_image,
-                                c.class_name, c.section,
-                                CONCAT(pu.first_name, ' ', pu.last_name) as parent_name,
-                                pu.email as parent_email, pu.phone as parent_phone
-                         FROM students s
-                         JOIN users u ON s.user_id = u.id
-                         LEFT JOIN classes c ON s.class_id = c.id
-                         LEFT JOIN parents p ON s.parent_id = p.id
-                         LEFT JOIN users pu ON p.user_id = pu.id
-                         WHERE s.user_id = ?",
-                        [$userId]
-                    );
-                    
+                    flash_redirect('Profile updated successfully', 'success');
                 } catch (Exception $e) {
-                    $message = 'Error: ' . $e->getMessage();
+                    error_log('student profile: ' . $e->getMessage());
+                    $message = 'Could not update your profile. Please try again.';
                     $messageType = 'error';
                 }
                 break;
-                
+
             case 'change_password':
-                $currentPassword = $_POST['current_password'];
-                $newPassword = $_POST['new_password'];
-                $confirmPassword = $_POST['confirm_password'];
-                
-                // Validate
+                $currentPassword = (string)($_POST['current_password'] ?? '');
+                $newPassword = (string)($_POST['new_password'] ?? '');
                 $user = $db->getRow("SELECT password_hash FROM users WHERE id = ?", [$userId]);
-                
+
                 if (!Security::verifyPassword($currentPassword, $user['password_hash'])) {
                     $message = 'Current password is incorrect';
                     $messageType = 'error';
-                } elseif ($newPassword !== $confirmPassword) {
+                } elseif ($newPassword !== (string)($_POST['confirm_password'] ?? '')) {
                     $message = 'New passwords do not match';
                     $messageType = 'error';
-                } elseif (strlen($newPassword) < 8) {
-                    $message = 'Password must be at least 8 characters';
+                } elseif ($pwError = strong_password($newPassword)) {
+                    $message = $pwError;
                     $messageType = 'error';
                 } else {
-                    $newHash = Security::hashPassword($newPassword);
-                    
-                    $db->query(
-                        "UPDATE users SET password_hash = ? WHERE id = ?",
-                        [$newHash, $userId]
-                    );
-                    
+                    $db->query("UPDATE users SET password_hash = ? WHERE id = ?", [Security::hashPassword($newPassword), $userId]);
                     Security::logAudit('PASSWORD_CHANGE', 'users', $userId);
-                    
-                    $message = 'Password changed successfully';
-                    $messageType = 'success';
+                    session_regenerate_id(true);
+                    flash_redirect('Password changed successfully', 'success');
                 }
                 break;
-                
+
             case 'upload_photo':
-                if (isset($_FILES['profile_photo']) && $_FILES['profile_photo']['error'] === UPLOAD_ERR_OK) {
-                    $upload = Validator::image($_FILES['profile_photo']);
-                    
-                    if ($upload['valid']) {
-                        $extension = pathinfo($_FILES['profile_photo']['name'], PATHINFO_EXTENSION);
-                        $filename = 'student_' . $student['id'] . '_' . time() . '.' . $extension;
-                        $uploadPath = UPLOAD_PATH . 'students/' . $filename;
-                        
-                        if (move_uploaded_file($_FILES['profile_photo']['tmp_name'], $uploadPath)) {
-                            // Delete old photo if exists
-                            if ($student['profile_image'] && file_exists(UPLOAD_PATH . 'students/' . $student['profile_image'])) {
-                                unlink(UPLOAD_PATH . 'students/' . $student['profile_image']);
-                            }
-                            
-                            $db->query(
-                                "UPDATE users SET profile_image = ? WHERE id = ?",
-                                [$filename, $userId]
-                            );
-                            
-                            Security::logAudit('UPDATED_PROFILE_PHOTO', 'users', $userId);
-                            
-                            $message = 'Profile photo updated successfully';
-                            $messageType = 'success';
-                            
-                            // Refresh student data
-                            $student['profile_image'] = $filename;
-                        }
-                    } else {
-                        $message = implode(', ', $upload['errors']);
-                        $messageType = 'error';
-                    }
+                if (!isset($_FILES['profile_photo']) || $_FILES['profile_photo']['error'] === UPLOAD_ERR_NO_FILE) {
+                    $message = 'Please choose a photo';
+                    $messageType = 'error';
+                    break;
                 }
+                $upload = Security::validateFileUpload($_FILES['profile_photo'], ['jpg', 'jpeg', 'png']);
+                if (!$upload['valid']) {
+                    $message = $upload['message'];
+                    $messageType = 'error';
+                    break;
+                }
+                $dir = UPLOAD_PATH . 'students/';
+                if (!is_dir($dir)) { @mkdir($dir, 0755, true); }
+                $filename = 'student_' . $student['id'] . '_' . bin2hex(random_bytes(8)) . '.' . $upload['extension'];
+                if (move_uploaded_file($_FILES['profile_photo']['tmp_name'], $dir . $filename)) {
+                    if ($student['profile_image'] && basename($student['profile_image']) === $student['profile_image'] && is_file($dir . $student['profile_image'])) {
+                        @unlink($dir . $student['profile_image']);
+                    }
+                    $db->query("UPDATE users SET profile_image = ? WHERE id = ?", [$filename, $userId]);
+                    Security::logAudit('UPDATED_PROFILE_PHOTO', 'users', $userId);
+                    flash_redirect('Profile photo updated successfully', 'success');
+                }
+                $message = 'Could not store the photo';
+                $messageType = 'error';
                 break;
         }
     }
@@ -155,74 +115,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 ?>
 
 <div class="dashboard-container">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <h3>Student Panel</h3>
-        </div>
-        <nav class="sidebar-nav">
-            <ul>
-                <li><a href="dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
-                <li><a href="results.php"><i class="fas fa-chart-line"></i> My Results</a></li>
-                <li><a href="attendance.php"><i class="fas fa-calendar-check"></i> Attendance</a></li>
-                <li><a href="assignments.php"><i class="fas fa-tasks"></i> Assignments</a></li>
-                <li><a href="fees.php"><i class="fas fa-money-bill"></i> Fees</a></li>
-                <li><a href="messages.php"><i class="fas fa-envelope"></i> Messages</a></li>
-                <li class="active"><a href="profile.php"><i class="fas fa-user-cog"></i> Profile</a></li>
-            </ul>
-        </nav>
-    </aside>
-    
+    <?php render_sidebar('student'); ?>
+
     <main class="dashboard-main">
         <div class="dashboard-header">
             <h1>My Profile</h1>
         </div>
-        
+
         <?php if ($message): ?>
-        <div class="alert alert-<?php echo $messageType; ?> alert-dismissible">
+        <div class="alert alert-<?php echo e($messageType); ?> alert-dismissible">
             <i class="fas <?php echo $messageType === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'; ?>"></i>
-            <?php echo $message; ?>
+            <?php echo e($message); ?>
             <button type="button" class="close" onclick="this.parentElement.remove()">&times;</button>
         </div>
         <?php endif; ?>
-        
+
         <div class="profile-grid">
             <!-- Profile Card -->
             <div class="profile-card">
                 <div class="profile-header">
                     <div class="profile-avatar">
                         <?php if ($student['profile_image']): ?>
-                        <img src="<?php echo BASE_URL; ?>/uploads/students/<?php echo $student['profile_image']; ?>" 
+                        <img src="<?php echo BASE_URL; ?>/uploads/students/<?php echo e($student['profile_image']); ?>"
                              alt="Profile Photo" id="profilePhoto">
                         <?php else: ?>
                         <div class="avatar-placeholder">
                             <i class="fas fa-user-graduate"></i>
                         </div>
                         <?php endif; ?>
-                        
+
                         <button class="btn-edit-photo" onclick="document.getElementById('photoInput').click()">
                             <i class="fas fa-camera"></i>
                         </button>
-                        
+
                         <form method="POST" enctype="multipart/form-data" id="photoForm" style="display: none;">
                             <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
                             <input type="hidden" name="action" value="upload_photo">
                             <input type="file" id="photoInput" name="profile_photo" accept="image/*" onchange="this.form.submit()">
                         </form>
                     </div>
-                    
+
                     <h2><?php echo htmlspecialchars($student['first_name'] . ' ' . $student['last_name']); ?></h2>
                     <p class="student-class"><?php echo htmlspecialchars($student['class_name'] . ' ' . $student['section']); ?></p>
                     <p class="student-id">Admission No: <?php echo htmlspecialchars($student['admission_number']); ?></p>
                 </div>
-                
+
                 <div class="profile-stats">
                     <div class="stat-item">
                         <span class="stat-value"><?php echo $student['age'] ?? '--'; ?></span>
                         <span class="stat-label">Age</span>
                     </div>
                     <div class="stat-item">
-                        <span class="stat-value"><?php echo ucfirst($student['gender']); ?></span>
+                        <span class="stat-value"><?php echo e(ucfirst($student['gender'])); ?></span>
                         <span class="stat-label">Gender</span>
                     </div>
                     <div class="stat-item">
@@ -230,7 +174,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <span class="stat-label">Blood Group</span>
                     </div>
                 </div>
-                
+
                 <div class="profile-info">
                     <div class="info-row">
                         <i class="fas fa-envelope"></i>
@@ -250,7 +194,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 </div>
             </div>
-            
+
             <!-- Edit Profile Form -->
             <div class="profile-edit-card">
                 <div class="card-header">
@@ -260,37 +204,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <form method="POST" class="profile-form">
                         <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
                         <input type="hidden" name="action" value="update_profile">
-                        
+
                         <div class="form-group">
                             <label for="first_name">First Name</label>
-                            <input type="text" id="first_name" class="form-control" 
+                            <input type="text" id="first_name" class="form-control"
                                    value="<?php echo htmlspecialchars($student['first_name']); ?>" readonly disabled>
                             <small class="form-text">Contact admin to change name</small>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="last_name">Last Name</label>
-                            <input type="text" id="last_name" class="form-control" 
+                            <input type="text" id="last_name" class="form-control"
                                    value="<?php echo htmlspecialchars($student['last_name']); ?>" readonly disabled>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="email">Email Address</label>
-                            <input type="email" id="email" class="form-control" 
+                            <input type="email" id="email" class="form-control"
                                    value="<?php echo htmlspecialchars($student['email']); ?>" readonly disabled>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="phone">Phone Number</label>
-                            <input type="tel" id="phone" name="phone" class="form-control" 
+                            <input type="tel" id="phone" name="phone" class="form-control"
                                    value="<?php echo htmlspecialchars($student['phone']); ?>">
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="address">Address</label>
                             <textarea id="address" name="address" class="form-control" rows="3"><?php echo htmlspecialchars($student['address']); ?></textarea>
                         </div>
-                        
+
                         <div class="form-actions">
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-save"></i> Update Profile
@@ -299,7 +243,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </form>
                 </div>
             </div>
-            
+
             <!-- Change Password -->
             <div class="profile-password-card">
                 <div class="card-header">
@@ -309,12 +253,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <form method="POST" class="password-form" onsubmit="return validatePassword()">
                         <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
                         <input type="hidden" name="action" value="change_password">
-                        
+
                         <div class="form-group">
                             <label for="current_password">Current Password</label>
                             <input type="password" id="current_password" name="current_password" class="form-control" required>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="new_password">New Password</label>
                             <input type="password" id="new_password" name="new_password" class="form-control" required>
@@ -329,13 +273,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <li id="req-special">At least one special character</li>
                             </ul>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="confirm_password">Confirm New Password</label>
                             <input type="password" id="confirm_password" name="confirm_password" class="form-control" required>
                             <div id="passwordMatch" class="password-match"></div>
                         </div>
-                        
+
                         <div class="form-actions">
                             <button type="submit" class="btn btn-primary" id="changePasswordBtn">
                                 <i class="fas fa-key"></i> Change Password
@@ -344,7 +288,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </form>
                 </div>
             </div>
-            
+
             <!-- Parent Information -->
             <div class="profile-parent-card">
                 <div class="card-header">
@@ -365,11 +309,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <span><?php echo htmlspecialchars($student['parent_phone'] ?? 'Not provided'); ?></span>
                         </div>
                     </div>
-                    
+
                     <div class="emergency-contact">
                         <h4>Emergency Contact</h4>
                         <p>In case of emergency, please contact the school office at:</p>
-                        <p class="emergency-phone"><i class="fas fa-phone-alt"></i> <?php echo SCHOOL_PHONE; ?></p>
+                        <p class="emergency-phone"><i class="fas fa-phone-alt"></i> <?php echo school_phone(); ?></p>
                     </div>
                 </div>
             </div>
@@ -645,7 +589,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     .profile-card {
         grid-template-columns: 1fr;
     }
-    
+
     .profile-grid {
         grid-template-columns: 1fr;
     }
@@ -655,33 +599,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     .profile-card {
         padding: 20px;
     }
-    
+
     .profile-stats {
         grid-template-columns: 1fr;
     }
 }
 </style>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 // Password strength checker
 document.getElementById('new_password')?.addEventListener('input', function() {
     const password = this.value;
     const strengthBar = document.getElementById('strengthBar');
-    
+
     // Check requirements
     const hasLength = password.length >= 8;
     const hasUppercase = /[A-Z]/.test(password);
     const hasLowercase = /[a-z]/.test(password);
     const hasNumber = /[0-9]/.test(password);
     const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
-    
+
     // Update requirement indicators
     document.getElementById('req-length').className = hasLength ? 'valid' : 'invalid';
     document.getElementById('req-uppercase').className = hasUppercase ? 'valid' : 'invalid';
     document.getElementById('req-lowercase').className = hasLowercase ? 'valid' : 'invalid';
     document.getElementById('req-number').className = hasNumber ? 'valid' : 'invalid';
     document.getElementById('req-special').className = hasSpecial ? 'valid' : 'invalid';
-    
+
     // Calculate strength
     let strength = 0;
     if (hasLength) strength++;
@@ -689,7 +633,7 @@ document.getElementById('new_password')?.addEventListener('input', function() {
     if (hasLowercase) strength++;
     if (hasNumber) strength++;
     if (hasSpecial) strength++;
-    
+
     // Update strength bar
     strengthBar.className = '';
     if (strength <= 2) {
@@ -708,7 +652,7 @@ document.getElementById('confirm_password')?.addEventListener('input', function(
     const password = document.getElementById('new_password').value;
     const confirm = this.value;
     const matchDiv = document.getElementById('passwordMatch');
-    
+
     if (confirm === '') {
         matchDiv.textContent = '';
         matchDiv.className = 'password-match';
@@ -725,17 +669,17 @@ document.getElementById('confirm_password')?.addEventListener('input', function(
 function validatePassword() {
     const password = document.getElementById('new_password').value;
     const confirm = document.getElementById('confirm_password').value;
-    
+
     if (password !== confirm) {
         alert('Passwords do not match!');
         return false;
     }
-    
+
     if (password.length < 8) {
         alert('Password must be at least 8 characters long!');
         return false;
     }
-    
+
     return true;
 }
 
@@ -748,3 +692,5 @@ setTimeout(() => {
     });
 }, 5000);
 </script>
+
+<?php include __DIR__ . '/../includes/footer.php'; ?>

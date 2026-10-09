@@ -1,40 +1,25 @@
 <?php
 // admin/teachers.php - Teacher Management
 require_once __DIR__ . '/../config/config.php';
-require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/security.php';
 
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Require admin role
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
-    header('Location: ' . BASE_URL . '/login.php');
-    exit;
-}
+Security::requireRole('admin');
 
 $pageTitle = 'Teacher Management';
-$extraCSS = ['dataTables.css', 'admin.css'];
-$extraJS = ['teachers.js', 'dataTables.js'];
+$extraCSS = ['admin.css'];
+$extraJS = ['teachers.js'];
 
-// Check if header exists
-$headerPath = __DIR__ . '/../includes/header.php';
-if (!file_exists($headerPath)) {
-    die("Error: Header file not found at: $headerPath");
-}
-include $headerPath;
+include __DIR__ . '/../includes/header.php';
 
 // Get database instance
 $db = Database::getInstance();
 
-$message = '';
-$messageType = '';
+[$message, $messageType] = flash_get();
 
 // Handle actions
 $action = isset($_GET['action']) ? $_GET['action'] : 'list';
-$id = isset($_GET['id']) ? (int)$_GET['id'] : null;
+$id = isset($_POST['id']) ? (int)$_POST['id'] : (isset($_GET['id']) ? (int)$_GET['id'] : null);
+if (!in_array($action, ['list', 'add', 'edit'], true)) $action = 'list';
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -43,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $messageType = 'error';
     } else {
         $postAction = $_POST['action'] ?? '';
-        
+
         switch ($postAction) {
             case 'add':
             case 'edit':
@@ -57,56 +42,71 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $employeeId = Security::sanitize($_POST['employee_id'] ?? '');
                 $qualification = Security::sanitize($_POST['qualification'] ?? '');
                 $specialization = Security::sanitize($_POST['specialization'] ?? '');
-                $dateOfHire = Security::sanitize($_POST['date_of_hire'] ?? date('Y-m-d'));
+                $dateOfHire = valid_date($_POST['date_of_hire'] ?? '') ?? date('Y-m-d');
                 $address = Security::sanitize($_POST['address'] ?? '');
                 $emergencyContact = Security::sanitize($_POST['emergency_contact'] ?? '');
                 $isActive = isset($_POST['is_active']) ? 1 : 0;
-                
+
                 // Validate required fields
                 if (empty($username) || empty($email) || empty($firstName) || empty($lastName) || empty($employeeId)) {
                     $message = 'Please fill in all required fields';
                     $messageType = 'error';
                     break;
                 }
-                
+
                 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
                     $message = 'Please enter a valid email address';
                     $messageType = 'error';
                     break;
                 }
-                
+                if (!valid_username($username)) {
+                    $message = 'Username must be 3-50 letters, numbers, dots, dashes or underscores';
+                    $messageType = 'error';
+                    break;
+                }
+                if ($phone !== '' && !Security::validatePhone($phone)) {
+                    $message = 'Please enter a valid Nigerian phone number';
+                    $messageType = 'error';
+                    break;
+                }
+                if ($password !== '' && ($pwError = strong_password($password))) {
+                    $message = $pwError;
+                    $messageType = 'error';
+                    break;
+                }
+
                 if ($postAction === 'add' && empty($password)) {
                     $message = 'Password is required for new teachers';
                     $messageType = 'error';
                     break;
                 }
-                
+
                 try {
                     $db->beginTransaction();
-                    
+
                     if ($postAction === 'add') {
                         // Check if username, email or employee_id already exists
                         $existing = $db->getRow(
                             "SELECT id FROM users WHERE username = ? OR email = ?",
                             [$username, $email]
                         );
-                        
+
                         if ($existing) {
                             throw new Exception("Username or email already exists");
                         }
-                        
+
                         $existingEmp = $db->getRow(
                             "SELECT id FROM teachers WHERE employee_id = ?",
                             [$employeeId]
                         );
-                        
+
                         if ($existingEmp) {
                             throw new Exception("Employee ID already exists");
                         }
-                        
+
                         // Create user
                         $userId = $db->insert(
-                            "INSERT INTO users (username, email, password_hash, first_name, last_name, phone, role, is_active) 
+                            "INSERT INTO users (username, email, password_hash, first_name, last_name, phone, role, is_active)
                              VALUES (?, ?, ?, ?, ?, ?, 'teacher', ?)",
                             [
                                 $username,
@@ -118,14 +118,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $isActive
                             ]
                         );
-                        
+
                         if (!$userId) {
                             throw new Exception("Failed to create user");
                         }
-                        
+
                         // Create teacher
                         $teacherId = $db->insert(
-                            "INSERT INTO teachers (user_id, employee_id, qualification, specialization, date_of_hire, address, emergency_contact) 
+                            "INSERT INTO teachers (user_id, employee_id, qualification, specialization, date_of_hire, address, emergency_contact)
                              VALUES (?, ?, ?, ?, ?, ?, ?)",
                             [
                                 $userId,
@@ -137,44 +137,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $emergencyContact
                             ]
                         );
-                        
+
                         Security::logAudit('ADDED_TEACHER', 'teachers', $teacherId);
                         $message = 'Teacher added successfully';
                         $messageType = 'success';
-                        
+
                     } else {
                         // Edit existing teacher
-                        $userId = (int)($_POST['user_id'] ?? 0);
-                        
-                        if (!$userId) {
-                            throw new Exception("Invalid user ID");
+                        $existingTeacher = $db->getRow('SELECT user_id FROM teachers WHERE id = ?', [$id]);
+                        if (!$existingTeacher) {
+                            throw new Exception("Teacher not found");
                         }
-                        
+                        $userId = (int)$existingTeacher['user_id'];
+                        if ($db->getRow('SELECT id FROM teachers WHERE employee_id = ? AND id <> ?', [$employeeId, $id])) {
+                            throw new Exception("Employee ID already exists");
+                        }
+
                         // Check if username or email already exists for other users
                         $existing = $db->getRow(
                             "SELECT id FROM users WHERE (username = ? OR email = ?) AND id != ?",
                             [$username, $email, $userId]
                         );
-                        
+
                         if ($existing) {
                             throw new Exception("Username or email already exists");
                         }
-                        
+
                         // Update user
                         $userParams = [$firstName, $lastName, $email, $phone, $isActive, $userId];
                         $userSql = "UPDATE users SET first_name = ?, last_name = ?, email = ?, phone = ?, is_active = ?";
-                        
+
                         if (!empty($password)) {
                             $userSql .= ", password_hash = ?";
                             array_splice($userParams, 5, 0, Security::hashPassword($password));
                         }
-                        
+
                         $userSql .= " WHERE id = ?";
                         $db->query($userSql, $userParams);
-                        
+
                         // Update teacher
                         $db->query(
-                            "UPDATE teachers SET employee_id = ?, qualification = ?, specialization = ?, 
+                            "UPDATE teachers SET employee_id = ?, qualification = ?, specialization = ?,
                              date_of_hire = ?, address = ?, emergency_contact = ? WHERE id = ?",
                             [
                                 $employeeId,
@@ -186,46 +189,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $id
                             ]
                         );
-                        
+
                         Security::logAudit('UPDATED_TEACHER', 'teachers', $id);
                         $message = 'Teacher updated successfully';
                         $messageType = 'success';
                     }
-                    
+
                     $db->commit();
-                    
+
                 } catch (Exception $e) {
                     $db->rollback();
                     $message = 'Error: ' . $e->getMessage();
                     $messageType = 'error';
                 }
                 break;
-                
+
             case 'delete':
                 try {
                     if (!$id) {
                         throw new Exception("Invalid teacher ID");
                     }
-                    
+
                     // Check if teacher has classes
                     $classCount = $db->getRow("SELECT COUNT(*) as count FROM classes WHERE teacher_id = ?", [$id])['count'] ?? 0;
-                    
+
                     if ($classCount > 0) {
                         $message = 'Cannot delete teacher with assigned classes';
                         $messageType = 'error';
                         break;
                     }
-                    
+
                     // Get user_id first
                     $teacher = $db->getRow("SELECT user_id FROM teachers WHERE id = ?", [$id]);
-                    
+
                     if ($teacher) {
                         // Soft delete user (set is_active to 0 instead of actual delete)
                         $db->query(
-                            "UPDATE users SET is_active = 0 WHERE id = ?", 
+                            "UPDATE users SET is_active = 0 WHERE id = ?",
                             [$teacher['user_id']]
                         );
-                        
+
                         Security::logAudit('DEACTIVATED_TEACHER', 'teachers', $id);
                         $message = 'Teacher deactivated successfully';
                         $messageType = 'success';
@@ -238,17 +241,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $messageType = 'error';
                 }
                 break;
-                
+
             case 'activate':
                 try {
                     $teacher = $db->getRow("SELECT user_id FROM teachers WHERE id = ?", [$id]);
-                    
+
                     if ($teacher) {
                         $db->query(
-                            "UPDATE users SET is_active = 1 WHERE id = ?", 
+                            "UPDATE users SET is_active = 1 WHERE id = ?",
                             [$teacher['user_id']]
                         );
-                        
+
                         Security::logAudit('ACTIVATED_TEACHER', 'teachers', $id);
                         $message = 'Teacher activated successfully';
                         $messageType = 'success';
@@ -262,20 +265,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $messageType === 'success') {
+    flash_redirect($message, 'success', BASE_URL . '/admin/teachers');
+}
+
 // Get teacher for editing
 $teacher = null;
 if ($action === 'edit' && $id) {
     $teacher = $db->getRow(
         "SELECT t.*, u.username, u.email, u.first_name, u.last_name, u.phone, u.is_active, u.id as user_id
-         FROM teachers t 
-         JOIN users u ON t.user_id = u.id 
+         FROM teachers t
+         JOIN users u ON t.user_id = u.id
          WHERE t.id = ?",
         [$id]
     );
 }
 
 // Get teachers list with pagination
-$page = isset($_GET['p']) ? (int)$_GET['p'] : 1;
+$page = page_param('p');
 $limit = 20;
 $offset = ($page - 1) * $limit;
 
@@ -320,30 +327,8 @@ if (!function_exists('generateEmployeeId')) {
 ?>
 
 <div class="dashboard-container">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <h3>Admin Panel</h3>
-        </div>
-        <nav class="sidebar-nav">
-            <ul>
-                <li><a href="dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
-                <li><a href="students.php"><i class="fas fa-user-graduate"></i> Students</a></li>
-                <li><a href="parents.php"><i class="fas fa-users"></i> Parents</a></li>
-                <li class="active"><a href="teachers.php"><i class="fas fa-chalkboard-teacher"></i> Teachers</a></li>
-                <li><a href="classes.php"><i class="fas fa-school"></i> Classes</a></li>
-                <li><a href="subjects.php"><i class="fas fa-book"></i> Subjects</a></li>
-                <li><a href="attendance.php"><i class="fas fa-calendar-check"></i> Attendance</a></li>
-                <li><a href="fees.php"><i class="fas fa-money-bill"></i> Fees</a></li>
-                <li><a href="results.php"><i class="fas fa-chart-line"></i> Results</a></li>
-                <li><a href="announcements.php"><i class="fas fa-bullhorn"></i> Announcements</a></li>
-                <li><a href="gallery.php"><i class="fas fa-images"></i> Gallery</a></li>
-                <li><a href="reports.php"><i class="fas fa-file-alt"></i> Reports</a></li>
-                <li><a href="audit-logs.php"><i class="fas fa-history"></i> Audit Logs</a></li>
-            </ul>
-        </nav>
-    </aside>
-    
+    <?php render_sidebar('admin'); ?>
+
     <main class="dashboard-main">
         <div class="dashboard-header">
             <h1>Teacher Management</h1>
@@ -351,20 +336,20 @@ if (!function_exists('generateEmployeeId')) {
                 <a href="?action=add" class="btn btn-primary">
                     <i class="fas fa-plus"></i> Add New Teacher
                 </a>
-                <a href="export.php?type=teachers" class="btn btn-outline">
+                <a href="export?type=teachers" class="btn btn-outline">
                     <i class="fas fa-download"></i> Export
                 </a>
             </div>
         </div>
-        
+
         <?php if ($message): ?>
-        <div class="alert alert-<?php echo $messageType; ?> alert-dismissible">
+        <div class="alert alert-<?php echo e($messageType); ?> alert-dismissible">
             <i class="fas <?php echo $messageType === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'; ?>"></i>
             <?php echo htmlspecialchars($message); ?>
             <button type="button" class="close" onclick="this.parentElement.remove()">&times;</button>
         </div>
         <?php endif; ?>
-        
+
         <?php if ($action === 'add' || $action === 'edit'): ?>
         <!-- Teacher Form -->
         <div class="card">
@@ -374,130 +359,130 @@ if (!function_exists('generateEmployeeId')) {
             <div class="card-body">
                 <form method="POST" class="form-container" enctype="multipart/form-data">
                     <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
-                    <input type="hidden" name="action" value="<?php echo $action; ?>">
+                    <input type="hidden" name="action" value="<?php echo e($action); ?>">
                     <?php if ($action === 'edit'): ?>
                     <input type="hidden" name="user_id" value="<?php echo $teacher['user_id'] ?? ''; ?>">
                     <?php endif; ?>
-                    
+
                     <div class="form-section">
                         <h3><i class="fas fa-user"></i> Personal Information</h3>
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="first_name">First Name *</label>
-                                <input type="text" id="first_name" name="first_name" class="form-control" 
+                                <input type="text" id="first_name" name="first_name" class="form-control"
                                        value="<?php echo htmlspecialchars($teacher['first_name'] ?? ''); ?>" required>
                             </div>
-                            
+
                             <div class="form-group">
                                 <label for="last_name">Last Name *</label>
-                                <input type="text" id="last_name" name="last_name" class="form-control" 
+                                <input type="text" id="last_name" name="last_name" class="form-control"
                                        value="<?php echo htmlspecialchars($teacher['last_name'] ?? ''); ?>" required>
                             </div>
-                            
+
                             <div class="form-group">
                                 <label for="employee_id">Employee ID *</label>
-                                <input type="text" id="employee_id" name="employee_id" class="form-control" 
-                                       value="<?php echo htmlspecialchars($teacher['employee_id'] ?? (function_exists('generateEmployeeId') ? generateEmployeeId() : '')); ?>" 
+                                <input type="text" id="employee_id" name="employee_id" class="form-control"
+                                       value="<?php echo htmlspecialchars($teacher['employee_id'] ?? (function_exists('generateEmployeeId') ? generateEmployeeId() : '')); ?>"
                                        placeholder="TCH/YYYY/000" required>
                                 <small class="form-text text-muted">Format: TCH/2024/001</small>
                             </div>
-                            
+
                             <div class="form-group">
                                 <label for="date_of_hire">Date of Hire *</label>
-                                <input type="date" id="date_of_hire" name="date_of_hire" class="form-control" 
+                                <input type="date" id="date_of_hire" name="date_of_hire" class="form-control"
                                        value="<?php echo htmlspecialchars($teacher['date_of_hire'] ?? date('Y-m-d')); ?>" required>
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="form-section">
                         <h3><i class="fas fa-graduation-cap"></i> Professional Information</h3>
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="qualification">Qualification</label>
-                                <input type="text" id="qualification" name="qualification" class="form-control" 
-                                       value="<?php echo htmlspecialchars($teacher['qualification'] ?? ''); ?>" 
+                                <input type="text" id="qualification" name="qualification" class="form-control"
+                                       value="<?php echo htmlspecialchars($teacher['qualification'] ?? ''); ?>"
                                        placeholder="e.g., B.Ed, M.Ed, PGDE">
                             </div>
-                            
+
                             <div class="form-group">
                                 <label for="specialization">Specialization</label>
-                                <input type="text" id="specialization" name="specialization" class="form-control" 
-                                       value="<?php echo htmlspecialchars($teacher['specialization'] ?? ''); ?>" 
+                                <input type="text" id="specialization" name="specialization" class="form-control"
+                                       value="<?php echo htmlspecialchars($teacher['specialization'] ?? ''); ?>"
                                        placeholder="e.g., Mathematics, English, Early Years">
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="form-section">
                         <h3><i class="fas fa-address-card"></i> Contact Information</h3>
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="email">Email Address *</label>
-                                <input type="email" id="email" name="email" class="form-control" 
+                                <input type="email" id="email" name="email" class="form-control"
                                        value="<?php echo htmlspecialchars($teacher['email'] ?? ''); ?>" required>
                             </div>
-                            
+
                             <div class="form-group">
                                 <label for="phone">Phone Number</label>
-                                <input type="tel" id="phone" name="phone" class="form-control" 
-                                       value="<?php echo htmlspecialchars($teacher['phone'] ?? ''); ?>" 
+                                <input type="tel" id="phone" name="phone" class="form-control"
+                                       value="<?php echo htmlspecialchars($teacher['phone'] ?? ''); ?>"
                                        placeholder="e.g., 08012345678">
                             </div>
-                            
+
                             <div class="form-group">
                                 <label for="emergency_contact">Emergency Contact</label>
-                                <input type="text" id="emergency_contact" name="emergency_contact" class="form-control" 
+                                <input type="text" id="emergency_contact" name="emergency_contact" class="form-control"
                                        value="<?php echo htmlspecialchars($teacher['emergency_contact'] ?? ''); ?>">
                             </div>
-                            
+
                             <div class="form-group full-width">
                                 <label for="address">Address</label>
                                 <textarea id="address" name="address" class="form-control" rows="2"><?php echo htmlspecialchars($teacher['address'] ?? ''); ?></textarea>
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="form-section">
                         <h3><i class="fas fa-lock"></i> Login Information</h3>
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="username">Username *</label>
-                                <input type="text" id="username" name="username" class="form-control" 
+                                <input type="text" id="username" name="username" class="form-control"
                                        value="<?php echo htmlspecialchars($teacher['username'] ?? ''); ?>" required>
                             </div>
-                            
+
                             <div class="form-group">
                                 <label for="password">Password <?php echo $action === 'add' ? '*' : ''; ?></label>
-                                <input type="password" id="password" name="password" class="form-control" 
+                                <input type="password" id="password" name="password" class="form-control"
                                        <?php echo $action === 'add' ? 'required' : ''; ?>>
                                 <?php if ($action === 'edit'): ?>
                                 <small class="form-text text-muted">Leave blank to keep current password</small>
                                 <?php endif; ?>
                             </div>
-                            
+
                             <div class="form-group">
                                 <label class="checkbox-label">
-                                    <input type="checkbox" name="is_active" value="1" 
+                                    <input type="checkbox" name="is_active" value="1"
                                            <?php echo (!isset($teacher['is_active']) || $teacher['is_active']) ? 'checked' : ''; ?>>
                                     Active Account
                                 </label>
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save"></i> <?php echo $action === 'add' ? 'Add Teacher' : 'Update Teacher'; ?>
                         </button>
-                        <a href="teachers.php" class="btn btn-outline">
+                        <a href="teachers" class="btn btn-outline">
                             <i class="fas fa-times"></i> Cancel
                         </a>
                     </div>
                 </form>
             </div>
         </div>
-        
+
         <?php else: ?>
         <!-- Teachers List -->
         <div class="card">
@@ -528,10 +513,10 @@ if (!function_exists('generateEmployeeId')) {
                         <tbody>
                             <?php foreach ($teachers as $teacher): ?>
                             <tr>
-                                <td><?php echo $teacher['id']; ?></td>
+                                <td><?php echo e($teacher['id']); ?></td>
                                 <td>
                                     <?php if (!empty($teacher['profile_image'])): ?>
-                                    <img src="<?php echo BASE_URL; ?>/uploads/teachers/<?php echo $teacher['profile_image']; ?>" 
+                                    <img src="<?php echo BASE_URL; ?>/uploads/teachers/<?php echo e($teacher['profile_image']); ?>"
                                          alt="Profile" class="table-avatar">
                                     <?php else: ?>
                                     <div class="avatar-placeholder">
@@ -549,22 +534,22 @@ if (!function_exists('generateEmployeeId')) {
                                     <?php echo htmlspecialchars($teacher['email']); ?><br>
                                     <small><?php echo htmlspecialchars($teacher['phone'] ?? ''); ?></small>
                                 </td>
-                                <td><?php echo $teacher['class_count']; ?></td>
-                                <td><?php echo $teacher['subject_count']; ?></td>
+                                <td><?php echo e($teacher['class_count']); ?></td>
+                                <td><?php echo e($teacher['subject_count']); ?></td>
                                 <td>
                                     <div class="action-buttons">
-                                        <a href="?action=edit&id=<?php echo $teacher['id']; ?>" class="btn-icon" title="Edit">
+                                        <a href="?action=edit&id=<?php echo e($teacher['id']); ?>" class="btn-icon" title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <a href="teacher-profile.php?id=<?php echo $teacher['id']; ?>" class="btn-icon" title="View Profile">
+                                        <a href="teacher-profile?id=<?php echo e($teacher['id']); ?>" class="btn-icon" title="View Profile">
                                             <i class="fas fa-eye"></i>
                                         </a>
-                                        <a href="assign-subjects.php?teacher_id=<?php echo $teacher['id']; ?>" class="btn-icon" title="Assign Subjects">
+                                        <a href="assign-subjects?teacher_id=<?php echo e($teacher['id']); ?>" class="btn-icon" title="Assign Subjects">
                                             <i class="fas fa-book"></i>
                                         </a>
                                         <?php if ($teacher['class_count'] == 0 && $teacher['subject_count'] == 0): ?>
-                                        <button type="button" class="btn-icon text-danger" 
-                                                onclick="confirmDeactivate(<?php echo $teacher['id']; ?>, '<?php echo htmlspecialchars(addslashes($teacher['first_name'] . ' ' . $teacher['last_name'])); ?>')"
+                                        <button type="button" class="btn-icon text-danger"
+                                                onclick="confirmDeactivate(<?php echo e($teacher['id']); ?>, '<?php echo htmlspecialchars(addslashes($teacher['first_name'] . ' ' . $teacher['last_name'])); ?>')"
                                                 title="Deactivate">
                                             <i class="fas fa-ban"></i>
                                         </button>
@@ -580,7 +565,7 @@ if (!function_exists('generateEmployeeId')) {
                         </tbody>
                     </table>
                 </div>
-                
+
                 <!-- Pagination -->
                 <?php if ($totalPages > 1): ?>
                 <div class="pagination">
@@ -589,13 +574,13 @@ if (!function_exists('generateEmployeeId')) {
                         <i class="fas fa-chevron-left"></i> Previous
                     </a>
                     <?php endif; ?>
-                    
+
                     <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                    <a href="?p=<?php echo $i; ?>" class="page-link <?php echo $i == $page ? 'active' : ''; ?>">
-                        <?php echo $i; ?>
+                    <a href="?p=<?php echo e($i); ?>" class="page-link <?php echo $i == $page ? 'active' : ''; ?>">
+                        <?php echo e($i); ?>
                     </a>
                     <?php endfor; ?>
-                    
+
                     <?php if ($page < $totalPages): ?>
                     <a href="?p=<?php echo $page + 1; ?>" class="page-link">
                         Next <i class="fas fa-chevron-right"></i>
@@ -603,7 +588,7 @@ if (!function_exists('generateEmployeeId')) {
                     <?php endif; ?>
                 </div>
                 <?php endif; ?>
-                
+
                 <?php else: ?>
                 <div class="alert alert-info">
                     <i class="fas fa-info-circle"></i>
@@ -612,7 +597,7 @@ if (!function_exists('generateEmployeeId')) {
                 <?php endif; ?>
             </div>
         </div>
-        
+
         <!-- Inactive Teachers Section -->
         <?php if (!empty($inactiveTeachers)): ?>
         <div class="card mt-4">
@@ -636,10 +621,10 @@ if (!function_exists('generateEmployeeId')) {
                         <tbody>
                             <?php foreach ($inactiveTeachers as $teacher): ?>
                             <tr>
-                                <td><?php echo $teacher['id']; ?></td>
+                                <td><?php echo e($teacher['id']); ?></td>
                                 <td>
                                     <?php if (!empty($teacher['profile_image'])): ?>
-                                    <img src="<?php echo BASE_URL; ?>/uploads/teachers/<?php echo $teacher['profile_image']; ?>" 
+                                    <img src="<?php echo BASE_URL; ?>/uploads/teachers/<?php echo e($teacher['profile_image']); ?>"
                                          alt="Profile" class="table-avatar">
                                     <?php else: ?>
                                     <div class="avatar-placeholder">
@@ -653,8 +638,8 @@ if (!function_exists('generateEmployeeId')) {
                                 <td><?php echo htmlspecialchars($teacher['phone'] ?? ''); ?></td>
                                 <td>
                                     <div class="action-buttons">
-                                        <button type="button" class="btn-icon text-success" 
-                                                onclick="activateTeacher(<?php echo $teacher['id']; ?>)"
+                                        <button type="button" class="btn-icon text-success"
+                                                onclick="activateTeacher(<?php echo e($teacher['id']); ?>)"
                                                 title="Activate">
                                             <i class="fas fa-check-circle"></i>
                                         </button>
@@ -668,7 +653,7 @@ if (!function_exists('generateEmployeeId')) {
             </div>
         </div>
         <?php endif; ?>
-        
+
         <?php endif; ?>
     </main>
 </div>
@@ -786,18 +771,18 @@ if (!function_exists('generateEmployeeId')) {
         width: 100%;
         margin-top: 10px;
     }
-    
+
     #searchInput {
         width: 100% !important;
     }
-    
+
     .action-buttons {
         justify-content: center;
     }
 }
 </style>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 function confirmDeactivate(id, name) {
     document.getElementById('deactivateId').value = id;
     document.getElementById('teacherName').textContent = name;
@@ -820,14 +805,14 @@ document.getElementById('searchInput')?.addEventListener('keyup', function() {
     const searchTerm = this.value.toLowerCase();
     const table = document.getElementById('teachersTable');
     if (!table) return;
-    
+
     const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-    
+
     for (let row of rows) {
         const name = row.cells[2]?.textContent.toLowerCase() || '';
         const empId = row.cells[3]?.textContent.toLowerCase() || '';
         const email = row.cells[6]?.textContent.toLowerCase() || '';
-        
+
         if (name.includes(searchTerm) || empId.includes(searchTerm) || email.includes(searchTerm)) {
             row.style.display = '';
         } else {
@@ -861,3 +846,4 @@ $(document).ready(function() {
 });
 </script>
 
+<?php include __DIR__ . '/../includes/footer.php'; ?>

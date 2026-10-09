@@ -1,7 +1,7 @@
 -- database.sql
 -- ST. BENEDICT'S EARLY YEARS BRITISH ACADEMY Database Schema
 
-CREATE DATABASE IF NOT EXISTS st_benedicts_academy;
+CREATE DATABASE IF NOT EXISTS st_benedicts_academy CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE st_benedicts_academy;
 
 -- Users table (base table for all roles)
@@ -19,6 +19,8 @@ CREATE TABLE users (
     last_login DATETIME,
     login_attempts INT DEFAULT 0,
     locked_until DATETIME,
+    totp_secret VARCHAR(64) NULL,
+    totp_enabled TINYINT(1) NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP NULL,
@@ -149,6 +151,7 @@ CREATE TABLE fee_structure (
     amount DECIMAL(10,2) NOT NULL,
     term VARCHAR(20),
     academic_year VARCHAR(20) NOT NULL,
+    due_date DATE,
     is_mandatory BOOLEAN DEFAULT TRUE,
     description TEXT,
     FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
@@ -164,15 +167,22 @@ CREATE TABLE payments (
     amount DECIMAL(10,2) NOT NULL,
     payment_method ENUM('cash', 'bank_transfer', 'card', 'cheque') NOT NULL,
     transaction_id VARCHAR(100),
+    bank_name VARCHAR(100),
+    cheque_number VARCHAR(50),
     term VARCHAR(20),
     academic_year VARCHAR(20) NOT NULL,
     fee_type VARCHAR(50),
+    fee_structure_id INT NULL,
     status ENUM('pending', 'completed', 'failed', 'refunded') DEFAULT 'pending',
     recorded_by INT,
+    approved_by INT NULL,
+    approved_at DATETIME NULL,
     remarks TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
     FOREIGN KEY (recorded_by) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (fee_structure_id) REFERENCES fee_structure(id) ON DELETE SET NULL,
     INDEX idx_receipt (receipt_number),
     INDEX idx_student_payments (student_id, academic_year)
 );
@@ -193,17 +203,19 @@ CREATE TABLE announcements (
     INDEX idx_audience (audience)
 );
 
--- Assignments table
-CREATE TABLE assignments (
+-- Homework / assignments (set by teachers, submitted by students)
+CREATE TABLE homework (
     id INT PRIMARY KEY AUTO_INCREMENT,
-    title VARCHAR(200) NOT NULL,
-    description TEXT,
     class_id INT NOT NULL,
     subject_id INT NOT NULL,
     teacher_id INT NOT NULL,
-    file_path VARCHAR(255),
+    title VARCHAR(200) NOT NULL,
+    description TEXT,
+    instructions TEXT,
+    attachment_path VARCHAR(255),
     due_date DATETIME NOT NULL,
-    max_score DECIMAL(5,2) DEFAULT 100,
+    total_marks DECIMAL(5,2) DEFAULT 100,
+    is_published BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
     FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
@@ -211,22 +223,155 @@ CREATE TABLE assignments (
     INDEX idx_due_date (due_date)
 );
 
--- Assignment submissions
-CREATE TABLE submissions (
+CREATE TABLE homework_submissions (
     id INT PRIMARY KEY AUTO_INCREMENT,
-    assignment_id INT NOT NULL,
+    homework_id INT NOT NULL,
     student_id INT NOT NULL,
-    submission_file VARCHAR(255),
     submission_text TEXT,
-    submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    score DECIMAL(5,2),
+    attachment_path VARCHAR(255),
+    status ENUM('submitted', 'late', 'graded') DEFAULT 'submitted',
+    submission_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    obtained_marks DECIMAL(5,2),
     feedback TEXT,
     graded_by INT,
     graded_at DATETIME,
-    FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE,
+    FOREIGN KEY (homework_id) REFERENCES homework(id) ON DELETE CASCADE,
     FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
     FOREIGN KEY (graded_by) REFERENCES users(id) ON DELETE SET NULL,
-    UNIQUE KEY unique_submission (assignment_id, student_id)
+    UNIQUE KEY unique_submission (homework_id, student_id)
+);
+
+-- Full online admission applications (public/apply.php)
+CREATE TABLE applications (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    application_number VARCHAR(50) UNIQUE NOT NULL,
+    child_first_name VARCHAR(50) NOT NULL,
+    child_last_name VARCHAR(50) NOT NULL,
+    child_dob DATE NOT NULL,
+    child_gender VARCHAR(10) NOT NULL,
+    class_applying VARCHAR(50) NOT NULL,
+    parent_title VARCHAR(20),
+    parent_first_name VARCHAR(50) NOT NULL,
+    parent_last_name VARCHAR(50) NOT NULL,
+    parent_email VARCHAR(100) NOT NULL,
+    parent_phone VARCHAR(20) NOT NULL,
+    parent_occupation VARCHAR(100),
+    address TEXT NOT NULL,
+    city VARCHAR(100),
+    state VARCHAR(100),
+    previous_school VARCHAR(200),
+    reason_applying TEXT,
+    how_hear VARCHAR(100),
+    emergency_name VARCHAR(100),
+    emergency_phone VARCHAR(20),
+    emergency_relationship VARCHAR(50),
+    birth_certificate_path VARCHAR(255),
+    passport_photo_path VARCHAR(255),
+    status ENUM('pending', 'reviewing', 'accepted', 'rejected') DEFAULT 'pending',
+    reviewed_by INT,
+    reviewed_at DATETIME,
+    remarks TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_app_status (status)
+);
+
+-- Weekly timetable
+CREATE TABLE time_table (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    class_id INT NOT NULL,
+    subject_id INT NOT NULL,
+    teacher_id INT,
+    day_of_week ENUM('Monday','Tuesday','Wednesday','Thursday','Friday') NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    room VARCHAR(50),
+    FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
+    FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
+    FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE SET NULL
+);
+
+-- Staff attendance
+CREATE TABLE staff_attendance (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    teacher_id INT NOT NULL,
+    date DATE NOT NULL,
+    status ENUM('present', 'absent', 'late', 'excused') NOT NULL,
+    check_in TIME,
+    check_out TIME,
+    remarks TEXT,
+    FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_staff_day (teacher_id, date)
+);
+
+-- Password reset tokens (only a SHA-256 hash of the token is stored)
+CREATE TABLE password_resets (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    token_hash CHAR(64) NOT NULL,
+    expires_at DATETIME NOT NULL,
+    used_at DATETIME NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY uniq_token (token_hash)
+);
+
+-- Chatbot question log (emails/phone numbers are redacted before saving)
+CREATE TABLE chatbot_logs (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    ip_hash CHAR(64) NOT NULL,
+    question VARCHAR(300) NOT NULL,
+    intent VARCHAR(40),
+    matched TINYINT(1) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_chat_ip (ip_hash, created_at),
+    INDEX idx_chat_matched (matched, created_at)
+);
+
+-- Failed-login log used for per-IP throttling (IP stored as a salted hash)
+CREATE TABLE login_throttle (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    ip_hash CHAR(64) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_throttle (ip_hash, created_at)
+);
+
+-- Website content management (editable text, hero slides, custom pages)
+CREATE TABLE site_content (
+    content_key VARCHAR(80) PRIMARY KEY,
+    content_value MEDIUMTEXT,
+    updated_by INT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE hero_slides (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    subtitle VARCHAR(120),
+    title VARCHAR(200) NOT NULL,
+    text VARCHAR(300),
+    image VARCHAR(255),
+    btn1_label VARCHAR(40), btn1_url VARCHAR(255),
+    btn2_label VARCHAR(40), btn2_url VARCHAR(255),
+    use_motto TINYINT(1) NOT NULL DEFAULT 0,
+    grad TINYINT NOT NULL DEFAULT 0,
+    sort_order INT NOT NULL DEFAULT 0,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE site_pages (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    slug VARCHAR(80) NOT NULL UNIQUE,
+    title VARCHAR(150) NOT NULL,
+    summary VARCHAR(255),
+    content MEDIUMTEXT NOT NULL,
+    image VARCHAR(255),
+    show_in_menu TINYINT(1) NOT NULL DEFAULT 0,
+    menu_order INT NOT NULL DEFAULT 100,
+    is_published TINYINT(1) NOT NULL DEFAULT 1,
+    created_by INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- Gallery table
@@ -238,6 +383,7 @@ CREATE TABLE gallery (
     thumbnail_path VARCHAR(255),
     category VARCHAR(50),
     uploaded_by INT NOT NULL,
+    is_featured BOOLEAN DEFAULT FALSE,
     is_published BOOLEAN DEFAULT TRUE,
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE CASCADE
@@ -283,6 +429,7 @@ CREATE TABLE admissions (
     id INT PRIMARY KEY AUTO_INCREMENT,
     application_number VARCHAR(50) UNIQUE NOT NULL,
     first_name VARCHAR(50) NOT NULL,
+    middle_name VARCHAR(50),
     last_name VARCHAR(50) NOT NULL,
     date_of_birth DATE NOT NULL,
     gender ENUM('male', 'female', 'other') NOT NULL,
@@ -350,9 +497,9 @@ CREATE TABLE sessions (
     INDEX idx_token (session_token)
 );
 
--- Insert default admin user (password: Admin@123)
+-- Insert default admin user (password: Admin@123 - CHANGE IT after first login)
 INSERT INTO users (username, email, password_hash, first_name, last_name, role, is_active) VALUES
-('admin', 'admin@stbenedicts.edu.ng', '$2y$10$YourHashedPasswordHere', 'System', 'Administrator', 'admin', 1);
+('admin', 'admin@stbenedicts.edu.ng', '$2y$12$hKB4juxd/P4AT7RSNDZVhO.M3bQax5S6m6U9DsrbxkpsH6WxoRyg6', 'System', 'Administrator', 'admin', 1);
 
 -- Insert sample classes
 INSERT INTO classes (class_name, section, academic_year, capacity) VALUES

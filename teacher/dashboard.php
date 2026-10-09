@@ -1,36 +1,21 @@
 <?php
 // teacher/dashboard.php - Teacher Dashboard
 require_once __DIR__ . '/../config/config.php';
-require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/security.php';
 
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Require teacher role
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'teacher') {
-    header('Location: ' . BASE_URL . '/login.php');
-    exit;
-}
+Security::requireRole('teacher');
 
 $pageTitle = 'Teacher Dashboard';
 $extraCSS = ['dashboard.css'];
 $extraJS = ['charts.js'];
 
-// Check if header exists
-$headerPath = __DIR__ . '/../includes/header.php';
-if (!file_exists($headerPath)) {
-    die("Error: Header file not found at: $headerPath");
-}
-include $headerPath;
+include __DIR__ . '/../includes/header.php';
 
 // Get database instance
 try {
     $db = Database::getInstance();
 } catch (Exception $e) {
-    echo '<div class="alert alert-danger">Database connection error: ' . htmlspecialchars($e->getMessage()) . '</div>';
+    echo '<div class="alert alert-danger">Database connection error: ' . htmlspecialchars(DEBUG_MODE ? $e->getMessage() : 'Please try again later.') . '</div>';
     exit;
 }
 
@@ -38,9 +23,9 @@ $userId = $_SESSION['user_id'];
 
 // Get teacher info
 $teacher = $db->getRow(
-    "SELECT t.*, u.first_name, u.last_name, u.email, u.phone, u.profile_image 
-     FROM teachers t 
-     JOIN users u ON t.user_id = u.id 
+    "SELECT t.*, u.first_name, u.last_name, u.email, u.phone, u.profile_image
+     FROM teachers t
+     JOIN users u ON t.user_id = u.id
      WHERE t.user_id = ?",
     [$userId]
 );
@@ -52,20 +37,21 @@ if (!$teacher) {
 
 // Get assigned classes
 $classes = $db->getRows(
-    "SELECT c.*, 
-            (SELECT COUNT(*) FROM students WHERE class_id = c.id AND is_active = 1) as student_count 
-     FROM classes c 
-     WHERE c.teacher_id = ? AND c.is_active = 1 
+    "SELECT c.*,
+            (SELECT COUNT(*) FROM students st JOIN users su ON st.user_id = su.id WHERE st.class_id = c.id AND su.is_active = 1) as student_count
+     FROM classes c
+     WHERE c.is_active = 1
+       AND c.id IN (SELECT id FROM classes WHERE teacher_id = ? UNION SELECT class_id FROM subjects WHERE teacher_id = ?)
      ORDER BY c.class_name, c.section",
-    [$teacher['id']]
+    [$teacher['id'], $teacher['id']]
 );
 
 // Get subjects taught
 $subjects = $db->getRows(
-    "SELECT s.*, c.class_name 
-     FROM subjects s 
-     JOIN classes c ON s.class_id = c.id 
-     WHERE s.teacher_id = ? AND s.is_active = 1 
+    "SELECT s.*, c.class_name
+     FROM subjects s
+     JOIN classes c ON s.class_id = c.id
+     WHERE s.teacher_id = ? AND s.is_active = 1
      ORDER BY c.class_name, s.subject_name",
     [$teacher['id']]
 );
@@ -76,12 +62,12 @@ $classIds = [];
 if (!empty($classes)) {
     $classIds = array_column($classes, 'id');
     $placeholders = implode(',', array_fill(0, count($classIds), '?'));
-    
+
     $todayAttendance = $db->getRows(
         "SELECT c.id, c.class_name, c.section,
-                (SELECT COUNT(*) FROM students WHERE class_id = c.id AND is_active = 1) as total_students,
+                (SELECT COUNT(*) FROM students st JOIN users su ON st.user_id = su.id WHERE st.class_id = c.id AND su.is_active = 1) as total_students,
                 (SELECT COUNT(*) FROM attendance WHERE class_id = c.id AND date = CURDATE()) as marked_count
-         FROM classes c 
+         FROM classes c
          WHERE c.id IN ($placeholders)
          ORDER BY c.class_name, c.section",
         $classIds
@@ -90,34 +76,34 @@ if (!empty($classes)) {
 
 // Recent results uploaded
 $recentResults = $db->getRows(
-    "SELECT r.*, 
-            s.first_name, s.last_name, s.admission_number,
-            sub.subject_name, 
+    "SELECT r.*,
+            su.first_name, su.last_name, s.admission_number,
+            sub.subject_name,
             c.class_name, c.section,
             CONCAT(u.first_name, ' ', u.last_name) as entered_by_name
-     FROM results r 
-     JOIN students s ON r.student_id = s.id 
-     JOIN subjects sub ON r.subject_id = sub.id 
-     JOIN classes c ON r.class_id = c.id 
+     FROM results r
+     JOIN students s ON r.student_id = s.id
+     JOIN users su ON s.user_id = su.id
+     JOIN subjects sub ON r.subject_id = sub.id
+     JOIN classes c ON r.class_id = c.id
      LEFT JOIN users u ON r.entered_by = u.id
-     WHERE r.entered_by = ? 
-     ORDER BY r.created_at DESC 
+     WHERE r.entered_by = ?
+     ORDER BY r.created_at DESC
      LIMIT 10",
     [$userId]
 );
 
 // Pending assignments to grade
 $pendingAssignments = $db->getRows(
-    "SELECT a.*, 
-            sub.subject_name, 
+    "SELECT a.*,
+            sub.subject_name,
             c.class_name, c.section,
-            (SELECT COUNT(*) FROM submissions s WHERE s.assignment_id = a.id AND s.score IS NULL) as pending_count
-     FROM assignments a 
-     JOIN subjects sub ON a.subject_id = sub.id 
-     JOIN classes c ON a.class_id = c.id 
-     WHERE a.teacher_id = ? 
-       AND a.due_date <= CURDATE()
-       AND (SELECT COUNT(*) FROM submissions s WHERE s.assignment_id = a.id AND s.score IS NULL) > 0
+            (SELECT COUNT(*) FROM homework_submissions hs WHERE hs.homework_id = a.id AND hs.obtained_marks IS NULL) as pending_count
+     FROM homework a
+     JOIN subjects sub ON a.subject_id = sub.id
+     JOIN classes c ON a.class_id = c.id
+     WHERE a.teacher_id = ?
+       AND (SELECT COUNT(*) FROM homework_submissions hs WHERE hs.homework_id = a.id AND hs.obtained_marks IS NULL) > 0
      ORDER BY a.due_date ASC
      LIMIT 5",
     [$teacher['id']]
@@ -125,15 +111,15 @@ $pendingAssignments = $db->getRows(
 
 // Upcoming assignments (not yet due)
 $upcomingAssignments = $db->getRows(
-    "SELECT a.*, 
-            sub.subject_name, 
+    "SELECT a.*,
+            sub.subject_name,
             c.class_name, c.section,
-            (SELECT COUNT(*) FROM students WHERE class_id = a.class_id AND is_active = 1) as total_students,
-            (SELECT COUNT(*) FROM submissions WHERE assignment_id = a.id) as submitted_count
-     FROM assignments a 
-     JOIN subjects sub ON a.subject_id = sub.id 
-     JOIN classes c ON a.class_id = c.id 
-     WHERE a.teacher_id = ? 
+            (SELECT COUNT(*) FROM students WHERE class_id = a.class_id) as total_students,
+            (SELECT COUNT(*) FROM homework_submissions WHERE homework_id = a.id) as submitted_count
+     FROM homework a
+     JOIN subjects sub ON a.subject_id = sub.id
+     JOIN classes c ON a.class_id = c.id
+     WHERE a.teacher_id = ?
        AND a.due_date > CURDATE()
      ORDER BY a.due_date ASC
      LIMIT 5",
@@ -151,7 +137,7 @@ foreach ($classes as $class) {
 
 // Get recent announcements for teachers
 $announcements = $db->getRows(
-    "SELECT a.*, u.first_name, u.last_name 
+    "SELECT a.*, u.first_name, u.last_name
      FROM announcements a
      JOIN users u ON a.created_by = u.id
      WHERE (a.audience = 'all' OR a.audience = 'teachers' OR a.audience = 'admins')
@@ -161,17 +147,6 @@ $announcements = $db->getRows(
      LIMIT 5"
 );
 
-// Helper function to format date
-function formatDate($date) {
-    if (empty($date)) return 'N/A';
-    return date('M d, Y', strtotime($date));
-}
-
-// Helper function to format time
-function formatTime($date) {
-    if (empty($date)) return '';
-    return date('h:i A', strtotime($date));
-}
 ?>
 
 <style>
@@ -690,40 +665,40 @@ function formatTime($date) {
         width: 0;
         transform: translateX(-100%);
     }
-    
+
     .dashboard-main {
         margin-left: 0;
         padding: 20px;
     }
-    
+
     .stats-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .dashboard-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .dashboard-header {
         flex-direction: column;
         text-align: center;
     }
-    
+
     .actions-grid {
         grid-template-columns: 1fr 1fr;
     }
-    
+
     .class-item, .pending-item {
         flex-direction: column;
         text-align: center;
         gap: 10px;
     }
-    
+
     .pending-status {
         flex-direction: column;
         width: 100%;
     }
-    
+
     .pending-status .btn {
         width: 100%;
         justify-content: center;
@@ -738,26 +713,8 @@ function formatTime($date) {
 </style>
 
 <div class="dashboard-container">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <h3>Teacher Panel</h3>
-        </div>
-        
-        <nav class="sidebar-nav">
-            <ul>
-                <li class="active"><a href="dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
-                <li><a href="classes.php"><i class="fas fa-school"></i> My Classes</a></li>
-                <li><a href="attendance.php"><i class="fas fa-calendar-check"></i> Attendance</a></li>
-                <li><a href="results.php"><i class="fas fa-chart-line"></i> Results</a></li>
-                <li><a href="assignments.php"><i class="fas fa-tasks"></i> Assignments</a></li>
-                <li><a href="students.php"><i class="fas fa-user-graduate"></i> Students</a></li>
-                <li><a href="messages.php"><i class="fas fa-envelope"></i> Messages</a></li>
-                <li><a href="profile.php"><i class="fas fa-user-cog"></i> Profile</a></li>
-            </ul>
-        </nav>
-    </aside>
-    
+    <?php render_sidebar('teacher'); ?>
+
     <!-- Main Content -->
     <main class="dashboard-main">
         <div class="dashboard-header">
@@ -766,11 +723,11 @@ function formatTime($date) {
                 <i class="fas fa-chalkboard-teacher"></i>
                 <div>
                     <span><?php echo htmlspecialchars($teacher['employee_id']); ?></span>
-                    <small style="display: block; font-size: 0.7rem;"><?php echo $today; ?></small>
+                    <small style="display: block; font-size: 0.7rem;"><?php echo e($today); ?></small>
                 </div>
             </div>
         </div>
-        
+
         <!-- Quick Stats -->
         <div class="stats-grid">
             <div class="stat-card">
@@ -782,7 +739,7 @@ function formatTime($date) {
                     <p>Classes Assigned</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(196, 30, 58, 0.1);">
                     <i class="fas fa-book" style="color: #c41e3a;"></i>
@@ -792,17 +749,17 @@ function formatTime($date) {
                     <p>Subjects Taught</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(255, 215, 0, 0.1);">
                     <i class="fas fa-users" style="color: #ffd700;"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php echo $totalStudents; ?></h3>
+                    <h3><?php echo e($totalStudents); ?></h3>
                     <p>Total Students</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(220, 53, 69, 0.1);">
                     <i class="fas fa-clock" style="color: #dc3545;"></i>
@@ -813,7 +770,7 @@ function formatTime($date) {
                 </div>
             </div>
         </div>
-        
+
         <!-- Dashboard Grid -->
         <div class="dashboard-grid">
             <!-- Today's Classes -->
@@ -825,7 +782,7 @@ function formatTime($date) {
                         <div class="class-item">
                             <div class="class-info">
                                 <h4><?php echo htmlspecialchars($class['class_name'] . ' ' . $class['section']); ?></h4>
-                                <p><i class="fas fa-users"></i> <?php echo $class['total_students']; ?> Students</p>
+                                <p><i class="fas fa-users"></i> <?php echo e($class['total_students']); ?> Students</p>
                             </div>
                             <div class="class-status">
                                 <?php if ($class['marked_count'] > 0): ?>
@@ -833,7 +790,7 @@ function formatTime($date) {
                                         <i class="fas fa-check-circle"></i> Attendance Marked
                                     </span>
                                 <?php else: ?>
-                                    <a href="attendance.php?class_id=<?php echo $class['id']; ?>" 
+                                    <a href="attendance?class_id=<?php echo e($class['id']); ?>"
                                        class="btn btn-small btn-primary">
                                         <i class="fas fa-calendar-check"></i> Mark Attendance
                                     </a>
@@ -849,7 +806,7 @@ function formatTime($date) {
                     <?php endif; ?>
                 </div>
             </div>
-            
+
             <!-- Pending Assignments to Grade -->
             <div class="dashboard-card">
                 <h3><i class="fas fa-tasks"></i> Pending Grading</h3>
@@ -860,19 +817,19 @@ function formatTime($date) {
                             <div class="pending-info">
                                 <h4><?php echo htmlspecialchars($assignment['title']); ?></h4>
                                 <p>
-                                    <i class="fas fa-book"></i> <?php echo htmlspecialchars($assignment['subject_name']); ?> - 
+                                    <i class="fas fa-book"></i> <?php echo htmlspecialchars($assignment['subject_name']); ?> -
                                     <?php echo htmlspecialchars($assignment['class_name'] . ' ' . $assignment['section']); ?>
                                 </p>
                                 <small>
-                                    <i class="fas fa-hourglass-end"></i> 
+                                    <i class="fas fa-hourglass-end"></i>
                                     Due: <?php echo formatDate($assignment['due_date']); ?>
                                 </small>
                             </div>
                             <div class="pending-status">
                                 <span class="badge warning">
-                                    <?php echo $assignment['pending_count']; ?> pending
+                                    <?php echo e($assignment['pending_count']); ?> pending
                                 </span>
-                                <a href="assignments.php?grade=<?php echo $assignment['id']; ?>" 
+                                <a href="submissions?assignment_id=<?php echo e($assignment['id']); ?>"
                                    class="btn btn-small btn-outline">
                                     <i class="fas fa-check"></i> Grade
                                 </a>
@@ -887,7 +844,7 @@ function formatTime($date) {
                     <?php endif; ?>
                 </div>
             </div>
-            
+
             <!-- Upcoming Assignments -->
             <?php if (!empty($upcomingAssignments)): ?>
             <div class="dashboard-card">
@@ -898,16 +855,16 @@ function formatTime($date) {
                         <div class="pending-info">
                             <h4><?php echo htmlspecialchars($assignment['title']); ?></h4>
                             <p>
-                                <i class="fas fa-book"></i> <?php echo htmlspecialchars($assignment['subject_name']; ?>
+                                <i class="fas fa-book"></i> <?php echo htmlspecialchars($assignment['subject_name']); ?>
                             </p>
                             <small>
-                                <i class="fas fa-clock"></i> 
+                                <i class="fas fa-clock"></i>
                                 Due: <?php echo formatDate($assignment['due_date']); ?>
                             </small>
                         </div>
                         <div class="pending-status">
                             <span class="badge info">
-                                <?php echo $assignment['submitted_count']; ?>/<?php echo $assignment['total_students']; ?> submitted
+                                <?php echo e($assignment['submitted_count']); ?>/<?php echo e($assignment['total_students']); ?> submitted
                             </span>
                         </div>
                     </div>
@@ -915,14 +872,14 @@ function formatTime($date) {
                 </div>
             </div>
             <?php endif; ?>
-            
+
             <!-- Recent Announcements -->
             <?php if (!empty($announcements)): ?>
             <div class="dashboard-card">
                 <h3><i class="fas fa-bullhorn"></i> Latest Announcements</h3>
                 <div class="pending-list">
                     <?php foreach ($announcements as $ann): ?>
-                    <div class="announcement-item priority-<?php echo $ann['priority']; ?>">
+                    <div class="announcement-item priority-<?php echo e($ann['priority']); ?>">
                         <div class="announcement-icon">
                             <i class="fas fa-bullhorn"></i>
                         </div>
@@ -943,7 +900,7 @@ function formatTime($date) {
             </div>
             <?php endif; ?>
         </div>
-        
+
         <!-- Recent Results -->
         <div class="dashboard-card full-width">
             <h3><i class="fas fa-history"></i> Recently Entered Results</h3>
@@ -971,7 +928,7 @@ function formatTime($date) {
                                 <td><?php echo htmlspecialchars($result['subject_name']); ?></td>
                                 <td><?php echo htmlspecialchars($result['class_name'] . ' ' . $result['section']); ?></td>
                                 <td>
-                                    <strong><?php echo $result['score']; ?></strong>/<?php echo $result['max_score']; ?>
+                                    <strong><?php echo e($result['score']); ?></strong>/<?php echo e($result['max_score']); ?>
                                     (<?php echo round(($result['score'] / $result['max_score']) * 100, 1); ?>%)
                                 </td>
                                 <td>
@@ -983,11 +940,11 @@ function formatTime($date) {
                                 </td>
                                 <td>
                                     <div class="action-buttons">
-                                        <a href="results.php?edit=<?php echo $result['id']; ?>" 
+                                        <a href="results?edit=<?php echo e($result['id']); ?>"
                                            class="btn-icon" title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <a href="results.php?view=<?php echo $result['id']; ?>" 
+                                        <a href="results?view=<?php echo e($result['id']); ?>"
                                            class="btn-icon" title="View">
                                             <i class="fas fa-eye"></i>
                                         </a>
@@ -1009,32 +966,32 @@ function formatTime($date) {
                 </table>
             </div>
         </div>
-        
+
         <!-- Quick Actions -->
         <div class="quick-actions">
             <h3>Quick Actions</h3>
             <div class="actions-grid">
-                <a href="attendance.php" class="action-card">
+                <a href="attendance" class="action-card">
                     <i class="fas fa-calendar-check"></i>
                     <span>Mark Attendance</span>
                 </a>
-                <a href="results.php?action=add" class="action-card">
+                <a href="results?action=add" class="action-card">
                     <i class="fas fa-plus-circle"></i>
                     <span>Add Results</span>
                 </a>
-                <a href="assignments.php?action=add" class="action-card">
+                <a href="assignments?action=add" class="action-card">
                     <i class="fas fa-upload"></i>
                     <span>Post Assignment</span>
                 </a>
-                <a href="messages.php?compose" class="action-card">
+                <a href="messages?compose" class="action-card">
                     <i class="fas fa-paper-plane"></i>
                     <span>Send Message</span>
                 </a>
-                <a href="students.php" class="action-card">
+                <a href="students" class="action-card">
                     <i class="fas fa-user-graduate"></i>
                     <span>View Students</span>
                 </a>
-                <a href="profile.php" class="action-card">
+                <a href="profile" class="action-card">
                     <i class="fas fa-user-cog"></i>
                     <span>Update Profile</span>
                 </a>
@@ -1043,7 +1000,7 @@ function formatTime($date) {
     </main>
 </div>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 // Auto-refresh for new data (every 60 seconds)
 setTimeout(function() {
     location.reload();

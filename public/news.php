@@ -17,7 +17,7 @@ $metaTags = [
     'og:title' => 'News & Events - ST. BENEDICT\'S EARLY YEARS BRITISH ACADEMY',
     'og:description' => 'Latest news and upcoming events at our school.',
     'og:image' => BASE_URL . '/assets/images/og-image.jpg',
-    'og:url' => BASE_URL . '/public/news.php',
+    'og:url' => BASE_URL . '/public/news',
     'twitter:card' => 'summary_large_image'
 ];
 
@@ -59,7 +59,7 @@ if ($db) {
 
         // Get news items
         $news = $db->getRows(
-            "SELECT n.*, u.first_name, u.last_name 
+            "SELECT n.*, u.first_name, u.last_name
              FROM news_events n
              LEFT JOIN users u ON n.created_by = u.id
              WHERE n.is_published = 1 AND n.type = 'news'
@@ -70,17 +70,17 @@ if ($db) {
 
         // Get upcoming events
         $events = $db->getRows(
-            "SELECT * FROM news_events 
-             WHERE type = 'event' AND is_published = 1 
+            "SELECT * FROM news_events
+             WHERE type = 'event' AND is_published = 1
              AND (event_date >= CURDATE() OR event_date IS NULL)
-             ORDER BY event_date ASC 
+             ORDER BY event_date ASC
              LIMIT 5"
         );
 
         // Get featured news
         $featuredNews = $db->getRow(
-            "SELECT * FROM news_events 
-             WHERE is_published = 1 AND type = 'news' AND is_featured = 1 
+            "SELECT * FROM news_events
+             WHERE is_published = 1 AND type = 'news' AND is_featured = 1
              ORDER BY created_at DESC LIMIT 1"
         );
     } catch (Exception $e) {
@@ -739,24 +739,24 @@ if ($db) {
         font-size: 60px;
         line-height: 19.19px;
     }
-    
+
     .breadcrumb a {
         font-size: 35px;
         line-height: 20px;
     }
-    
+
     .section-title {
         font-size: var(--text-2xl);
     }
-    
+
     .featured-card {
         grid-template-columns: 1fr;
     }
-    
+
     .featured-image {
         height: 300px;
     }
-    
+
     .news-grid {
         grid-template-columns: repeat(2, 1fr);
     }
@@ -766,60 +766,60 @@ if ($db) {
     .page-header {
         padding: 30px 0;
     }
-    
+
     .page-header h1 {
         font-size: 48px;
         line-height: 19.19px;
     }
-    
+
     .breadcrumb a {
         font-size: 28px;
         line-height: 20px;
     }
-    
+
     .section-title {
         font-size: var(--text-xl);
     }
-    
+
     .news-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .timeline-event {
         flex-direction: column;
         gap: var(--spacing-lg);
     }
-    
+
     .events-timeline::before {
         display: none;
     }
-    
+
     .event-details-card::before {
         display: none;
     }
-    
+
     .event-date-large {
         margin: 0 auto;
     }
-    
+
     .newsletter-card {
         padding: var(--spacing-xl) var(--spacing-lg);
     }
-    
+
     .newsletter-form .form-group {
         flex-direction: column;
         gap: var(--spacing-sm);
     }
-    
+
     .newsletter-form input,
     .newsletter-form button {
         border-radius: var(--radius-full);
     }
-    
+
     .featured-content {
         padding: var(--spacing-xl) var(--spacing-lg);
     }
-    
+
     .featured-content h2 {
         font-size: var(--text-2xl);
     }
@@ -829,34 +829,34 @@ if ($db) {
     .page-header {
         padding: 20px 0;
     }
-    
+
     .page-header h1 {
         font-size: 36px;
         line-height: 19.19px;
     }
-    
+
     .breadcrumb a {
         font-size: 22px;
         line-height: 20px;
     }
-    
+
     .section-title {
         font-size: var(--text-lg);
     }
-    
+
     .featured-content h2 {
         font-size: var(--text-xl);
     }
-    
+
     .event-meta {
         flex-direction: column;
         gap: var(--spacing-xs);
     }
-    
+
     .pagination {
         gap: var(--spacing-xs);
     }
-    
+
     .page-link {
         min-width: 35px;
         height: 35px;
@@ -871,7 +871,7 @@ if ($db) {
     <div class="container">
         <h1>News & Events</h1>
         <div class="breadcrumb">
-            <a href="<?php echo BASE_URL; ?>/index.php">Home</a> / News & Events
+            <a href="<?php echo BASE_URL; ?>/">Home</a> / News & Events
         </div>
     </div>
 </section>
@@ -883,7 +883,7 @@ if ($db) {
         <div class="featured-card">
             <?php if (!empty($featuredNews['image_path'])): ?>
             <div class="featured-image">
-                <img src="<?php echo BASE_URL; ?>/uploads/news/<?php echo htmlspecialchars($featuredNews['image_path']); ?>" 
+                <img src="<?php echo BASE_URL; ?>/uploads/news/<?php echo htmlspecialchars($featuredNews['image_path']); ?>"
                      alt="<?php echo htmlspecialchars($featuredNews['title']); ?>">
             </div>
             <?php endif; ?>
@@ -894,7 +894,7 @@ if ($db) {
                     <span><i class="far fa-calendar-alt"></i> <?php echo date('F j, Y', strtotime($featuredNews['created_at'])); ?></span>
                 </div>
                 <p><?php echo htmlspecialchars(substr($featuredNews['content'], 0, 300)); ?>...</p>
-                <a href="news-detail.php?id=<?php echo $featuredNews['id']; ?>" class="btn btn-primary">
+                <a href="news-detail?id=<?php echo e($featuredNews['id']); ?>" class="btn btn-primary">
                     Read Full Story <i class="fas fa-arrow-right"></i>
                 </a>
             </div>
@@ -910,14 +910,14 @@ if ($db) {
             <span class="section-tag">Latest Updates</span>
             <h2 class="section-title">Recent <span class="text-highlight">News</span></h2>
         </div>
-        
+
         <?php if (!empty($news)): ?>
         <div class="news-grid">
             <?php foreach ($news as $item): ?>
             <article class="news-article">
                 <div class="article-image">
                     <?php if (!empty($item['image_path'])): ?>
-                    <img src="<?php echo BASE_URL; ?>/uploads/news/<?php echo htmlspecialchars($item['image_path']); ?>" 
+                    <img src="<?php echo BASE_URL; ?>/uploads/news/<?php echo htmlspecialchars($item['image_path']); ?>"
                          alt="<?php echo htmlspecialchars($item['title']); ?>">
                     <?php else: ?>
                     <img src="<?php echo BASE_URL; ?>/assets/images/news-placeholder.jpg" alt="News">
@@ -928,13 +928,13 @@ if ($db) {
                     </div>
                 </div>
                 <div class="article-content">
-                    <h3><a href="news-detail.php?id=<?php echo $item['id']; ?>"><?php echo htmlspecialchars($item['title']); ?></a></h3>
+                    <h3><a href="news-detail?id=<?php echo e($item['id']); ?>"><?php echo htmlspecialchars($item['title']); ?></a></h3>
                     <p><?php echo htmlspecialchars(substr($item['content'], 0, 150)); ?>...</p>
                     <div class="article-footer">
                         <span class="article-author">
                             <i class="far fa-user"></i> <?php echo htmlspecialchars(($item['first_name'] ?? 'Admin') . ' ' . ($item['last_name'] ?? '')); ?>
                         </span>
-                        <a href="news-detail.php?id=<?php echo $item['id']; ?>" class="read-more">
+                        <a href="news-detail?id=<?php echo e($item['id']); ?>" class="read-more">
                             Read More <i class="fas fa-arrow-right"></i>
                         </a>
                     </div>
@@ -942,7 +942,7 @@ if ($db) {
             </article>
             <?php endforeach; ?>
         </div>
-        
+
         <!-- Pagination -->
         <?php if ($totalPages > 1): ?>
         <div class="pagination">
@@ -951,13 +951,13 @@ if ($db) {
                 <i class="fas fa-chevron-left"></i> Previous
             </a>
             <?php endif; ?>
-            
+
             <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-            <a href="?p=<?php echo $i; ?>" class="page-link <?php echo $i == $page ? 'active' : ''; ?>">
-                <?php echo $i; ?>
+            <a href="?p=<?php echo e($i); ?>" class="page-link <?php echo $i == $page ? 'active' : ''; ?>">
+                <?php echo e($i); ?>
             </a>
             <?php endfor; ?>
-            
+
             <?php if ($page < $totalPages): ?>
             <a href="?p=<?php echo $page + 1; ?>" class="page-link">
                 Next <i class="fas fa-chevron-right"></i>
@@ -965,7 +965,7 @@ if ($db) {
             <?php endif; ?>
         </div>
         <?php endif; ?>
-        
+
         <?php else: ?>
         <div class="no-news">
             <i class="far fa-newspaper"></i>
@@ -984,7 +984,7 @@ if ($db) {
             <span class="section-tag">Calendar</span>
             <h2 class="section-title">Upcoming <span class="text-highlight">Events</span></h2>
         </div>
-        
+
         <div class="events-timeline">
             <?php foreach ($events as $event): ?>
             <div class="timeline-event">
@@ -1032,21 +1032,21 @@ if ($db) {
     </div>
 </section>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 function subscribeNewsletter(event) {
     event.preventDefault();
-    
+
     const form = event.target;
     const email = form.email.value;
     const csrf = form.csrf_token.value;
-    
+
     // Show loading state
     const submitBtn = form.querySelector('button[type="submit"]');
     const originalText = submitBtn.innerHTML;
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Subscribing...';
     submitBtn.disabled = true;
-    
-    fetch('../api/subscribe-newsletter.php', {
+
+    fetch('../api/subscribe-newsletter', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -1079,7 +1079,7 @@ function subscribeNewsletter(event) {
 // Add animation on scroll
 document.addEventListener('DOMContentLoaded', function() {
     const elements = document.querySelectorAll('.news-article, .timeline-event, .featured-card');
-    
+
     const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
@@ -1088,7 +1088,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }, { threshold: 0.1 });
-    
+
     elements.forEach(el => {
         el.style.opacity = '0';
         observer.observe(el);

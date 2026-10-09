@@ -1,40 +1,25 @@
 <?php
 // admin/parents.php - Parent/Guardian Management
 require_once __DIR__ . '/../config/config.php';
-require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/security.php';
 
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Require admin role
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
-    header('Location: ' . BASE_URL . '/login.php');
-    exit;
-}
+Security::requireRole('admin');
 
 $pageTitle = 'Parent Management';
-$extraCSS = ['dataTables.css', 'admin.css'];
-$extraJS = ['parents.js', 'dataTables.js'];
+$extraCSS = ['admin.css'];
+$extraJS = ['parents.js'];
 
-// Check if header exists
-$headerPath = __DIR__ . '/../includes/header.php';
-if (!file_exists($headerPath)) {
-    die("Error: Header file not found at: $headerPath");
-}
-include $headerPath;
+include __DIR__ . '/../includes/header.php';
 
 // Get database instance
 $db = Database::getInstance();
 
-$message = '';
-$messageType = '';
+[$message, $messageType] = flash_get();
 
 // Handle actions
 $action = isset($_GET['action']) ? $_GET['action'] : 'list';
-$id = isset($_GET['id']) ? (int)$_GET['id'] : null;
+$id = isset($_POST['id']) ? (int)$_POST['id'] : (isset($_GET['id']) ? (int)$_GET['id'] : null);
+if (!in_array($action, ['list', 'add', 'edit'], true)) $action = 'list';
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -43,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $messageType = 'error';
     } else {
         $postAction = $_POST['action'] ?? '';
-        
+
         switch ($postAction) {
             case 'add':
             case 'edit':
@@ -59,43 +44,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $emergencyContact = Security::sanitize($_POST['emergency_contact'] ?? '');
                 $relationship = Security::sanitize($_POST['relationship'] ?? '');
                 $isActive = isset($_POST['is_active']) ? 1 : 0;
-                
+
                 // Validate required fields
                 if (empty($username) || empty($email) || empty($firstName) || empty($lastName)) {
                     $message = 'Please fill in all required fields';
                     $messageType = 'error';
                     break;
                 }
-                
+
                 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
                     $message = 'Please enter a valid email address';
                     $messageType = 'error';
                     break;
                 }
-                
+                if (!valid_username($username)) {
+                    $message = 'Username must be 3-50 letters, numbers, dots, dashes or underscores';
+                    $messageType = 'error';
+                    break;
+                }
+                if ($phone !== '' && !Security::validatePhone($phone)) {
+                    $message = 'Please enter a valid Nigerian phone number';
+                    $messageType = 'error';
+                    break;
+                }
+                if ($password !== '' && ($pwError = strong_password($password))) {
+                    $message = $pwError;
+                    $messageType = 'error';
+                    break;
+                }
+
                 if ($postAction === 'add' && empty($password)) {
                     $message = 'Password is required for new parents';
                     $messageType = 'error';
                     break;
                 }
-                
+
                 try {
                     $db->beginTransaction();
-                    
+
                     if ($postAction === 'add') {
                         // Check if username or email already exists
                         $existing = $db->getRow(
                             "SELECT id FROM users WHERE username = ? OR email = ?",
                             [$username, $email]
                         );
-                        
+
                         if ($existing) {
                             throw new Exception("Username or email already exists");
                         }
-                        
+
                         // Create user
                         $userId = $db->insert(
-                            "INSERT INTO users (username, email, password_hash, first_name, last_name, phone, role, is_active) 
+                            "INSERT INTO users (username, email, password_hash, first_name, last_name, phone, role, is_active)
                              VALUES (?, ?, ?, ?, ?, ?, 'parent', ?)",
                             [
                                 $username,
@@ -107,14 +107,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $isActive
                             ]
                         );
-                        
+
                         if (!$userId) {
                             throw new Exception("Failed to create user");
                         }
-                        
+
                         // Create parent record
                         $parentId = $db->insert(
-                            "INSERT INTO parents (user_id, occupation, address, emergency_contact, relationship) 
+                            "INSERT INTO parents (user_id, occupation, address, emergency_contact, relationship)
                              VALUES (?, ?, ?, ?, ?)",
                             [
                                 $userId,
@@ -124,50 +124,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $relationship
                             ]
                         );
-                        
+
                         Security::logAudit('ADDED_PARENT', 'parents', $parentId);
                         $message = 'Parent added successfully';
                         $messageType = 'success';
-                        
+
                     } else {
                         if (!$id) {
                             throw new Exception("Invalid parent ID");
                         }
-                        
+
                         // Get current parent data
                         $currentParent = $db->getRow(
                             "SELECT user_id FROM parents WHERE id = ?",
                             [$id]
                         );
-                        
+
                         if (!$currentParent) {
                             throw new Exception("Parent not found");
                         }
-                        
+
                         $userId = $currentParent['user_id'];
-                        
+
                         // Check if username or email already exists for other users
                         $existing = $db->getRow(
                             "SELECT id FROM users WHERE (username = ? OR email = ?) AND id != ?",
                             [$username, $email, $userId]
                         );
-                        
+
                         if ($existing) {
                             throw new Exception("Username or email already exists");
                         }
-                        
+
                         // Update user
                         $userParams = [$firstName, $lastName, $email, $phone, $isActive, $userId];
                         $userSql = "UPDATE users SET first_name = ?, last_name = ?, email = ?, phone = ?, is_active = ?";
-                        
+
                         if (!empty($password)) {
                             $userSql .= ", password_hash = ?";
                             array_splice($userParams, 5, 0, Security::hashPassword($password));
                         }
-                        
+
                         $userSql .= " WHERE id = ?";
                         $db->query($userSql, $userParams);
-                        
+
                         // Update parent
                         $db->query(
                             "UPDATE parents SET occupation = ?, address = ?, emergency_contact = ?, relationship = ? WHERE id = ?",
@@ -179,53 +179,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $id
                             ]
                         );
-                        
+
                         Security::logAudit('UPDATED_PARENT', 'parents', $id);
                         $message = 'Parent updated successfully';
                         $messageType = 'success';
                     }
-                    
+
                     $db->commit();
-                    
+
                 } catch (Exception $e) {
                     $db->rollback();
                     $message = 'Error: ' . $e->getMessage();
                     $messageType = 'error';
                 }
                 break;
-                
+
             case 'delete':
                 try {
                     if (!$id) {
                         throw new Exception("Invalid parent ID");
                     }
-                    
+
                     // Get user_id first
                     $parent = $db->getRow("SELECT user_id FROM parents WHERE id = ?", [$id]);
-                    
+
                     if ($parent) {
                         // Check if parent has children
                         $childrenCount = $db->getRow(
                             "SELECT COUNT(*) as count FROM students WHERE parent_id = ?",
                             [$id]
                         )['count'] ?? 0;
-                        
+
                         if ($childrenCount > 0) {
                             // Option 1: Prevent deletion
                             $message = 'Cannot delete parent with linked children. Please reassign children first.';
                             $messageType = 'error';
                             break;
-                            
+
                             // Option 2: Uncomment below to allow deletion and set children parent_id to NULL
                             // $db->query("UPDATE students SET parent_id = NULL WHERE parent_id = ?", [$id]);
                         }
-                        
+
                         // Soft delete user (set is_active to 0)
                         $db->query(
-                            "UPDATE users SET is_active = 0 WHERE id = ?", 
+                            "UPDATE users SET is_active = 0 WHERE id = ?",
                             [$parent['user_id']]
                         );
-                        
+
                         Security::logAudit('DEACTIVATED_PARENT', 'parents', $id);
                         $message = 'Parent deactivated successfully';
                         $messageType = 'success';
@@ -238,21 +238,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $messageType = 'error';
                 }
                 break;
-                
+
             case 'activate':
                 try {
                     if (!$id) {
                         throw new Exception("Invalid parent ID");
                     }
-                    
+
                     $parent = $db->getRow("SELECT user_id FROM parents WHERE id = ?", [$id]);
-                    
+
                     if ($parent) {
                         $db->query(
-                            "UPDATE users SET is_active = 1 WHERE id = ?", 
+                            "UPDATE users SET is_active = 1 WHERE id = ?",
                             [$parent['user_id']]
                         );
-                        
+
                         Security::logAudit('ACTIVATED_PARENT', 'parents', $id);
                         $message = 'Parent activated successfully';
                         $messageType = 'success';
@@ -266,20 +266,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $messageType === 'success') {
+    flash_redirect($message, 'success', BASE_URL . '/admin/parents');
+}
+
 // Get parent for editing
 $parent = null;
 if ($action === 'edit' && $id) {
     $parent = $db->getRow(
         "SELECT p.*, u.username, u.email, u.first_name, u.last_name, u.phone, u.is_active, u.id as user_id
-         FROM parents p 
-         JOIN users u ON p.user_id = u.id 
+         FROM parents p
+         JOIN users u ON p.user_id = u.id
          WHERE p.id = ?",
         [$id]
     );
 }
 
 // Get parents list with pagination
-$page = isset($_GET['p']) ? (int)$_GET['p'] : 1;
+$page = page_param('p');
 $limit = 20;
 $offset = ($page - 1) * $limit;
 
@@ -314,7 +318,7 @@ $inactiveParents = $db->getRows(
 
 // Get all parents for dropdown (for student assignment)
 $allParents = $db->getRows(
-    "SELECT p.id, u.first_name, u.last_name, u.email 
+    "SELECT p.id, u.first_name, u.last_name, u.email
      FROM parents p
      JOIN users u ON p.user_id = u.id
      WHERE u.is_active = 1
@@ -713,15 +717,15 @@ textarea.form-control {
         width: 100%;
         margin-top: 10px;
     }
-    
+
     #searchInput {
         width: 100% !important;
     }
-    
+
     .action-buttons {
         justify-content: center;
     }
-    
+
     .modal-content {
         width: 95%;
         margin: 10% auto;
@@ -730,57 +734,35 @@ textarea.form-control {
 </style>
 
 <div class="dashboard-container">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <h3>Admin Panel</h3>
-        </div>
-        <nav class="sidebar-nav">
-            <ul>
-                <li><a href="dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
-                <li><a href="students.php"><i class="fas fa-user-graduate"></i> Students</a></li>
-                <li class="active"><a href="parents.php"><i class="fas fa-users"></i> Parents</a></li>
-                <li><a href="teachers.php"><i class="fas fa-chalkboard-teacher"></i> Teachers</a></li>
-                <li><a href="classes.php"><i class="fas fa-school"></i> Classes</a></li>
-                <li><a href="subjects.php"><i class="fas fa-book"></i> Subjects</a></li>
-                <li><a href="attendance.php"><i class="fas fa-calendar-check"></i> Attendance</a></li>
-                <li><a href="fees.php"><i class="fas fa-money-bill"></i> Fees</a></li>
-                <li><a href="results.php"><i class="fas fa-chart-line"></i> Results</a></li>
-                <li><a href="announcements.php"><i class="fas fa-bullhorn"></i> Announcements</a></li>
-                <li><a href="gallery.php"><i class="fas fa-images"></i> Gallery</a></li>
-                <li><a href="reports.php"><i class="fas fa-file-alt"></i> Reports</a></li>
-                <li><a href="audit-logs.php"><i class="fas fa-history"></i> Audit Logs</a></li>
-            </ul>
-        </nav>
-    </aside>
-    
+    <?php render_sidebar('admin'); ?>
+
     <main class="dashboard-main">
         <div class="dashboard-header">
             <h1>Parent Management</h1>
             <div class="header-actions">
                 <?php if ($action === 'add' || $action === 'edit'): ?>
-                <a href="parents.php" class="btn btn-outline">
+                <a href="parents" class="btn btn-outline">
                     <i class="fas fa-arrow-left"></i> Back to List
                 </a>
                 <?php else: ?>
                 <a href="?action=add" class="btn btn-primary">
                     <i class="fas fa-plus"></i> Add New Parent
                 </a>
-                <a href="export.php?type=parents" class="btn btn-outline">
+                <a href="export?type=parents" class="btn btn-outline">
                     <i class="fas fa-download"></i> Export
                 </a>
                 <?php endif; ?>
             </div>
         </div>
-        
+
         <?php if ($message): ?>
-        <div class="alert alert-<?php echo $messageType; ?> alert-dismissible">
+        <div class="alert alert-<?php echo e($messageType); ?> alert-dismissible">
             <i class="fas <?php echo $messageType === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'; ?>"></i>
             <?php echo htmlspecialchars($message); ?>
             <button type="button" class="close" onclick="this.parentElement.remove()">&times;</button>
         </div>
         <?php endif; ?>
-        
+
         <?php if ($action === 'add' || $action === 'edit'): ?>
         <!-- Parent Form -->
         <div class="card">
@@ -790,113 +772,113 @@ textarea.form-control {
             <div class="card-body">
                 <form method="POST" class="form-container" enctype="multipart/form-data">
                     <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
-                    <input type="hidden" name="action" value="<?php echo $action; ?>">
+                    <input type="hidden" name="action" value="<?php echo e($action); ?>">
                     <?php if ($action === 'edit'): ?>
-                    <input type="hidden" name="id" value="<?php echo $id; ?>">
+                    <input type="hidden" name="id" value="<?php echo e($id); ?>">
                     <?php endif; ?>
-                    
+
                     <div class="form-section">
                         <h3><i class="fas fa-user"></i> Personal Information</h3>
                         <div class="form-row">
                             <div class="form-group col-md-6">
                                 <label for="first_name">First Name *</label>
-                                <input type="text" id="first_name" name="first_name" class="form-control" 
+                                <input type="text" id="first_name" name="first_name" class="form-control"
                                        value="<?php echo htmlspecialchars($parent['first_name'] ?? ''); ?>" required>
                             </div>
-                            
+
                             <div class="form-group col-md-6">
                                 <label for="last_name">Last Name *</label>
-                                <input type="text" id="last_name" name="last_name" class="form-control" 
+                                <input type="text" id="last_name" name="last_name" class="form-control"
                                        value="<?php echo htmlspecialchars($parent['last_name'] ?? ''); ?>" required>
                             </div>
                         </div>
-                        
+
                         <div class="form-row">
                             <div class="form-group col-md-6">
                                 <label for="email">Email Address *</label>
-                                <input type="email" id="email" name="email" class="form-control" 
+                                <input type="email" id="email" name="email" class="form-control"
                                        value="<?php echo htmlspecialchars($parent['email'] ?? ''); ?>" required>
                             </div>
-                            
+
                             <div class="form-group col-md-6">
                                 <label for="phone">Phone Number</label>
-                                <input type="tel" id="phone" name="phone" class="form-control" 
-                                       value="<?php echo htmlspecialchars($parent['phone'] ?? ''); ?>" 
+                                <input type="tel" id="phone" name="phone" class="form-control"
+                                       value="<?php echo htmlspecialchars($parent['phone'] ?? ''); ?>"
                                        placeholder="e.g., 08012345678">
                             </div>
                         </div>
-                        
+
                         <div class="form-row">
                             <div class="form-group col-md-6">
                                 <label for="occupation">Occupation</label>
-                                <input type="text" id="occupation" name="occupation" class="form-control" 
-                                       value="<?php echo htmlspecialchars($parent['occupation'] ?? ''); ?>" 
+                                <input type="text" id="occupation" name="occupation" class="form-control"
+                                       value="<?php echo htmlspecialchars($parent['occupation'] ?? ''); ?>"
                                        placeholder="e.g., Business, Teacher, Doctor">
                             </div>
-                            
+
                             <div class="form-group col-md-6">
                                 <label for="relationship">Relationship to Child</label>
-                                <input type="text" id="relationship" name="relationship" class="form-control" 
-                                       value="<?php echo htmlspecialchars($parent['relationship'] ?? ''); ?>" 
+                                <input type="text" id="relationship" name="relationship" class="form-control"
+                                       value="<?php echo htmlspecialchars($parent['relationship'] ?? ''); ?>"
                                        placeholder="e.g., Father, Mother, Guardian">
                             </div>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="address">Address</label>
                             <textarea id="address" name="address" class="form-control" rows="2"><?php echo htmlspecialchars($parent['address'] ?? ''); ?></textarea>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="emergency_contact">Emergency Contact</label>
-                            <input type="text" id="emergency_contact" name="emergency_contact" class="form-control" 
-                                   value="<?php echo htmlspecialchars($parent['emergency_contact'] ?? ''); ?>" 
+                            <input type="text" id="emergency_contact" name="emergency_contact" class="form-control"
+                                   value="<?php echo htmlspecialchars($parent['emergency_contact'] ?? ''); ?>"
                                    placeholder="Alternative phone number">
                         </div>
                     </div>
-                    
+
                     <div class="form-section">
                         <h3><i class="fas fa-lock"></i> Login Information</h3>
                         <div class="form-row">
                             <div class="form-group col-md-6">
                                 <label for="username">Username *</label>
-                                <input type="text" id="username" name="username" class="form-control" 
+                                <input type="text" id="username" name="username" class="form-control"
                                        value="<?php echo htmlspecialchars($parent['username'] ?? ''); ?>" required>
                             </div>
-                            
+
                             <div class="form-group col-md-6">
                                 <label for="password">Password <?php echo $action === 'add' ? '*' : ''; ?></label>
-                                <input type="password" id="password" name="password" class="form-control" 
+                                <input type="password" id="password" name="password" class="form-control"
                                        <?php echo $action === 'add' ? 'required' : ''; ?>>
                                 <?php if ($action === 'edit'): ?>
                                 <small class="form-text text-muted">Leave blank to keep current password</small>
                                 <?php endif; ?>
                             </div>
                         </div>
-                        
+
                         <div class="form-group">
                             <label class="checkbox-label">
-                                <input type="checkbox" name="is_active" value="1" 
+                                <input type="checkbox" name="is_active" value="1"
                                        <?php echo (!isset($parent['is_active']) || $parent['is_active']) ? 'checked' : ''; ?>>
                                 Active Account
                             </label>
                         </div>
                     </div>
-                    
+
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save"></i> <?php echo $action === 'add' ? 'Add Parent' : 'Update Parent'; ?>
                         </button>
-                        <a href="parents.php" class="btn btn-outline">
+                        <a href="parents" class="btn btn-outline">
                             <i class="fas fa-times"></i> Cancel
                         </a>
                     </div>
                 </form>
             </div>
         </div>
-        
+
         <?php else: ?>
-        
+
         <!-- Stats Cards -->
         <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">
             <div class="stat-card" style="background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 15px;">
@@ -904,11 +886,11 @@ textarea.form-control {
                     <i class="fas fa-users"></i>
                 </div>
                 <div class="stat-content">
-                    <h3 style="font-size: 28px; font-weight: 700; margin: 0; color: #002855;"><?php echo $totalParents; ?></h3>
+                    <h3 style="font-size: 28px; font-weight: 700; margin: 0; color: #002855;"><?php echo e($totalParents); ?></h3>
                     <p style="margin: 5px 0 0; color: #6c757d;">Active Parents</p>
                 </div>
             </div>
-            
+
             <div class="stat-card" style="background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 15px;">
                 <div class="stat-icon" style="width: 50px; height: 50px; border-radius: 10px; background: rgba(220,53,69,0.1); display: flex; align-items: center; justify-content: center; font-size: 24px; color: #dc3545;">
                     <i class="fas fa-user-slash"></i>
@@ -918,13 +900,13 @@ textarea.form-control {
                     <p style="margin: 5px 0 0; color: #6c757d;">Inactive Parents</p>
                 </div>
             </div>
-            
+
             <div class="stat-card" style="background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 15px;">
                 <div class="stat-icon" style="width: 50px; height: 50px; border-radius: 10px; background: rgba(40,167,69,0.1); display: flex; align-items: center; justify-content: center; font-size: 24px; color: #28a745;">
                     <i class="fas fa-child"></i>
                 </div>
                 <div class="stat-content">
-                    <h3 style="font-size: 28px; font-weight: 700; margin: 0; color: #28a745;"><?php 
+                    <h3 style="font-size: 28px; font-weight: 700; margin: 0; color: #28a745;"><?php
                         $totalChildren = $db->getRow("SELECT COUNT(*) as count FROM students")['count'] ?? 0;
                         echo $totalChildren;
                     ?></h3>
@@ -932,7 +914,7 @@ textarea.form-control {
                 </div>
             </div>
         </div>
-        
+
         <!-- Active Parents List -->
         <div class="card">
             <div class="card-header">
@@ -961,10 +943,10 @@ textarea.form-control {
                         <tbody>
                             <?php foreach ($parents as $parent): ?>
                             <tr>
-                                <td><?php echo $parent['id']; ?></td>
+                                <td><?php echo e($parent['id']); ?></td>
                                 <td>
                                     <?php if (!empty($parent['profile_image'])): ?>
-                                    <img src="<?php echo BASE_URL; ?>/uploads/parents/<?php echo $parent['profile_image']; ?>" 
+                                    <img src="<?php echo BASE_URL; ?>/uploads/parents/<?php echo e($parent['profile_image']); ?>"
                                          alt="Profile" class="table-avatar">
                                     <?php else: ?>
                                     <div class="avatar-placeholder">
@@ -979,7 +961,7 @@ textarea.form-control {
                                 <td><?php echo htmlspecialchars($parent['phone'] ?? '-'); ?></td>
                                 <td><?php echo htmlspecialchars($parent['occupation'] ?? '-'); ?></td>
                                 <td>
-                                    <span class="badge badge-info"><?php echo $parent['children_count']; ?></span>
+                                    <span class="badge badge-info"><?php echo e($parent['children_count']); ?></span>
                                 </td>
                                 <td>
                                     <?php if ($parent['is_active']): ?>
@@ -990,18 +972,18 @@ textarea.form-control {
                                 </td>
                                 <td>
                                     <div class="action-buttons">
-                                        <a href="?action=edit&id=<?php echo $parent['id']; ?>" class="btn-icon" title="Edit">
+                                        <a href="?action=edit&id=<?php echo e($parent['id']); ?>" class="btn-icon" title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <a href="view-parent.php?id=<?php echo $parent['id']; ?>" class="btn-icon" title="View Details">
+                                        <a href="view-parent?id=<?php echo e($parent['id']); ?>" class="btn-icon" title="View Details">
                                             <i class="fas fa-eye"></i>
                                         </a>
-                                        <a href="students.php?parent_id=<?php echo $parent['id']; ?>" class="btn-icon" title="View Children">
+                                        <a href="students?parent_id=<?php echo e($parent['id']); ?>" class="btn-icon" title="View Children">
                                             <i class="fas fa-child"></i>
                                         </a>
                                         <?php if ($parent['children_count'] == 0): ?>
-                                        <button type="button" class="btn-icon text-danger" 
-                                                onclick="confirmDeactivate(<?php echo $parent['id']; ?>, '<?php echo htmlspecialchars(addslashes($parent['first_name'] . ' ' . $parent['last_name'])); ?>')"
+                                        <button type="button" class="btn-icon text-danger"
+                                                onclick="confirmDeactivate(<?php echo e($parent['id']); ?>, '<?php echo htmlspecialchars(addslashes($parent['first_name'] . ' ' . $parent['last_name'])); ?>')"
                                                 title="Deactivate">
                                             <i class="fas fa-ban"></i>
                                         </button>
@@ -1017,7 +999,7 @@ textarea.form-control {
                         </tbody>
                     </table>
                 </div>
-                
+
                 <!-- Pagination -->
                 <?php if ($totalPages > 1): ?>
                 <div class="pagination">
@@ -1026,13 +1008,13 @@ textarea.form-control {
                         <i class="fas fa-chevron-left"></i> Previous
                     </a>
                     <?php endif; ?>
-                    
+
                     <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                    <a href="?p=<?php echo $i; ?>" class="page-link <?php echo $i == $page ? 'active' : ''; ?>">
-                        <?php echo $i; ?>
+                    <a href="?p=<?php echo e($i); ?>" class="page-link <?php echo $i == $page ? 'active' : ''; ?>">
+                        <?php echo e($i); ?>
                     </a>
                     <?php endfor; ?>
-                    
+
                     <?php if ($page < $totalPages): ?>
                     <a href="?p=<?php echo $page + 1; ?>" class="page-link">
                         Next <i class="fas fa-chevron-right"></i>
@@ -1040,7 +1022,7 @@ textarea.form-control {
                     <?php endif; ?>
                 </div>
                 <?php endif; ?>
-                
+
                 <?php else: ?>
                 <div class="alert alert-info">
                     <i class="fas fa-info-circle"></i>
@@ -1049,7 +1031,7 @@ textarea.form-control {
                 <?php endif; ?>
             </div>
         </div>
-        
+
         <!-- Inactive Parents Section -->
         <?php if (!empty($inactiveParents)): ?>
         <div class="card mt-4">
@@ -1073,10 +1055,10 @@ textarea.form-control {
                         <tbody>
                             <?php foreach ($inactiveParents as $parent): ?>
                             <tr>
-                                <td><?php echo $parent['id']; ?></td>
+                                <td><?php echo e($parent['id']); ?></td>
                                 <td>
                                     <?php if (!empty($parent['profile_image'])): ?>
-                                    <img src="<?php echo BASE_URL; ?>/uploads/parents/<?php echo $parent['profile_image']; ?>" 
+                                    <img src="<?php echo BASE_URL; ?>/uploads/parents/<?php echo e($parent['profile_image']); ?>"
                                          alt="Profile" class="table-avatar">
                                     <?php else: ?>
                                     <div class="avatar-placeholder">
@@ -1090,8 +1072,8 @@ textarea.form-control {
                                 <td><?php echo htmlspecialchars($parent['occupation'] ?? '-'); ?></td>
                                 <td>
                                     <div class="action-buttons">
-                                        <button type="button" class="btn-icon text-success" 
-                                                onclick="activateParent(<?php echo $parent['id']; ?>)"
+                                        <button type="button" class="btn-icon text-success"
+                                                onclick="activateParent(<?php echo e($parent['id']); ?>)"
                                                 title="Activate">
                                             <i class="fas fa-check-circle"></i>
                                         </button>
@@ -1105,7 +1087,7 @@ textarea.form-control {
             </div>
         </div>
         <?php endif; ?>
-        
+
         <?php endif; ?>
     </main>
 </div>
@@ -1140,7 +1122,7 @@ textarea.form-control {
     <input type="hidden" name="id" id="activateId">
 </form>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 let selectedItems = [];
 
 // Search functionality
@@ -1148,14 +1130,14 @@ document.getElementById('searchInput')?.addEventListener('keyup', function() {
     const searchTerm = this.value.toLowerCase();
     const table = document.getElementById('parentsTable');
     if (!table) return;
-    
+
     const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-    
+
     for (let row of rows) {
         const name = row.cells[2]?.textContent.toLowerCase() || '';
         const email = row.cells[3]?.textContent.toLowerCase() || '';
         const phone = row.cells[4]?.textContent.toLowerCase() || '';
-        
+
         if (name.includes(searchTerm) || email.includes(searchTerm) || phone.includes(searchTerm)) {
             row.style.display = '';
         } else {
@@ -1184,7 +1166,7 @@ function closeModal(modalId) {
 // Close modals when clicking outside
 window.onclick = function(event) {
     const deactivateModal = document.getElementById('deactivateModal');
-    
+
     if (event.target === deactivateModal) {
         deactivateModal.style.display = 'none';
     }
@@ -1210,3 +1192,5 @@ $(document).ready(function() {
 <?php
 // No footer include - removed as requested
 ?>
+
+<?php include __DIR__ . '/../includes/footer.php'; ?>

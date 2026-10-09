@@ -1,13 +1,13 @@
 <?php
 // includes/Student.php - Student Model Class
 
-require_once __DIR__ . '/Database.php';
+require_once __DIR__ . '/../config/database.php';
 
 class Student {
     private $db;
     private $id;
     private $data;
-    
+
     /**
      * Constructor
      * @param int|null $id Student ID
@@ -18,7 +18,7 @@ class Student {
             $this->find($id);
         }
     }
-    
+
     /**
      * Find student by ID
      * @param int $id Student ID
@@ -39,14 +39,14 @@ class Student {
              WHERE s.id = ? AND u.deleted_at IS NULL",
             [$id]
         );
-        
+
         if ($this->data) {
             $this->id = $id;
         }
-        
+
         return $this->data;
     }
-    
+
     /**
      * Get student by user ID
      * @param int $userId User ID
@@ -58,7 +58,7 @@ class Student {
             [$userId]
         );
     }
-    
+
     /**
      * Get all students with optional filters
      * @param array $filters Optional filters (class_id, status, search)
@@ -75,19 +75,19 @@ class Student {
                 LEFT JOIN parents p ON s.parent_id = p.id
                 LEFT JOIN users pu ON p.user_id = pu.id
                 WHERE u.deleted_at IS NULL";
-        
+
         $params = [];
-        
+
         if (!empty($filters['class_id'])) {
             $sql .= " AND s.class_id = ?";
             $params[] = $filters['class_id'];
         }
-        
+
         if (isset($filters['is_active'])) {
             $sql .= " AND u.is_active = ?";
             $params[] = $filters['is_active'];
         }
-        
+
         if (!empty($filters['search'])) {
             $sql .= " AND (u.first_name LIKE ? OR u.last_name LIKE ? OR s.admission_number LIKE ? OR u.email LIKE ?)";
             $search = "%{$filters['search']}%";
@@ -96,12 +96,12 @@ class Student {
             $params[] = $search;
             $params[] = $search;
         }
-        
+
         $sql .= " ORDER BY u.first_name, u.last_name";
-        
+
         return $this->db->getRows($sql, $params);
     }
-    
+
     /**
      * Get students by class
      * @param int $classId Class ID
@@ -118,7 +118,7 @@ class Student {
             [$classId]
         );
     }
-    
+
     /**
      * Create new student
      * @param array $data Student data
@@ -127,7 +127,7 @@ class Student {
     public function create($data) {
         try {
             $this->db->beginTransaction();
-            
+
             // Create user first
             $userData = [
                 'username' => $data['username'],
@@ -139,17 +139,17 @@ class Student {
                 'role' => 'student',
                 'is_active' => $data['is_active'] ?? 1
             ];
-            
+
             $userId = $this->db->insert(
-                "INSERT INTO users (username, email, password_hash, first_name, last_name, phone, role, is_active) 
+                "INSERT INTO users (username, email, password_hash, first_name, last_name, phone, role, is_active)
                  VALUES (:username, :email, :password_hash, :first_name, :last_name, :phone, :role, :is_active)",
                 $userData
             );
-            
+
             if (!$userId) {
                 throw new Exception("Failed to create user");
             }
-            
+
             // Create student record
             $studentData = [
                 'user_id' => $userId,
@@ -163,28 +163,28 @@ class Student {
                 'blood_group' => $data['blood_group'] ?? null,
                 'medical_notes' => $data['medical_notes'] ?? null
             ];
-            
+
             $studentId = $this->db->insert(
-                "INSERT INTO students (user_id, admission_number, class_id, parent_id, date_of_birth, 
-                 gender, admission_date, address, blood_group, medical_notes) 
-                 VALUES (:user_id, :admission_number, :class_id, :parent_id, :date_of_birth, 
+                "INSERT INTO students (user_id, admission_number, class_id, parent_id, date_of_birth,
+                 gender, admission_date, address, blood_group, medical_notes)
+                 VALUES (:user_id, :admission_number, :class_id, :parent_id, :date_of_birth,
                  :gender, :admission_date, :address, :blood_group, :medical_notes)",
                 $studentData
             );
-            
+
             $this->db->commit();
-            
+
             Security::logAudit('CREATED_STUDENT', 'students', $studentId, null, $data);
-            
+
             return $studentId;
-            
+
         } catch (Exception $e) {
             $this->db->rollback();
             error_log("Error creating student: " . $e->getMessage());
             return false;
         }
     }
-    
+
     /**
      * Update student
      * @param int $id Student ID
@@ -197,13 +197,13 @@ class Student {
             if (!$student) {
                 throw new Exception("Student not found");
             }
-            
+
             $this->db->beginTransaction();
-            
+
             // Update user data
             $userUpdates = [];
             $userParams = [];
-            
+
             $userFields = ['first_name', 'last_name', 'email', 'phone'];
             foreach ($userFields as $field) {
                 if (isset($data[$field])) {
@@ -211,17 +211,17 @@ class Student {
                     $userParams[] = $data[$field];
                 }
             }
-            
+
             if (isset($data['password']) && !empty($data['password'])) {
                 $userUpdates[] = "password_hash = ?";
                 $userParams[] = Security::hashPassword($data['password']);
             }
-            
+
             if (isset($data['is_active'])) {
                 $userUpdates[] = "is_active = ?";
                 $userParams[] = $data['is_active'];
             }
-            
+
             if (!empty($userUpdates)) {
                 $userParams[] = $student['user_id'];
                 $this->db->query(
@@ -229,12 +229,12 @@ class Student {
                     $userParams
                 );
             }
-            
+
             // Update student data
             $studentUpdates = [];
             $studentParams = [];
-            
-            $studentFields = ['class_id', 'parent_id', 'date_of_birth', 'gender', 
+
+            $studentFields = ['class_id', 'parent_id', 'date_of_birth', 'gender',
                              'admission_date', 'address', 'blood_group', 'medical_notes'];
             foreach ($studentFields as $field) {
                 if (isset($data[$field])) {
@@ -242,7 +242,7 @@ class Student {
                     $studentParams[] = $data[$field];
                 }
             }
-            
+
             if (!empty($studentUpdates)) {
                 $studentParams[] = $id;
                 $this->db->query(
@@ -250,20 +250,20 @@ class Student {
                     $studentParams
                 );
             }
-            
+
             $this->db->commit();
-            
+
             Security::logAudit('UPDATED_STUDENT', 'students', $id, $student, $data);
-            
+
             return true;
-            
+
         } catch (Exception $e) {
             $this->db->rollback();
             error_log("Error updating student: " . $e->getMessage());
             return false;
         }
     }
-    
+
     /**
      * Delete student (soft delete)
      * @param int $id Student ID
@@ -275,23 +275,23 @@ class Student {
             if (!$student) {
                 throw new Exception("Student not found");
             }
-            
+
             // Soft delete user
             $this->db->query(
                 "UPDATE users SET deleted_at = NOW() WHERE id = ?",
                 [$student['user_id']]
             );
-            
+
             Security::logAudit('DELETED_STUDENT', 'students', $id, $student);
-            
+
             return true;
-            
+
         } catch (Exception $e) {
             error_log("Error deleting student: " . $e->getMessage());
             return false;
         }
     }
-    
+
     /**
      * Promote student to next class
      * @param int $id Student ID
@@ -305,26 +305,26 @@ class Student {
             if (!$student) {
                 throw new Exception("Student not found");
             }
-            
+
             $oldClassId = $student['class_id'];
-            
+
             $this->db->query(
                 "UPDATE students SET class_id = ? WHERE id = ?",
                 [$newClassId, $id]
             );
-            
-            Security::logAudit('PROMOTED_STUDENT', 'students', $id, 
-                              ['class_id' => $oldClassId], 
+
+            Security::logAudit('PROMOTED_STUDENT', 'students', $id,
+                              ['class_id' => $oldClassId],
                               ['class_id' => $newClassId, 'academic_year' => $newAcademicYear]);
-            
+
             return true;
-            
+
         } catch (Exception $e) {
             error_log("Error promoting student: " . $e->getMessage());
             return false;
         }
     }
-    
+
     /**
      * Get student's attendance record
      * @param int $id Student ID
@@ -333,27 +333,27 @@ class Student {
      * @return array Attendance records
      */
     public function getAttendance($id, $startDate = null, $endDate = null) {
-        $sql = "SELECT a.*, c.class_name 
+        $sql = "SELECT a.*, c.class_name
                 FROM attendance a
                 JOIN classes c ON a.class_id = c.id
                 WHERE a.student_id = ?";
         $params = [$id];
-        
+
         if ($startDate) {
             $sql .= " AND a.date >= ?";
             $params[] = $startDate;
         }
-        
+
         if ($endDate) {
             $sql .= " AND a.date <= ?";
             $params[] = $endDate;
         }
-        
+
         $sql .= " ORDER BY a.date DESC";
-        
+
         return $this->db->getRows($sql, $params);
     }
-    
+
     /**
      * Get student's results
      * @param int $id Student ID
@@ -362,27 +362,27 @@ class Student {
      * @return array Results
      */
     public function getResults($id, $term = null, $academicYear = null) {
-        $sql = "SELECT r.*, s.subject_name 
+        $sql = "SELECT r.*, s.subject_name
                 FROM results r
                 JOIN subjects s ON r.subject_id = s.id
                 WHERE r.student_id = ?";
         $params = [$id];
-        
+
         if ($term) {
             $sql .= " AND r.term = ?";
             $params[] = $term;
         }
-        
+
         if ($academicYear) {
             $sql .= " AND r.academic_year = ?";
             $params[] = $academicYear;
         }
-        
+
         $sql .= " ORDER BY r.academic_year DESC, r.term DESC, s.subject_name";
-        
+
         return $this->db->getRows($sql, $params);
     }
-    
+
     /**
      * Get student's fee payments
      * @param int $id Student ID
@@ -392,17 +392,17 @@ class Student {
     public function getPayments($id, $academicYear = null) {
         $sql = "SELECT p.* FROM payments p WHERE p.student_id = ?";
         $params = [$id];
-        
+
         if ($academicYear) {
             $sql .= " AND p.academic_year = ?";
             $params[] = $academicYear;
         }
-        
+
         $sql .= " ORDER BY p.payment_date DESC";
-        
+
         return $this->db->getRows($sql, $params);
     }
-    
+
     /**
      * Get student's fee summary
      * @param int $id Student ID
@@ -419,31 +419,31 @@ class Student {
                 'pending' => 0
             ];
         }
-        
+
         if (!$academicYear) {
-            $academicYear = date('Y') . '-' . (date('Y') + 1);
+            $academicYear = currentAcademicYear();
         }
-        
+
         // Get fee structure
         $feeStructure = $this->db->getRows(
             "SELECT * FROM fee_structure WHERE class_id = ? AND academic_year = ?",
             [$student['class_id'], $academicYear]
         );
-        
+
         // Get payments
         $payments = $this->db->getRows(
             "SELECT * FROM payments WHERE student_id = ? AND academic_year = ?",
             [$id, $academicYear]
         );
-        
+
         $totalFees = 0;
         $totalPaid = 0;
         $pendingAmount = 0;
-        
+
         foreach ($feeStructure as $fee) {
             $totalFees += $fee['amount'];
         }
-        
+
         foreach ($payments as $payment) {
             if ($payment['status'] === 'completed') {
                 $totalPaid += $payment['amount'];
@@ -451,7 +451,7 @@ class Student {
                 $pendingAmount += $payment['amount'];
             }
         }
-        
+
         return [
             'total_fees' => $totalFees,
             'total_paid' => $totalPaid,
@@ -461,7 +461,7 @@ class Student {
             'payments' => $payments
         ];
     }
-    
+
     /**
      * Generate unique admission number
      * @return string Admission number
@@ -470,20 +470,20 @@ class Student {
         $year = date('Y');
         $random = str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);
         $admission = "STB/{$year}/{$random}";
-        
+
         // Check if exists
         $exists = $this->db->getRow(
             "SELECT id FROM students WHERE admission_number = ?",
             [$admission]
         );
-        
+
         if ($exists) {
             return $this->generateAdmissionNumber();
         }
-        
+
         return $admission;
     }
-    
+
     /**
      * Get student count
      * @param array $filters Optional filters
@@ -494,21 +494,21 @@ class Student {
                 JOIN users u ON s.user_id = u.id
                 WHERE u.deleted_at IS NULL";
         $params = [];
-        
+
         if (!empty($filters['class_id'])) {
             $sql .= " AND s.class_id = ?";
             $params[] = $filters['class_id'];
         }
-        
+
         if (isset($filters['is_active'])) {
             $sql .= " AND u.is_active = ?";
             $params[] = $filters['is_active'];
         }
-        
+
         $result = $this->db->getRow($sql, $params);
         return $result['count'] ?? 0;
     }
-    
+
     /**
      * Get current instance data
      * @return array|null Student data
@@ -516,7 +516,7 @@ class Student {
     public function getData() {
         return $this->data;
     }
-    
+
     /**
      * Get student ID
      * @return int|null
@@ -524,7 +524,7 @@ class Student {
     public function getId() {
         return $this->id;
     }
-    
+
     /**
      * Get full name
      * @return string

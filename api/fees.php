@@ -1,251 +1,132 @@
 <?php
-// api/fees.php - Fees API endpoints
-header('Content-Type: application/json');
-require_once '../config/config.php';
-require_once '../config/database.php';
-require_once '../config/security.php';
+// api/fees.php - Fees API
+require_once __DIR__ . '/../includes/api.php';
 
-// Require authentication
-if (!Security::isLoggedIn()) {
-    http_response_code(401);
-    echo json_encode(['error' => 'Unauthorized']);
-    exit;
-}
-
+$input = api_init(['GET', 'POST'], ['admin', 'parent', 'student']);
 $db = db();
-$response = ['success' => false];
+$isAdmin = Security::hasRole('admin');
 
-switch ($_SERVER['REQUEST_METHOD']) {
-    case 'GET':
-        $action = $_GET['action'] ?? '';
-        
-        switch ($action) {
-            case 'get_student_fees':
-                $studentId = Security::sanitize($_GET['student_id'] ?? '');
-                $academicYear = Security::sanitize($_GET['academic_year'] ?? date('Y') . '-' . (date('Y') + 1));
-                
-                if (!$studentId) {
-                    $response['message'] = 'Student ID required';
-                    break;
-                }
-                
-                // Get fee structure for student's class
-                $student = $db->getRow("SELECT class_id FROM students WHERE id = ?", [$studentId]);
-                
-                if (!$student) {
-                    $response['message'] = 'Student not found';
-                    break;
-                }
-                
-                $feeStructure = $db->getRows(
-                    "SELECT * FROM fee_structure 
-                     WHERE class_id = ? AND academic_year = ? 
-                     ORDER BY term, is_mandatory DESC",
-                    [$student['class_id'], $academicYear]
-                );
-                
-                // Get payments made
-                $payments = $db->getRows(
-                    "SELECT * FROM payments 
-                     WHERE student_id = ? AND academic_year = ? 
-                     ORDER BY payment_date DESC",
-                    [$studentId, $academicYear]
-                );
-                
-                // Calculate summary
-                $totalFees = 0;
-                $totalPaid = 0;
-                $totalPending = 0;
-                
-                foreach ($feeStructure as $fee) {
-                    $totalFees += $fee['amount'];
-                }
-                
-                foreach ($payments as $payment) {
-                    if ($payment['status'] === 'completed') {
-                        $totalPaid += $payment['amount'];
-                    } elseif ($payment['status'] === 'pending') {
-                        $totalPending += $payment['amount'];
-                    }
-                }
-                
-                $response['success'] = true;
-                $response['data'] = [
-                    'fee_structure' => $feeStructure,
-                    'payments' => $payments,
-                    'summary' => [
-                        'total_fees' => $totalFees,
-                        'total_paid' => $totalPaid,
-                        'total_pending' => $totalPending,
-                        'balance' => $totalFees - $totalPaid
-                    ]
-                ];
-                break;
-                
-            case 'get_outstanding':
-                $classId = Security::sanitize($_GET['class_id'] ?? '');
-                
-                $query = "SELECT s.id, u.first_name, u.last_name, s.admission_number, c.class_name,
-                                 COALESCE(SUM(p.amount), 0) as paid,
-                                 (SELECT SUM(amount) FROM fee_structure WHERE class_id = s.class_id) as expected
-                          FROM students s
-                          JOIN users u ON s.user_id = u.id
-                          LEFT JOIN classes c ON s.class_id = c.id
-                          LEFT JOIN payments p ON s.id = p.student_id AND p.status = 'completed'
-                          WHERE u.is_active = 1";
-                
-                $params = [];
-                
-                if ($classId) {
-                    $query .= " AND s.class_id = ?";
-                    $params[] = $classId;
-                }
-                
-                $query .= " GROUP BY s.id
-                           HAVING expected > paid
-                           ORDER BY (expected - paid) DESC";
-                
-                $outstanding = $db->getRows($query, $params);
-                
-                $response['success'] = true;
-                $response['data'] = $outstanding;
-                break;
-                
-            case 'get_receipt':
-                $receiptId = Security::sanitize($_GET['id'] ?? '');
-                
-                $receipt = $db->getRow(
-                    "SELECT p.*, 
-                            CONCAT(u.first_name, ' ', u.last_name) as student_name,
-                            s.admission_number,
-                            c.class_name, c.section,
-                            CONCAT(ru.first_name, ' ', ru.last_name) as recorded_by_name
-                     FROM payments p
-                     JOIN students s ON p.student_id = s.id
-                     JOIN users u ON s.user_id = u.id
-                     LEFT JOIN classes c ON s.class_id = c.id
-                     LEFT JOIN users ru ON p.recorded_by = ru.id
-                     WHERE p.id = ?",
-                    [$receiptId]
-                );
-                
-                if ($receipt) {
-                    $response['success'] = true;
-                    $response['data'] = $receipt;
-                } else {
-                    $response['message'] = 'Receipt not found';
-                }
-                break;
-                
-            default:
-                $response['message'] = 'Invalid action';
-        }
-        break;
-        
-    case 'POST':
-        // Verify CSRF token for POST requests
-        $input = json_decode(file_get_contents('php://input'), true);
-        $token = $_POST['csrf_token'] ?? $input['csrf_token'] ?? '';
-        
-        if (!Security::verifyCSRFToken($token)) {
-            http_response_code(419);
-            $response['message'] = 'Invalid CSRF token';
-            echo json_encode($response);
-            exit;
-        }
-        
-        $action = $_POST['action'] ?? $input['action'] ?? '';
-        
-        switch ($action) {
-            case 'record_payment':
-                if (!in_array($_SESSION['user_role'], ['admin', 'accounts'])) {
-                    $response['message'] = 'Permission denied';
-                    break;
-                }
-                
-                $data = [
-                    'student_id' => Security::sanitize($_POST['student_id'] ?? $input['student_id'] ?? ''),
-                    'amount' => Security::sanitize($_POST['amount'] ?? $input['amount'] ?? ''),
-                    'payment_date' => Security::sanitize($_POST['payment_date'] ?? $input['payment_date'] ?? date('Y-m-d')),
-                    'payment_method' => Security::sanitize($_POST['payment_method'] ?? $input['payment_method'] ?? 'cash'),
-                    'term' => Security::sanitize($_POST['term'] ?? $input['term'] ?? ''),
-                    'academic_year' => Security::sanitize($_POST['academic_year'] ?? $input['academic_year'] ?? ''),
-                    'transaction_id' => Security::sanitize($_POST['transaction_id'] ?? $input['transaction_id'] ?? ''),
-                    'bank_name' => Security::sanitize($_POST['bank_name'] ?? $input['bank_name'] ?? ''),
-                    'cheque_number' => Security::sanitize($_POST['cheque_number'] ?? $input['cheque_number'] ?? ''),
-                    'remarks' => Security::sanitize($_POST['remarks'] ?? $input['remarks'] ?? '')
-                ];
-                
-                // Validate required fields
-                $required = ['student_id', 'amount', 'payment_method', 'term', 'academic_year'];
-                foreach ($required as $field) {
-                    if (empty($data[$field])) {
-                        $response['message'] = "Missing required field: $field";
-                        echo json_encode($response);
-                        exit;
-                    }
-                }
-                
-                // Generate receipt number
-                $receiptNumber = 'RCP-' . date('Ymd') . '-' . str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);
-                
-                try {
-                    $db->insert(
-                        "INSERT INTO payments (student_id, receipt_number, amount, payment_date, payment_method,
-                         transaction_id, bank_name, cheque_number, term, academic_year, remarks, recorded_by) 
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        [$data['student_id'], $receiptNumber, $data['amount'], $data['payment_date'],
-                         $data['payment_method'], $data['transaction_id'], $data['bank_name'],
-                         $data['cheque_number'], $data['term'], $data['academic_year'], 
-                         $data['remarks'], $_SESSION['user_id']]
-                    );
-                    
-                    $paymentId = $db->lastInsertId();
-                    
-                    Security::logAudit('RECORDED_PAYMENT_API', 'payments', $paymentId);
-                    
-                    $response['success'] = true;
-                    $response['message'] = 'Payment recorded successfully';
-                    $response['receipt_number'] = $receiptNumber;
-                    $response['payment_id'] = $paymentId;
-                    
-                } catch (Exception $e) {
-                    $response['message'] = 'Database error: ' . $e->getMessage();
-                }
-                break;
-                
-            case 'update_payment_status':
-                if ($_SESSION['user_role'] !== 'admin') {
-                    $response['message'] = 'Permission denied';
-                    break;
-                }
-                
-                $paymentId = Security::sanitize($_POST['payment_id'] ?? $input['payment_id'] ?? '');
-                $status = Security::sanitize($_POST['status'] ?? $input['status'] ?? '');
-                
-                if (!$paymentId || !$status) {
-                    $response['message'] = 'Payment ID and status required';
-                    break;
-                }
-                
-                try {
-                    $db->query(
-                        "UPDATE payments SET status = ?, approved_by = ?, approved_at = NOW() WHERE id = ?",
-                        [$status, $_SESSION['user_id'], $paymentId]
-                    );
-                    
-                    Security::logAudit('UPDATED_PAYMENT_STATUS', 'payments', $paymentId);
-                    
-                    $response['success'] = true;
-                    $response['message'] = 'Payment status updated';
-                    
-                } catch (Exception $e) {
-                    $response['message'] = 'Database error: ' . $e->getMessage();
-                }
-                break;
-        }
-        break;
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    switch ($_GET['action'] ?? '') {
+        case 'get_student_fees':
+            $studentId = api_int($_GET['student_id'] ?? null);
+            if (!$studentId) api_error('Student ID required');
+            if (!Security::canAccessStudent($studentId)) api_error('Permission denied', 403);
+            $year = Security::sanitize($_GET['academic_year'] ?? '');
+            if ($year !== '' && !preg_match('/^\d{4}(-\d{4})?$/', $year)) api_error('Invalid academic year');
+
+            $student = $db->getRow('SELECT class_id FROM students WHERE id = ?', [$studentId]);
+            if (!$student) api_error('Student not found', 404);
+            if ($year === '') {
+                $latest = $db->getRow('SELECT academic_year FROM fee_structure WHERE class_id = ? ORDER BY academic_year DESC LIMIT 1', [$student['class_id']]);
+                $year = $latest['academic_year'] ?? currentAcademicYear();
+            }
+
+            $fees = $db->getRows('SELECT * FROM fee_structure WHERE class_id = ? AND academic_year = ? ORDER BY term, is_mandatory DESC', [$student['class_id'], $year]);
+            $payments = $db->getRows('SELECT * FROM payments WHERE student_id = ? AND academic_year = ? ORDER BY payment_date DESC', [$studentId, $year]);
+
+            $totalFees = array_sum(array_column($fees, 'amount'));
+            $totalPaid = $totalPending = 0;
+            foreach ($payments as $p) {
+                if ($p['status'] === 'completed') $totalPaid += $p['amount'];
+                elseif ($p['status'] === 'pending') $totalPending += $p['amount'];
+            }
+            api_ok(['data' => [
+                'academic_year' => $year,
+                'fee_structure' => $fees,
+                'payments' => $payments,
+                'summary' => [
+                    'total_fees' => $totalFees, 'total_paid' => $totalPaid,
+                    'total_pending' => $totalPending, 'balance' => $totalFees - $totalPaid,
+                ],
+            ]]);
+
+        case 'get_outstanding':
+            if (!$isAdmin) api_error('Permission denied', 403);
+            $classId = api_int($_GET['class_id'] ?? null);
+            $sql = "SELECT s.id, u.first_name, u.last_name, s.admission_number, c.class_name,
+                           COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.student_id = s.id AND p.status = 'completed'), 0) AS paid,
+                           COALESCE((SELECT SUM(f.amount) FROM fee_structure f WHERE f.class_id = s.class_id), 0) AS expected
+                    FROM students s
+                    JOIN users u ON s.user_id = u.id
+                    LEFT JOIN classes c ON s.class_id = c.id
+                    WHERE u.is_active = 1 AND u.deleted_at IS NULL";
+            $params = [];
+            if ($classId) { $sql .= ' AND s.class_id = ?'; $params[] = $classId; }
+            $sql .= ' HAVING expected > paid ORDER BY (expected - paid) DESC';
+            api_ok(['data' => $db->getRows($sql, $params)]);
+
+        case 'get_receipt':
+            $id = api_int($_GET['id'] ?? null);
+            if (!$id) api_error('Receipt ID required');
+            $receipt = $db->getRow(
+                "SELECT p.*, CONCAT(u.first_name, ' ', u.last_name) AS student_name, s.admission_number,
+                        c.class_name, c.section, CONCAT(ru.first_name, ' ', ru.last_name) AS recorded_by_name
+                 FROM payments p
+                 JOIN students s ON p.student_id = s.id
+                 JOIN users u ON s.user_id = u.id
+                 LEFT JOIN classes c ON s.class_id = c.id
+                 LEFT JOIN users ru ON p.recorded_by = ru.id
+                 WHERE p.id = ?",
+                [$id]
+            );
+            // Same answer for "missing" and "not yours" so IDs cannot be probed
+            if (!$receipt || !Security::canAccessStudent($receipt['student_id'])) api_error('Receipt not found', 404);
+            api_ok(['data' => $receipt]);
+
+        default:
+            api_error('Invalid action');
+    }
 }
 
-echo json_encode($response);
-?>
+// ---- POST (admin only) ----
+if (!$isAdmin) api_error('Permission denied', 403);
+
+switch ($input['action'] ?? '') {
+    case 'record_payment':
+        $studentId = api_int($input['student_id'] ?? null);
+        $amount = filter_var($input['amount'] ?? null, FILTER_VALIDATE_FLOAT);
+        $method = $input['payment_method'] ?? 'cash';
+        $date = api_date($input['payment_date'] ?? date('Y-m-d'));
+        $term = Security::sanitize($input['term'] ?? '');
+        $year = Security::sanitize($input['academic_year'] ?? '');
+
+        if (!$studentId || !$term || !$year) api_error('Student, term and academic year are required');
+        if ($amount === false || $amount <= 0 || $amount > 100000000) api_error('Enter a valid amount');
+        if (!in_array($method, ['cash', 'bank_transfer', 'card', 'cheque'], true)) api_error('Invalid payment method');
+        if (!$date || $date > date('Y-m-d')) api_error('Invalid payment date');
+        if (!$db->getRow('SELECT id FROM students WHERE id = ?', [$studentId])) api_error('Student not found', 404);
+
+        try {
+            $receipt = generateReceiptNumber();
+            $paymentId = $db->insert(
+                "INSERT INTO payments (student_id, receipt_number, payment_date, amount, payment_method, transaction_id,
+                                       bank_name, cheque_number, term, academic_year, status, remarks, recorded_by)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'completed', ?, ?)",
+                [$studentId, $receipt, $date, $amount, $method,
+                 Security::sanitize($input['transaction_id'] ?? ''), Security::sanitize($input['bank_name'] ?? ''),
+                 Security::sanitize($input['cheque_number'] ?? ''), $term, $year,
+                 Security::sanitize($input['remarks'] ?? ''), $_SESSION['user_id']]
+            );
+            Security::logAudit('RECORDED_PAYMENT_API', 'payments', $paymentId);
+            api_ok(['message' => 'Payment recorded successfully', 'receipt_number' => $receipt, 'payment_id' => (int)$paymentId]);
+        } catch (Throwable $e) {
+            api_exception($e);
+        }
+
+    case 'update_payment_status':
+        $paymentId = api_int($input['payment_id'] ?? null);
+        $status = $input['status'] ?? '';
+        if (!$paymentId || !in_array($status, ['pending', 'completed', 'failed', 'refunded'], true)) api_error('Valid payment ID and status required');
+        if (!$db->getRow('SELECT id FROM payments WHERE id = ?', [$paymentId])) api_error('Payment not found', 404);
+        try {
+            $db->query('UPDATE payments SET status = ?, approved_by = ?, approved_at = NOW() WHERE id = ?', [$status, $_SESSION['user_id'], $paymentId]);
+            Security::logAudit('UPDATED_PAYMENT_STATUS', 'payments', $paymentId);
+            api_ok(['message' => 'Payment status updated']);
+        } catch (Throwable $e) {
+            api_exception($e);
+        }
+
+    default:
+        api_error('Invalid action');
+}

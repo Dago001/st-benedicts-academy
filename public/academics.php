@@ -17,7 +17,7 @@ $metaTags = [
     'og:title' => 'Academics - ST. BENEDICT\'S EARLY YEARS BRITISH ACADEMY',
     'og:description' => 'Explore our British Early Years curriculum and learning approach.',
     'og:image' => BASE_URL . '/assets/images/og-image.jpg',
-    'og:url' => BASE_URL . '/public/academics.php',
+    'og:url' => BASE_URL . '/public/academics',
     'twitter:card' => 'summary_large_image'
 ];
 
@@ -477,12 +477,12 @@ if ($db) {
     .assessment-grid {
         grid-template-columns: repeat(2, 1fr);
     }
-    
+
     .approach-grid {
         grid-template-columns: 1fr;
         gap: 30px;
     }
-    
+
     .approach-quote {
         position: relative;
         bottom: 0;
@@ -495,30 +495,30 @@ if ($db) {
     .page-header {
         padding: var(--spacing-2xl) 0;
     }
-    
+
     .page-header h1 {
         font-size: var(--text-2xl);
     }
-    
+
     .section-title {
         font-size: 2rem;
     }
-    
+
     .stages-grid,
     .subjects-grid,
     .assessment-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .assessment-card {
         padding: 30px 20px;
     }
-    
+
     .assessment-note {
         flex-direction: column;
         text-align: center;
     }
-    
+
     .approach-feature {
         flex-direction: column;
         text-align: center;
@@ -529,15 +529,15 @@ if ($db) {
     .page-header h1 {
         font-size: var(--text-xl);
     }
-    
+
     .section-title {
         font-size: 1.5rem;
     }
-    
+
     .stage-title {
         font-size: 1.5rem;
     }
-    
+
     .assessment-item {
         padding: 10px;
     }
@@ -565,7 +565,7 @@ if ($db) {
     <div class="container">
         <h1>Academics</h1>
         <div class="breadcrumb">
-            <a href="<?php echo BASE_URL; ?>/index.php">Home</a> / Academics
+            <a href="<?php echo BASE_URL; ?>/">Home</a> / Academics
         </div>
     </div>
 </section>
@@ -577,10 +577,10 @@ if ($db) {
             <span class="section-tag">Our Curriculum</span>
             <h2 class="section-title">British Early Years <span class="text-highlight">Foundation Stage</span></h2>
         </div>
-        
+
         <div class="overview-content">
-            <p class="lead"><?php echo $curriculum['overview']; ?></p>
-            <p><?php echo $curriculum['approach']; ?></p>
+            <p class="lead"><?php echo cms_e('academics.overview'); ?></p>
+            <p><?php echo cms_e('academics.approach'); ?></p>
         </div>
     </div>
 </section>
@@ -591,53 +591,34 @@ if ($db) {
         <div class="stages-grid">
             <!-- Nursery Stage -->
             <div class="stage-card">
-                <div class="stage-age">Ages 2-3</div>
-                <h3 class="stage-title">Nursery</h3>
+                <div class="stage-age"><?php echo cms_e('academics.stage1_age'); ?></div>
+                <h3 class="stage-title"><?php echo cms_e('academics.stage1_title'); ?></h3>
                 <div class="stage-content">
-                    <p>The Nursery stage focuses on developing independence, social skills, and early communication through structured play and exploration.</p>
+                    <p><?php echo cms_e('academics.stage1_text'); ?></p>
                     <h4>Key Learning Areas:</h4>
-                    <ul>
-                        <li>Communication and language</li>
-                        <li>Physical development</li>
-                        <li>Personal, social and emotional development</li>
-                        <li>Early literacy and numeracy</li>
-                        <li>Creative expression</li>
-                    </ul>
+                    <ul><?php foreach (cms_lines('academics.stage1_areas') as $li): ?><li><?php echo e($li); ?></li><?php endforeach; ?></ul>
                 </div>
             </div>
-            
+
             <!-- Reception Stage -->
             <div class="stage-card">
-                <div class="stage-age">Ages 4-5</div>
-                <h3 class="stage-title">Reception</h3>
+                <div class="stage-age"><?php echo cms_e('academics.stage2_age'); ?></div>
+                <h3 class="stage-title"><?php echo cms_e('academics.stage2_title'); ?></h3>
                 <div class="stage-content">
-                    <p>Reception builds on Nursery learning with more structured activities preparing children for formal education.</p>
+                    <p><?php echo cms_e('academics.stage2_text'); ?></p>
                     <h4>Key Learning Areas:</h4>
-                    <ul>
-                        <li>Phonics and early reading</li>
-                        <li>Writing development</li>
-                        <li>Number concepts and problem-solving</li>
-                        <li>Understanding the world</li>
-                        <li>Expressive arts and design</li>
-                    </ul>
+                    <ul><?php foreach (cms_lines('academics.stage2_areas') as $li): ?><li><?php echo e($li); ?></li><?php endforeach; ?></ul>
                 </div>
             </div>
-            
+
             <!-- Year 1-2 Stage -->
             <div class="stage-card">
-                <div class="stage-age">Ages 5-7</div>
-                <h3 class="stage-title">Year 1 & 2</h3>
+                <div class="stage-age"><?php echo cms_e('academics.stage3_age'); ?></div>
+                <h3 class="stage-title"><?php echo cms_e('academics.stage3_title'); ?></h3>
                 <div class="stage-content">
-                    <p>Years 1 and 2 introduce more formal learning while maintaining a hands-on, engaging approach.</p>
+                    <p><?php echo cms_e('academics.stage3_text'); ?></p>
                     <h4>Key Learning Areas:</h4>
-                    <ul>
-                        <li>Reading comprehension</li>
-                        <li>Creative writing</li>
-                        <li>Mathematics mastery</li>
-                        <li>Science investigation</li>
-                        <li>History and geography</li>
-                        <li>Computing skills</li>
-                    </ul>
+                    <ul><?php foreach (cms_lines('academics.stage3_areas') as $li): ?><li><?php echo e($li); ?></li><?php endforeach; ?></ul>
                 </div>
             </div>
         </div>
@@ -651,7 +632,7 @@ if ($db) {
             <span class="section-tag">Subjects</span>
             <h2 class="section-title">What We <span class="text-highlight">Teach</span></h2>
         </div>
-        
+
         <div class="subjects-grid">
             <?php foreach ($curriculum['subjects'] as $subject): ?>
             <div class="subject-card">
@@ -669,10 +650,10 @@ if ($db) {
                     ];
                     $icon = $icons[$subject] ?? 'fa-graduation-cap';
                     ?>
-                    <i class="fas <?php echo $icon; ?>"></i>
+                    <i class="fas <?php echo e($icon); ?>"></i>
                 </div>
-                <h3><?php echo $subject; ?></h3>
-                <p>Age-appropriate learning activities designed to develop skills and knowledge in <?php echo strtolower($subject); ?>.</p>
+                <h3><?php echo e($subject); ?></h3>
+                <p>Age-appropriate learning activities designed to develop skills and knowledge in <?php echo e(strtolower($subject)); ?>.</p>
             </div>
             <?php endforeach; ?>
         </div>
@@ -687,7 +668,7 @@ if ($db) {
                 <span class="section-tag">Our Approach</span>
                 <h2 class="section-title">Learning Through <span class="text-highlight">Play & Discovery</span></h2>
                 <p>We believe that children learn best when they are actively engaged and having fun. Our approach combines:</p>
-                
+
                 <div class="approach-features">
                     <div class="approach-feature">
                         <i class="fas fa-play-circle"></i>
@@ -696,7 +677,7 @@ if ($db) {
                             <p>Children choose activities that interest them, fostering independence and motivation.</p>
                         </div>
                     </div>
-                    
+
                     <div class="approach-feature">
                         <i class="fas fa-users"></i>
                         <div>
@@ -704,7 +685,7 @@ if ($db) {
                             <p>Teachers facilitate learning through carefully planned activities and interventions.</p>
                         </div>
                     </div>
-                    
+
                     <div class="approach-feature">
                         <i class="fas fa-seedling"></i>
                         <div>
@@ -712,7 +693,7 @@ if ($db) {
                             <p>Regular outdoor sessions for physical development and connection with nature.</p>
                         </div>
                     </div>
-                    
+
                     <div class="approach-feature">
                         <i class="fas fa-pray"></i>
                         <div>
@@ -722,13 +703,13 @@ if ($db) {
                     </div>
                 </div>
             </div>
-            
+
             <div class="approach-image">
-                <img src="<?php echo BASE_URL; ?>/assets/images/learning-approach.jpeg" alt="Children learning through play">
+                <img src="<?php echo e(cms_img('academics.approach_image', BASE_URL . '/assets/images/learning-approach.jpeg')); ?>" alt="Children learning through play">
                 <div class="approach-quote">
                     <i class="fas fa-quote-left"></i>
-                    <p>Play is the highest form of research.</p>
-                    <small>- Albert Einstein</small>
+                    <p><?php echo cms_e('academics.quote'); ?></p>
+                    <small><?php echo cms_e('academics.quote_by'); ?></small>
                 </div>
             </div>
         </div>
@@ -741,36 +722,36 @@ if ($db) {
         <div class="assessment-card">
             <h2>Assessment & Progress Tracking</h2>
             <p>We continuously monitor each child's progress through:</p>
-            
+
             <div class="assessment-grid">
                 <div class="assessment-item">
                     <i class="fas fa-eye"></i>
                     <h4>Observation</h4>
                     <p>Regular observations of children during play and activities</p>
                 </div>
-                
+
                 <div class="assessment-item">
                     <i class="fas fa-folder-open"></i>
                     <h4>Learning Journeys</h4>
                     <p>Digital portfolios documenting each child's achievements</p>
                 </div>
-                
+
                 <div class="assessment-item">
                     <i class="fas fa-chart-line"></i>
                     <h4>Progress Checks</h4>
                     <p>Termly assessments against age-expected outcomes</p>
                 </div>
-                
+
                 <div class="assessment-item">
                     <i class="fas fa-users-cog"></i>
                     <h4>Parent Consultations</h4>
                     <p>Regular meetings to discuss progress and next steps</p>
                 </div>
             </div>
-            
+
             <div class="assessment-note">
                 <i class="fas fa-info-circle"></i>
-                <p>Parents receive detailed reports at the end of each term and are invited to discuss their child's progress with teachers.</p>
+                <p><?php echo cms_e('academics.assessment_note'); ?></p>
             </div>
         </div>
     </div>

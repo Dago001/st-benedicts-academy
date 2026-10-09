@@ -15,7 +15,7 @@ const chartColors = {
 function createAttendancePieChart(canvasId, data) {
     const canvas = document.getElementById(canvasId);
     if (!canvas || typeof Chart === 'undefined') return;
-    
+
     new Chart(canvas, {
         type: 'pie',
         data: {
@@ -52,7 +52,7 @@ function createAttendancePieChart(canvasId, data) {
 function createPerformanceLineChart(canvasId, labels, datasets) {
     const canvas = document.getElementById(canvasId);
     if (!canvas || typeof Chart === 'undefined') return;
-    
+
     new Chart(canvas, {
         type: 'line',
         data: {
@@ -83,7 +83,7 @@ function createPerformanceLineChart(canvasId, labels, datasets) {
 function createFeeChart(canvasId, labels, data) {
     const canvas = document.getElementById(canvasId);
     if (!canvas || typeof Chart === 'undefined') return;
-    
+
     new Chart(canvas, {
         type: 'bar',
         data: {
@@ -117,7 +117,7 @@ function createFeeChart(canvasId, labels, data) {
 function createStudentDistributionChart(canvasId, classData) {
     const canvas = document.getElementById(canvasId);
     if (!canvas || typeof Chart === 'undefined') return;
-    
+
     new Chart(canvas, {
         type: 'doughnut',
         data: {
@@ -150,7 +150,7 @@ function createStudentDistributionChart(canvasId, classData) {
 function createGenderChart(canvasId, male, female) {
     const canvas = document.getElementById(canvasId);
     if (!canvas || typeof Chart === 'undefined') return;
-    
+
     new Chart(canvas, {
         type: 'pie',
         data: {
@@ -182,7 +182,7 @@ function updateChart(chart, newData) {
 function createMultiSeriesChart(canvasId, type, labels, datasets) {
     const canvas = document.getElementById(canvasId);
     if (!canvas || typeof Chart === 'undefined') return;
-    
+
     return new Chart(canvas, {
         type: type,
         data: {
@@ -211,7 +211,7 @@ function createMultiSeriesChart(canvasId, type, labels, datasets) {
 function exportChartAsImage(chartId, filename) {
     const canvas = document.getElementById(chartId);
     if (!canvas) return;
-    
+
     const link = document.createElement('a');
     link.download = filename || 'chart.png';
     link.href = canvas.toDataURL('image/png');

@@ -1,0 +1,13 @@
+logs/
+backups/
+config/local.php
+.env
+uploads/*
+!uploads/.htaccess
+!uploads/index.html
+!uploads/*/.gitkeep
+*.log
+.DS_Store
+storage/applications/*
+!storage/applications/.gitkeep
+tests/mobile/shots/

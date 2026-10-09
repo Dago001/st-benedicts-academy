@@ -1,24 +1,6 @@
-# api/.htaccess
+# API endpoints are same-origin only: no wildcard CORS.
 <IfModule mod_headers.c>
-    Header set Access-Control-Allow-Origin "*"
-    Header set Access-Control-Allow-Methods "GET, POST, OPTIONS"
-    Header set Access-Control-Allow-Headers "Content-Type"
+    Header set Cache-Control "no-store"
+    Header set X-Content-Type-Options "nosniff"
 </IfModule>
-
-<IfModule mod_rewrite.c>
-    RewriteEngine On
-    
-    # Handle OPTIONS method
-    RewriteCond %{REQUEST_METHOD} OPTIONS
-    RewriteRule ^(.*)$ $1 [R=200,L]
-</IfModule>
-
-# Deny access to PHP files without proper authentication
-<FilesMatch "\.php$">
-    Require all denied
-</FilesMatch>
-
-# But allow access through proper channels
-<Files "auth.php">
-    Require all granted
-</Files>
+Options -Indexes

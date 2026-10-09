@@ -1,39 +1,23 @@
 <?php
 // admin/attendance.php - Attendance Management
 require_once __DIR__ . '/../config/config.php';
-require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/security.php';
 
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Require admin role
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
-    header('Location: ' . BASE_URL . '/login.php');
-    exit;
-}
+Security::requireRole('admin');
 
 $pageTitle = 'Attendance Management';
 $extraJS = ['attendance.js', 'charts.js'];
 
-// Check if header exists
-$headerPath = __DIR__ . '/../includes/header.php';
-if (!file_exists($headerPath)) {
-    die("Error: Header file not found at: $headerPath");
-}
-include $headerPath;
+include __DIR__ . '/../includes/header.php';
 
 // Get database instance
 $db = Database::getInstance();
 
-$message = '';
-$messageType = '';
+[$message, $messageType] = flash_get();
 
 // Get filters with default values
 $classId = isset($_GET['class_id']) ? (int)$_GET['class_id'] : 0;
-$date = isset($_GET['date']) ? $_GET['date'] : date('Y-m-d');
+$date = valid_date($_GET['date'] ?? '') ?? date('Y-m-d');
 $month = isset($_GET['month']) ? $_GET['month'] : date('Y-m');
 
 // Validate date format
@@ -52,13 +36,13 @@ $classes = $db->getRows(
 
 // Get attendance summary for selected date
 $summary = $db->getRow(
-    "SELECT 
+    "SELECT
         COUNT(DISTINCT student_id) as total_students,
         COALESCE(SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END), 0) as present_count,
         COALESCE(SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END), 0) as absent_count,
         COALESCE(SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END), 0) as late_count,
         COALESCE(SUM(CASE WHEN status = 'excused' THEN 1 ELSE 0 END), 0) as excused_count
-     FROM attendance 
+     FROM attendance
      WHERE date = ?",
     [$date]
 );
@@ -76,51 +60,50 @@ if (!$summary) {
 
 // Get monthly statistics
 $monthlyStats = $db->getRows(
-    "SELECT 
+    "SELECT
         date,
         COUNT(DISTINCT student_id) as total_students,
         COALESCE(SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END), 0) as present,
         COALESCE(SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END), 0) as absent,
         COALESCE(SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END), 0) as late,
         COALESCE(SUM(CASE WHEN status = 'excused' THEN 1 ELSE 0 END), 0) as excused
-     FROM attendance 
+     FROM attendance
      WHERE DATE_FORMAT(date, '%Y-%m') = ?
      GROUP BY date
      ORDER BY date",
     [$month]
 );
 
-// Get class-wise attendance for selected date
+// Get class-wise attendance for selected date (aggregated per class so joins cannot multiply counts)
 $classAttendance = $db->getRows(
-    "SELECT 
+    "SELECT
         c.id,
         c.class_name,
         c.section,
-        COUNT(DISTINCT s.id) as total_students,
-        COUNT(DISTINCT a.id) as marked,
-        COALESCE(SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END), 0) as present,
-        COALESCE(SUM(CASE WHEN a.status = 'absent' THEN 1 ELSE 0 END), 0) as absent,
-        COALESCE(SUM(CASE WHEN a.status = 'late' THEN 1 ELSE 0 END), 0) as late,
-        COALESCE(SUM(CASE WHEN a.status = 'excused' THEN 1 ELSE 0 END), 0) as excused
+        (SELECT COUNT(*) FROM students s JOIN users u ON s.user_id = u.id
+          WHERE s.class_id = c.id AND u.is_active = 1) AS total_students,
+        COUNT(a.id) AS marked,
+        COALESCE(SUM(a.status = 'present'), 0) AS present,
+        COALESCE(SUM(a.status = 'absent'), 0) AS absent,
+        COALESCE(SUM(a.status = 'late'), 0) AS late,
+        COALESCE(SUM(a.status = 'excused'), 0) AS excused
      FROM classes c
-     LEFT JOIN students s ON s.class_id = c.id 
-     LEFT JOIN users u ON s.user_id = u.id AND u.is_active = 1
      LEFT JOIN attendance a ON a.class_id = c.id AND a.date = ?
      WHERE c.is_active = 1
-     GROUP BY c.id
+     GROUP BY c.id, c.class_name, c.section
      ORDER BY c.class_name, c.section",
     [$date]
 );
 
 // Get overall attendance statistics for the month
 $monthlySummary = $db->getRow(
-    "SELECT 
+    "SELECT
         COUNT(DISTINCT date) as school_days,
         COUNT(DISTINCT student_id) as total_students,
         COALESCE(SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END), 0) as total_present,
         COALESCE(SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END), 0) as total_absent,
         COALESCE(SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END), 0) as total_late
-     FROM attendance 
+     FROM attendance
      WHERE DATE_FORMAT(date, '%Y-%m') = ?",
     [$month]
 );
@@ -133,47 +116,26 @@ if ($monthlySummary && $monthlySummary['school_days'] > 0) {
 ?>
 
 <div class="dashboard-container">
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <h3>Admin Panel</h3>
-        </div>
-        <nav class="sidebar-nav">
-            <ul>
-                <li><a href="dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
-                <li><a href="students.php"><i class="fas fa-user-graduate"></i> Students</a></li>
-                <li><a href="parents.php"><i class="fas fa-users"></i> Parents</a></li>
-                <li><a href="teachers.php"><i class="fas fa-chalkboard-teacher"></i> Teachers</a></li>
-                <li><a href="classes.php"><i class="fas fa-school"></i> Classes</a></li>
-                <li><a href="subjects.php"><i class="fas fa-book"></i> Subjects</a></li>
-                <li class="active"><a href="attendance.php"><i class="fas fa-calendar-check"></i> Attendance</a></li>
-                <li><a href="fees.php"><i class="fas fa-money-bill"></i> Fees</a></li>
-                <li><a href="results.php"><i class="fas fa-chart-line"></i> Results</a></li>
-                <li><a href="announcements.php"><i class="fas fa-bullhorn"></i> Announcements</a></li>
-                <li><a href="gallery.php"><i class="fas fa-images"></i> Gallery</a></li>
-                <li><a href="reports.php"><i class="fas fa-file-alt"></i> Reports</a></li>
-                <li><a href="audit-logs.php"><i class="fas fa-history"></i> Audit Logs</a></li>
-            </ul>
-        </nav>
-    </aside>
-    
+    <?php render_sidebar('admin'); ?>
+
     <main class="dashboard-main">
         <div class="dashboard-header">
             <h1>Attendance Management</h1>
             <div class="header-actions">
-                <a href="mark-attendance.php" class="btn btn-primary">
+                <a href="mark-attendance" class="btn btn-primary">
                     <i class="fas fa-plus"></i> Mark Attendance
                 </a>
             </div>
         </div>
-        
+
         <?php if ($message): ?>
-        <div class="alert alert-<?php echo $messageType; ?> alert-dismissible">
+        <div class="alert alert-<?php echo e($messageType); ?> alert-dismissible">
             <i class="fas <?php echo $messageType === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'; ?>"></i>
             <?php echo htmlspecialchars($message); ?>
             <button type="button" class="close" onclick="this.parentElement.remove()">&times;</button>
         </div>
         <?php endif; ?>
-        
+
         <!-- Filter Form -->
         <div class="card">
             <div class="card-header">
@@ -183,47 +145,47 @@ if ($monthlySummary && $monthlySummary['school_days'] > 0) {
                 <form method="GET" class="form-row">
                     <div class="form-group col-md-3">
                         <label for="date">Select Date:</label>
-                        <input type="date" id="date" name="date" class="form-control" 
-                               value="<?php echo htmlspecialchars($date); ?>" 
+                        <input type="date" id="date" name="date" class="form-control"
+                               value="<?php echo htmlspecialchars($date); ?>"
                                max="<?php echo date('Y-m-d'); ?>">
                     </div>
-                    
+
                     <div class="form-group col-md-3">
                         <label for="month">Select Month:</label>
-                        <input type="month" id="month" name="month" class="form-control" 
-                               value="<?php echo htmlspecialchars($month); ?>" 
+                        <input type="month" id="month" name="month" class="form-control"
+                               value="<?php echo htmlspecialchars($month); ?>"
                                max="<?php echo date('Y-m'); ?>">
                     </div>
-                    
+
                     <div class="form-group col-md-2">
                         <label for="class_id">Class (Optional):</label>
                         <select id="class_id" name="class_id" class="form-control">
                             <option value="0">All Classes</option>
                             <?php foreach ($classes as $class): ?>
-                            <option value="<?php echo $class['id']; ?>" <?php echo $classId == $class['id'] ? 'selected' : ''; ?>>
+                            <option value="<?php echo e($class['id']); ?>" <?php echo $classId == $class['id'] ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($class['class_name'] . ' ' . $class['section']); ?>
                             </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    
+
                     <div class="form-group col-md-2">
                         <label>&nbsp;</label>
                         <button type="submit" class="btn btn-primary form-control">
                             <i class="fas fa-filter"></i> Apply Filters
                         </button>
                     </div>
-                    
+
                     <div class="form-group col-md-2">
                         <label>&nbsp;</label>
-                        <a href="attendance.php" class="btn btn-outline form-control">
+                        <a href="attendance" class="btn btn-outline form-control">
                             <i class="fas fa-redo"></i> Reset
                         </a>
                     </div>
                 </form>
             </div>
         </div>
-        
+
         <!-- Today's Summary -->
         <div class="stats-grid">
             <div class="stat-card">
@@ -231,41 +193,41 @@ if ($monthlySummary && $monthlySummary['school_days'] > 0) {
                     <i class="fas fa-users" style="color: #002855;"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php echo $summary['total_students']; ?></h3>
+                    <h3><?php echo e($summary['total_students']); ?></h3>
                     <p>Total Students</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(40, 167, 69, 0.1);">
                     <i class="fas fa-check-circle" style="color: #28a745;"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php echo $summary['present_count']; ?></h3>
+                    <h3><?php echo e($summary['present_count']); ?></h3>
                     <p>Present</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(220, 53, 69, 0.1);">
                     <i class="fas fa-times-circle" style="color: #dc3545;"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php echo $summary['absent_count']; ?></h3>
+                    <h3><?php echo e($summary['absent_count']); ?></h3>
                     <p>Absent</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(255, 193, 7, 0.1);">
                     <i class="fas fa-clock" style="color: #ffc107;"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php echo $summary['late_count']; ?></h3>
+                    <h3><?php echo e($summary['late_count']); ?></h3>
                     <p>Late</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(23, 162, 184, 0.1);">
                     <i class="fas fa-calendar-check" style="color: #17a2b8;"></i>
@@ -276,7 +238,7 @@ if ($monthlySummary && $monthlySummary['school_days'] > 0) {
                 </div>
             </div>
         </div>
-        
+
         <!-- Monthly Summary Stats -->
         <?php if ($monthlySummary && $monthlySummary['school_days'] > 0): ?>
         <div class="stats-grid secondary">
@@ -285,21 +247,21 @@ if ($monthlySummary && $monthlySummary['school_days'] > 0) {
                     <i class="fas fa-calendar-alt" style="color: #6c757d;"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php echo $monthlySummary['school_days']; ?></h3>
+                    <h3><?php echo e($monthlySummary['school_days']); ?></h3>
                     <p>School Days</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(40, 167, 69, 0.1);">
                     <i class="fas fa-chart-line" style="color: #28a745;"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php echo $avgDailyAttendance; ?></h3>
+                    <h3><?php echo e($avgDailyAttendance); ?></h3>
                     <p>Avg. Daily Present</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(255, 193, 7, 0.1);">
                     <i class="fas fa-percent" style="color: #ffc107;"></i>
@@ -311,7 +273,7 @@ if ($monthlySummary && $monthlySummary['school_days'] > 0) {
             </div>
         </div>
         <?php endif; ?>
-        
+
         <!-- Attendance Chart -->
         <div class="card">
             <div class="card-header">
@@ -331,12 +293,12 @@ if ($monthlySummary && $monthlySummary['school_days'] > 0) {
                 <?php endif; ?>
             </div>
         </div>
-        
+
         <!-- Class-wise Attendance -->
         <div class="card">
             <div class="card-header">
                 <h3><i class="fas fa-school"></i> Class-wise Attendance for <?php echo date('d M, Y', strtotime($date)); ?></h3>
-                <a href="mark-attendance.php?date=<?php echo $date; ?>" class="btn btn-sm btn-primary">
+                <a href="mark-attendance?date=<?php echo e($date); ?>" class="btn btn-sm btn-primary">
                     <i class="fas fa-edit"></i> Mark Attendance
                 </a>
             </div>
@@ -361,20 +323,20 @@ if ($monthlySummary && $monthlySummary['school_days'] > 0) {
                             <?php foreach ($classAttendance as $class): ?>
                             <tr>
                                 <td><strong><?php echo htmlspecialchars($class['class_name'] . ' ' . $class['section']); ?></strong></td>
-                                <td><?php echo $class['total_students']; ?></td>
+                                <td><?php echo e($class['total_students']); ?></td>
                                 <td>
                                     <?php if ($class['marked'] > 0): ?>
-                                    <span class="badge badge-success"><?php echo $class['marked']; ?> marked</span>
+                                    <span class="badge badge-success"><?php echo e($class['marked']); ?> marked</span>
                                     <?php else: ?>
                                     <span class="badge badge-warning">Not Marked</span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="text-success"><?php echo $class['present']; ?></td>
-                                <td class="text-danger"><?php echo $class['absent']; ?></td>
-                                <td class="text-warning"><?php echo $class['late']; ?></td>
-                                <td class="text-info"><?php echo $class['excused']; ?></td>
+                                <td class="text-success"><?php echo e($class['present']); ?></td>
+                                <td class="text-danger"><?php echo e($class['absent']); ?></td>
+                                <td class="text-warning"><?php echo e($class['late']); ?></td>
+                                <td class="text-info"><?php echo e($class['excused']); ?></td>
                                 <td>
-                                    <?php 
+                                    <?php
                                     if ($class['total_students'] > 0) {
                                         $percentage = (($class['present'] + $class['late']) / $class['total_students']) * 100;
                                         $rateClass = $percentage >= 90 ? 'text-success' : ($percentage >= 75 ? 'text-warning' : 'text-danger');
@@ -385,12 +347,12 @@ if ($monthlySummary && $monthlySummary['school_days'] > 0) {
                                     ?>
                                 </td>
                                 <td>
-                                    <a href="attendance-detail.php?class=<?php echo $class['id']; ?>&date=<?php echo urlencode($date); ?>" 
+                                    <a href="attendance-detail?class_id=<?php echo e($class['id']); ?>&date=<?php echo urlencode($date); ?>"
                                        class="btn btn-sm btn-outline">
                                         <i class="fas fa-eye"></i> View
                                     </a>
                                     <?php if ($class['marked'] == 0): ?>
-                                    <a href="mark-attendance.php?class=<?php echo $class['id']; ?>&date=<?php echo urlencode($date); ?>" 
+                                    <a href="mark-attendance?class=<?php echo e($class['id']); ?>&date=<?php echo urlencode($date); ?>"
                                        class="btn btn-sm btn-primary">
                                         <i class="fas fa-edit"></i> Mark
                                     </a>
@@ -404,12 +366,12 @@ if ($monthlySummary && $monthlySummary['school_days'] > 0) {
                 <?php else: ?>
                 <div class="alert alert-info">
                     <i class="fas fa-info-circle"></i>
-                    No classes found. Please <a href="classes.php?action=add">create a class</a> first.
+                    No classes found. Please <a href="classes?action=add">create a class</a> first.
                 </div>
                 <?php endif; ?>
             </div>
         </div>
-        
+
         <!-- Export Options -->
         <div class="card">
             <div class="card-header">
@@ -417,19 +379,19 @@ if ($monthlySummary && $monthlySummary['school_days'] > 0) {
             </div>
             <div class="card-body">
                 <div class="export-options">
-                    <a href="export.php?type=attendance&format=pdf&month=<?php echo urlencode($month); ?>&date=<?php echo urlencode($date); ?>" 
-                       class="btn btn-outline" target="_blank">
-                        <i class="fas fa-file-pdf"></i> Export as PDF
+                    <a href="print-attendance?month=<?php echo urlencode($month); ?>&date=<?php echo urlencode($date); ?>"
+                       class="btn btn-outline" target="_blank" rel="noopener">
+                        <i class="fas fa-file-pdf"></i> Save as PDF
                     </a>
-                    <a href="export.php?type=attendance&format=excel&month=<?php echo urlencode($month); ?>&date=<?php echo urlencode($date); ?>" 
+                    <a href="export?type=attendance&month=<?php echo urlencode($month); ?>&date=<?php echo urlencode($date); ?>"
                        class="btn btn-outline">
                         <i class="fas fa-file-excel"></i> Export as Excel
                     </a>
-                    <a href="export.php?type=attendance&format=csv&month=<?php echo urlencode($month); ?>&date=<?php echo urlencode($date); ?>" 
+                    <a href="export?type=attendance&month=<?php echo urlencode($month); ?>&date=<?php echo urlencode($date); ?>"
                        class="btn btn-outline">
                         <i class="fas fa-file-csv"></i> Export as CSV
                     </a>
-                    <a href="print-attendance.php?month=<?php echo urlencode($month); ?>&date=<?php echo urlencode($date); ?>" 
+                    <a href="print-attendance?month=<?php echo urlencode($month); ?>&date=<?php echo urlencode($date); ?>"
                        class="btn btn-outline" target="_blank">
                         <i class="fas fa-print"></i> Print Report
                     </a>
@@ -439,9 +401,7 @@ if ($monthlySummary && $monthlySummary['school_days'] > 0) {
     </main>
 </div>
 
-<!-- Chart.js Script -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 <?php if (!empty($monthlyStats)): ?>
 // Attendance Chart
 const ctx = document.getElementById('attendanceChart').getContext('2d');
@@ -454,7 +414,7 @@ new Chart(ctx, {
         datasets: [
             {
                 label: 'Present',
-                data: <?php echo json_encode(array_column($monthlyStats, 'present')); ?>,
+                data: <?php echo json_encode(array_column($monthlyStats, 'present'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
                 borderColor: '#28a745',
                 backgroundColor: 'rgba(40, 167, 69, 0.1)',
                 tension: 0.4,
@@ -462,7 +422,7 @@ new Chart(ctx, {
             },
             {
                 label: 'Absent',
-                data: <?php echo json_encode(array_column($monthlyStats, 'absent')); ?>,
+                data: <?php echo json_encode(array_column($monthlyStats, 'absent'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
                 borderColor: '#dc3545',
                 backgroundColor: 'rgba(220, 53, 69, 0.1)',
                 tension: 0.4,
@@ -470,7 +430,7 @@ new Chart(ctx, {
             },
             {
                 label: 'Late',
-                data: <?php echo json_encode(array_column($monthlyStats, 'late')); ?>,
+                data: <?php echo json_encode(array_column($monthlyStats, 'late'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
                 borderColor: '#ffc107',
                 backgroundColor: 'rgba(255, 193, 7, 0.1)',
                 tension: 0.4,
@@ -648,14 +608,15 @@ new Chart(ctx, {
     .stats-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .export-options {
         flex-direction: column;
     }
-    
+
     .export-options .btn {
         width: 100%;
     }
 }
 </style>
 
+<?php include __DIR__ . '/../includes/footer.php'; ?>

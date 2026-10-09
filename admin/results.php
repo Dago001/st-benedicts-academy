@@ -1,30 +1,15 @@
 <?php
 // admin/results.php - Results Management
 require_once __DIR__ . '/../config/config.php';
-require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/security.php';
 
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Require admin role
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
-    header('Location: ' . BASE_URL . '/login.php');
-    exit;
-}
+Security::requireRole('admin');
 
 $pageTitle = 'Results Management';
 $extraCSS = ['admin.css', 'dashboard.css'];
 $extraJS = ['results.js', 'charts.js'];
 
-// Check if header exists
-$headerPath = __DIR__ . '/../includes/header.php';
-if (!file_exists($headerPath)) {
-    die("Error: Header file not found at: $headerPath");
-}
-include $headerPath;
+include __DIR__ . '/../includes/header.php';
 
 // Get database instance
 try {
@@ -33,12 +18,11 @@ try {
     die("Database connection error: " . $e->getMessage());
 }
 
-$message = '';
-$messageType = '';
+[$message, $messageType] = flash_get();
 
 // Handle actions
 $action = isset($_GET['action']) ? $_GET['action'] : 'list';
-$id = isset($_GET['id']) ? (int)$_GET['id'] : null;
+$id = isset($_POST['id']) ? (int)$_POST['id'] : (isset($_GET['id']) ? (int)$_GET['id'] : null);
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -47,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $messageType = 'error';
     } else {
         $postAction = $_POST['action'] ?? '';
-        
+
         switch ($postAction) {
             case 'add_result':
             case 'edit_result':
@@ -58,50 +42,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $term = Security::sanitize($_POST['term'] ?? '');
                 $academicYear = Security::sanitize($_POST['academic_year'] ?? '');
                 $assessmentType = Security::sanitize($_POST['assessment_type'] ?? '');
-                $score = (float)($_POST['score'] ?? 0);
-                $maxScore = (float)($_POST['max_score'] ?? 100);
+                $score = is_numeric($_POST['score'] ?? null) ? (float)$_POST['score'] : -1;
+                $maxScore = is_numeric($_POST['max_score'] ?? null) ? (float)$_POST['max_score'] : 100;
                 $remarks = Security::sanitize($_POST['remarks'] ?? '');
-                
+
                 // Validate required fields
-                if (!$studentId || !$subjectId || !$classId || empty($term) || empty($academicYear) || empty($assessmentType) || $score <= 0) {
+                if (!$studentId || !$subjectId || !$classId || empty($term) || empty($academicYear) || empty($assessmentType) || $score < 0) {
                     $message = 'Please fill in all required fields';
                     $messageType = 'error';
                     break;
                 }
-                
+
                 // Validate academic year format
                 if (!preg_match('/^\d{4}-\d{4}$/', $academicYear)) {
                     $message = 'Academic year must be in format YYYY-YYYY';
                     $messageType = 'error';
                     break;
                 }
-                
-                // Calculate grade based on percentage
-                $percentage = ($score / $maxScore) * 100;
-                if ($percentage >= 70) $grade = 'A';
-                elseif ($percentage >= 60) $grade = 'B';
-                elseif ($percentage >= 50) $grade = 'C';
-                elseif ($percentage >= 45) $grade = 'D';
-                elseif ($percentage >= 40) $grade = 'E';
-                else $grade = 'F';
-                
+
+                if (!in_array($assessmentType, ['test', 'exam', 'assignment', 'project'], true)
+                    || !in_array($term, ['Term 1', 'Term 2', 'Term 3'], true)) {
+                    $message = 'Invalid term or assessment type';
+                    $messageType = 'error';
+                    break;
+                }
+                if ($maxScore <= 0 || $maxScore > 1000 || $score > $maxScore) {
+                    $message = 'Score must be between 0 and the maximum score';
+                    $messageType = 'error';
+                    break;
+                }
+                $studentRow = $db->getRow('SELECT class_id FROM students WHERE id = ?', [$studentId]);
+                $subjectRow = $db->getRow('SELECT class_id FROM subjects WHERE id = ?', [$subjectId]);
+                if (!$studentRow || !$subjectRow || (int)$studentRow['class_id'] !== $classId || (int)$subjectRow['class_id'] !== $classId) {
+                    $message = 'Student and subject must belong to the selected class';
+                    $messageType = 'error';
+                    break;
+                }
+
+                $grade = letterGrade($score, $maxScore);
+
                 try {
                     if ($postAction === 'add_result') {
                         // Check if result already exists
                         $existing = $db->getRow(
-                            "SELECT id FROM results 
-                             WHERE student_id = ? AND subject_id = ? AND assessment_type = ? 
+                            "SELECT id FROM results
+                             WHERE student_id = ? AND subject_id = ? AND assessment_type = ?
                              AND term = ? AND academic_year = ?",
                             [$studentId, $subjectId, $assessmentType, $term, $academicYear]
                         );
-                        
+
                         if ($existing) {
                             throw new Exception("Result already exists for this student, subject, assessment type and term");
                         }
-                        
+
                         $result = $db->insert(
-                            "INSERT INTO results (student_id, subject_id, class_id, term, academic_year, 
-                             assessment_type, score, max_score, grade, remarks, entered_by, is_approved) 
+                            "INSERT INTO results (student_id, subject_id, class_id, term, academic_year,
+                             assessment_type, score, max_score, grade, remarks, entered_by, is_approved)
                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)",
                             [
                                 $studentId,
@@ -117,23 +113,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $_SESSION['user_id']
                             ]
                         );
-                        
+
                         if (!$result) {
                             throw new Exception("Failed to insert result");
                         }
-                        
+
                         Security::logAudit('ADDED_RESULT', 'results');
                         $message = 'Result added successfully';
                         $messageType = 'success';
-                        
+
                     } else {
-                        if (!$id) {
-                            throw new Exception("Invalid result ID");
+                        if (!$id || !$db->getRow('SELECT id FROM results WHERE id = ?', [$id])) {
+                            throw new Exception("Result not found");
                         }
-                        
+                        if ($db->getRow('SELECT id FROM results WHERE student_id = ? AND subject_id = ? AND assessment_type = ? AND term = ? AND academic_year = ? AND id <> ?',
+                                        [$studentId, $subjectId, $assessmentType, $term, $academicYear, $id])) {
+                            throw new Exception("Another result already exists for this student, subject, assessment type and term");
+                        }
+
                         $result = $db->query(
-                            "UPDATE results SET student_id = ?, subject_id = ?, class_id = ?, term = ?, 
-                             academic_year = ?, assessment_type = ?, score = ?, max_score = ?, 
+                            "UPDATE results SET student_id = ?, subject_id = ?, class_id = ?, term = ?,
+                             academic_year = ?, assessment_type = ?, score = ?, max_score = ?,
                              grade = ?, remarks = ? WHERE id = ?",
                             [
                                 $studentId,
@@ -149,68 +149,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $id
                             ]
                         );
-                        
+
                         if (!$result) {
                             throw new Exception("Failed to update result");
                         }
-                        
+
                         Security::logAudit('UPDATED_RESULT', 'results', $id);
                         $message = 'Result updated successfully';
                         $messageType = 'success';
                     }
-                    
+
                 } catch (Exception $e) {
                     $message = 'Error: ' . $e->getMessage();
                     $messageType = 'error';
                     error_log("Result error: " . $e->getMessage());
                 }
                 break;
-                
+
             case 'approve_results':
                 $resultIds = $_POST['result_ids'] ?? [];
-                
+                if (!is_array($resultIds)) $resultIds = explode(',', (string)$resultIds);
+                $resultIds = array_values(array_filter(array_map('intval', $resultIds)));
+
                 if (empty($resultIds)) {
                     $message = 'No results selected';
                     $messageType = 'error';
                     break;
                 }
-                
-                // Sanitize IDs
-                $resultIds = array_map('intval', $resultIds);
+
                 $placeholders = implode(',', array_fill(0, count($resultIds), '?'));
-                $params = $resultIds;
-                $params[] = $_SESSION['user_id'];
-                
+                $params = array_merge([$_SESSION['user_id']], $resultIds);
+
                 try {
                     $db->query(
-                        "UPDATE results SET is_approved = 1, approved_by = ?, approved_at = NOW() 
+                        "UPDATE results SET is_approved = 1, approved_by = ?, approved_at = NOW()
                          WHERE id IN ($placeholders)",
                         $params
                     );
-                    
+
                     Security::logAudit('APPROVED_RESULTS', 'results');
                     $message = 'Results approved successfully';
                     $messageType = 'success';
-                    
+
                 } catch (Exception $e) {
                     $message = 'Error: ' . $e->getMessage();
                     $messageType = 'error';
                     error_log("Approve results error: " . $e->getMessage());
                 }
                 break;
-                
+
             case 'delete_result':
                 try {
                     if (!$id) {
                         throw new Exception("Invalid result ID");
                     }
-                    
+
                     $db->query("DELETE FROM results WHERE id = ?", [$id]);
-                    
+                    if ($db->rowCount() === 0) {
+                        throw new Exception("Result not found");
+                    }
+
                     Security::logAudit('DELETED_RESULT', 'results', $id);
                     $message = 'Result deleted successfully';
                     $messageType = 'success';
-                    
+
                 } catch (Exception $e) {
                     $message = 'Error: ' . $e->getMessage();
                     $messageType = 'error';
@@ -220,6 +222,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $messageType === 'success') {
+    flash_redirect($message, 'success', BASE_URL . '/admin/results?' . http_build_query(array_filter([
+        'class_id' => $_POST['class_id'] ?? null, 'term' => $_POST['term'] ?? null, 'academic_year' => $_POST['academic_year'] ?? null,
+    ])));
+}
+
 // Get classes for filter
 $classes = $db->getRows(
     "SELECT * FROM classes WHERE is_active = 1 ORDER BY class_name, section"
@@ -227,8 +235,8 @@ $classes = $db->getRows(
 
 // Get selected filters
 $selectedClass = isset($_GET['class_id']) ? (int)$_GET['class_id'] : 0;
-$selectedTerm = isset($_GET['term']) ? $_GET['term'] : '';
-$selectedYear = isset($_GET['academic_year']) ? $_GET['academic_year'] : (date('Y') . '-' . (date('Y') + 1));
+$selectedTerm = in_array($_GET['term'] ?? '', ['Term 1', 'Term 2', 'Term 3'], true) ? $_GET['term'] : '';
+$selectedYear = preg_match('/^\d{4}-\d{4}$/', $_GET['academic_year'] ?? '') ? $_GET['academic_year'] : currentAcademicYear();
 $selectedSubject = isset($_GET['subject_id']) ? (int)$_GET['subject_id'] : 0;
 
 // Get subjects for selected class
@@ -265,7 +273,7 @@ if ($action === 'edit' && $id) {
 // Get results with filters
 $results = [];
 if ($selectedClass && $selectedTerm) {
-    $query = "SELECT r.*, 
+    $query = "SELECT r.*,
                      CONCAT(u.first_name, ' ', u.last_name) as student_name,
                      s.admission_number,
                      sub.subject_name,
@@ -280,22 +288,22 @@ if ($selectedClass && $selectedTerm) {
               LEFT JOIN users au ON r.approved_by = au.id
               LEFT JOIN users eu ON r.entered_by = eu.id
               WHERE r.class_id = ? AND r.term = ? AND r.academic_year = ?";
-    
+
     $params = [$selectedClass, $selectedTerm, $selectedYear];
-    
+
     if ($selectedSubject) {
         $query .= " AND r.subject_id = ?";
         $params[] = $selectedSubject;
     }
-    
+
     $query .= " ORDER BY sub.subject_name, u.first_name";
-    
+
     $results = $db->getRows($query, $params);
 }
 
 // Get pending approvals
 $pendingApprovals = $db->getRows(
-    "SELECT r.*, 
+    "SELECT r.*,
             CONCAT(u.first_name, ' ', u.last_name) as student_name,
             s.admission_number,
             sub.subject_name,
@@ -640,7 +648,7 @@ function getGradeClass($grade) {
     .action-buttons {
         justify-content: center;
     }
-    
+
     .stats-grid {
         grid-template-columns: 1fr;
     }
@@ -648,36 +656,14 @@ function getGradeClass($grade) {
 </style>
 
 <div class="dashboard-container">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <h3>Admin Panel</h3>
-        </div>
-        <nav class="sidebar-nav">
-            <ul>
-                <li><a href="dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
-                <li><a href="students.php"><i class="fas fa-user-graduate"></i> Students</a></li>
-                <li><a href="parents.php"><i class="fas fa-users"></i> Parents</a></li>
-                <li><a href="teachers.php"><i class="fas fa-chalkboard-teacher"></i> Teachers</a></li>
-                <li><a href="classes.php"><i class="fas fa-school"></i> Classes</a></li>
-                <li><a href="subjects.php"><i class="fas fa-book"></i> Subjects</a></li>
-                <li><a href="attendance.php"><i class="fas fa-calendar-check"></i> Attendance</a></li>
-                <li><a href="fees.php"><i class="fas fa-money-bill"></i> Fees</a></li>
-                <li class="active"><a href="results.php"><i class="fas fa-chart-line"></i> Results</a></li>
-                <li><a href="announcements.php"><i class="fas fa-bullhorn"></i> Announcements</a></li>
-                <li><a href="gallery.php"><i class="fas fa-images"></i> Gallery</a></li>
-                <li><a href="reports.php"><i class="fas fa-file-alt"></i> Reports</a></li>
-                <li><a href="audit-logs.php"><i class="fas fa-history"></i> Audit Logs</a></li>
-            </ul>
-        </nav>
-    </aside>
-    
+    <?php render_sidebar('admin'); ?>
+
     <main class="dashboard-main">
         <div class="dashboard-header">
             <h1>Results Management</h1>
             <div class="header-actions">
                 <?php if ($action === 'add'): ?>
-                <a href="results.php" class="btn btn-outline">
+                <a href="results" class="btn btn-outline">
                     <i class="fas fa-arrow-left"></i> Back to List
                 </a>
                 <?php else: ?>
@@ -685,20 +671,20 @@ function getGradeClass($grade) {
                     <i class="fas fa-plus"></i> Add Result
                 </a>
                 <?php endif; ?>
-                <a href="export.php?type=results" class="btn btn-outline">
+                <a href="export?type=results" class="btn btn-outline">
                     <i class="fas fa-download"></i> Export
                 </a>
             </div>
         </div>
-        
+
         <?php if ($message): ?>
-        <div class="alert alert-<?php echo $messageType; ?> alert-dismissible">
+        <div class="alert alert-<?php echo e($messageType); ?> alert-dismissible">
             <i class="fas <?php echo $messageType === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'; ?>"></i>
             <?php echo htmlspecialchars($message); ?>
             <button type="button" class="close" onclick="this.parentElement.remove()">&times;</button>
         </div>
         <?php endif; ?>
-        
+
         <!-- Pending Approvals Alert -->
         <?php if (!empty($pendingApprovals) && $action === 'list'): ?>
         <div class="alert alert-warning">
@@ -707,7 +693,7 @@ function getGradeClass($grade) {
             <a href="#pendingApprovals" class="alert-link">Review now</a>
         </div>
         <?php endif; ?>
-        
+
         <?php if ($action === 'add' || $action === 'edit'): ?>
         <!-- Add/Edit Result Form -->
         <div class="card">
@@ -717,11 +703,11 @@ function getGradeClass($grade) {
             <div class="card-body">
                 <form method="POST" class="form-container" id="resultForm">
                     <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
-                    <input type="hidden" name="action" value="<?php echo $action; ?>">
+                    <input type="hidden" name="action" value="<?php echo e($action); ?>">
                     <?php if ($action === 'edit'): ?>
-                    <input type="hidden" name="id" value="<?php echo $id; ?>">
+                    <input type="hidden" name="id" value="<?php echo e($id); ?>">
                     <?php endif; ?>
-                    
+
                     <div class="form-section">
                         <h3><i class="fas fa-graduation-cap"></i> Select Student and Subject</h3>
                         <div class="form-row">
@@ -730,19 +716,19 @@ function getGradeClass($grade) {
                                 <select id="class_id" name="class_id" class="form-control" required onchange="updateStudentsAndSubjects()">
                                     <option value="">-- Select Class --</option>
                                     <?php foreach ($classes as $class): ?>
-                                    <option value="<?php echo $class['id']; ?>" 
+                                    <option value="<?php echo e($class['id']); ?>"
                                         <?php echo ($selectedClass == $class['id'] || ($result && $result['class_id'] == $class['id'])) ? 'selected' : ''; ?>>
                                         <?php echo htmlspecialchars($class['class_name'] . ' ' . ($class['section'] ?? '')); ?>
                                     </option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
-                            
+
                             <div class="form-group col-md-6">
                                 <label for="student_id">Student *</label>
                                 <select id="student_id" name="student_id" class="form-control" required>
                                     <option value="">-- Select Student --</option>
-                                    <?php if ($selectedClass || ($result && $result['class_id'])): 
+                                    <?php if ($selectedClass || ($result && $result['class_id'])):
                                         $classId = $selectedClass ?: ($result ? $result['class_id'] : 0);
                                         $studentList = $db->getRows(
                                             "SELECT s.id, u.first_name, u.last_name, s.admission_number
@@ -754,23 +740,23 @@ function getGradeClass($grade) {
                                         );
                                         foreach ($studentList as $student):
                                     ?>
-                                    <option value="<?php echo $student['id']; ?>" 
+                                    <option value="<?php echo e($student['id']); ?>"
                                         <?php echo ($result && $result['student_id'] == $student['id']) ? 'selected' : ''; ?>>
                                         <?php echo htmlspecialchars($student['first_name'] . ' ' . $student['last_name'] . ' (' . $student['admission_number'] . ')'); ?>
                                     </option>
-                                    <?php 
+                                    <?php
                                         endforeach;
                                     endif; ?>
                                 </select>
                             </div>
                         </div>
-                        
+
                         <div class="form-row">
                             <div class="form-group col-md-6">
                                 <label for="subject_id">Subject *</label>
                                 <select id="subject_id" name="subject_id" class="form-control" required>
                                     <option value="">-- Select Subject --</option>
-                                    <?php if ($selectedClass || ($result && $result['class_id'])): 
+                                    <?php if ($selectedClass || ($result && $result['class_id'])):
                                         $classId = $selectedClass ?: ($result ? $result['class_id'] : 0);
                                         $subjectList = $db->getRows(
                                             "SELECT * FROM subjects WHERE class_id = ? AND is_active = 1 ORDER BY subject_name",
@@ -778,16 +764,16 @@ function getGradeClass($grade) {
                                         );
                                         foreach ($subjectList as $subject):
                                     ?>
-                                    <option value="<?php echo $subject['id']; ?>" 
+                                    <option value="<?php echo e($subject['id']); ?>"
                                         <?php echo ($result && $result['subject_id'] == $subject['id']) ? 'selected' : ''; ?>>
                                         <?php echo htmlspecialchars($subject['subject_name']); ?>
                                     </option>
-                                    <?php 
+                                    <?php
                                         endforeach;
                                     endif; ?>
                                 </select>
                             </div>
-                            
+
                             <div class="form-group col-md-6">
                                 <label for="assessment_type">Assessment Type *</label>
                                 <select id="assessment_type" name="assessment_type" class="form-control" required>
@@ -800,30 +786,30 @@ function getGradeClass($grade) {
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="form-section">
                         <h3><i class="fas fa-pencil-alt"></i> Enter Scores</h3>
                         <div class="form-row">
                             <div class="form-group col-md-6">
                                 <label for="score">Score *</label>
-                                <input type="number" id="score" name="score" class="form-control" 
+                                <input type="number" id="score" name="score" class="form-control"
                                        value="<?php echo $result['score'] ?? ''; ?>" step="0.01" min="0" required
                                        onchange="calculateGrade()">
                             </div>
-                            
+
                             <div class="form-group col-md-6">
                                 <label for="max_score">Maximum Score *</label>
-                                <input type="number" id="max_score" name="max_score" class="form-control" 
+                                <input type="number" id="max_score" name="max_score" class="form-control"
                                        value="<?php echo $result['max_score'] ?? 100; ?>" step="0.01" min="0" required
                                        onchange="calculateGrade()">
                             </div>
                         </div>
-                        
+
                         <div class="form-row">
                             <div class="form-group col-md-6">
                                 <label for="grade">Grade (Auto-calculated)</label>
-                                <input type="text" id="grade" name="grade_display" class="form-control" 
-                                       value="<?php 
+                                <input type="text" id="grade" name="grade_display" class="form-control"
+                                       value="<?php
                                             if ($result) {
                                                 echo $result['grade'];
                                             } elseif (isset($_POST['score']) && isset($_POST['max_score'])) {
@@ -838,81 +824,81 @@ function getGradeClass($grade) {
                                        ?>" readonly disabled>
                                 <small class="form-text text-muted">Grade is automatically calculated based on score</small>
                             </div>
-                            
+
                             <div class="form-group col-md-6">
                                 <label for="term">Term *</label>
                                 <select id="term" name="term" class="form-control" required>
                                     <option value="">-- Select Term --</option>
                                     <?php foreach ($availableTerms as $termKey => $termName): ?>
-                                    <option value="<?php echo $termKey; ?>" 
+                                    <option value="<?php echo e($termKey); ?>"
                                         <?php echo ($result && $result['term'] == $termKey) ? 'selected' : ''; ?>>
-                                        <?php echo $termName; ?>
+                                        <?php echo e($termName); ?>
                                     </option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
                         </div>
-                        
+
                         <div class="form-row">
                             <div class="form-group col-md-6">
                                 <label for="academic_year">Academic Year *</label>
-                                <input type="text" id="academic_year" name="academic_year" class="form-control" 
-                                       value="<?php echo $result['academic_year'] ?? (date('Y') . '-' . (date('Y') + 1)); ?>" 
+                                <input type="text" id="academic_year" name="academic_year" class="form-control"
+                                       value="<?php echo $result['academic_year'] ?? (currentAcademicYear()); ?>"
                                        placeholder="YYYY-YYYY" required>
                                 <small class="form-text text-muted">Format: 2024-2025</small>
                             </div>
-                            
+
                             <div class="form-group col-md-6">
                                 <label for="remarks">Remarks</label>
-                                <input type="text" id="remarks" name="remarks" class="form-control" 
-                                       value="<?php echo htmlspecialchars($result['remarks'] ?? ''); ?>" 
+                                <input type="text" id="remarks" name="remarks" class="form-control"
+                                       value="<?php echo htmlspecialchars($result['remarks'] ?? ''); ?>"
                                        placeholder="Optional remarks">
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save"></i> <?php echo $action === 'add' ? 'Save Result' : 'Update Result'; ?>
                         </button>
-                        <a href="results.php<?php echo $selectedClass ? '?class_id=' . $selectedClass . '&term=' . $selectedTerm . '&academic_year=' . $selectedYear : ''; ?>" class="btn btn-outline">
+                        <a href="results<?php echo $selectedClass ? '?class_id=' . $selectedClass . '&term=' . $selectedTerm . '&academic_year=' . $selectedYear : ''; ?>" class="btn btn-outline">
                             <i class="fas fa-times"></i> Cancel
                         </a>
                     </div>
                 </form>
             </div>
         </div>
-        
-        <script>
+
+        <script nonce="<?php echo CSP_NONCE; ?>">
         function updateStudentsAndSubjects() {
             const classId = document.getElementById('class_id').value;
             if (classId) {
-                window.location.href = '?action=<?php echo $action; ?>&class_id=' + classId;
+                window.location.href = '?action=<?php echo e($action); ?>&class_id=' + classId;
             }
         }
-        
+
         function calculateGrade() {
             const score = parseFloat(document.getElementById('score').value) || 0;
             const maxScore = parseFloat(document.getElementById('max_score').value) || 100;
-            
+
             if (score > 0 && maxScore > 0) {
                 const percentage = (score / maxScore) * 100;
                 let grade = '';
-                
+
                 if (percentage >= 70) grade = 'A';
                 else if (percentage >= 60) grade = 'B';
                 else if (percentage >= 50) grade = 'C';
                 else if (percentage >= 45) grade = 'D';
                 else if (percentage >= 40) grade = 'E';
                 else grade = 'F';
-                
+
                 document.getElementById('grade').value = grade;
             }
         }
         </script>
-        
+
         <?php else: ?>
-        
+
         <!-- Summary Stats -->
         <div class="stats-grid">
             <div class="stat-card">
@@ -924,7 +910,7 @@ function getGradeClass($grade) {
                     <p>Results Loaded</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(40,167,69,0.1);">
                     <i class="fas fa-check-circle" style="color: #28a745;"></i>
@@ -934,7 +920,7 @@ function getGradeClass($grade) {
                     <p>Approved</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(255,193,7,0.1);">
                     <i class="fas fa-clock" style="color: #ffc107;"></i>
@@ -944,7 +930,7 @@ function getGradeClass($grade) {
                     <p>Pending</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(23,162,184,0.1);">
                     <i class="fas fa-percent" style="color: #17a2b8;"></i>
@@ -955,7 +941,7 @@ function getGradeClass($grade) {
                 </div>
             </div>
         </div>
-        
+
         <!-- Filter Form -->
         <div class="card">
             <div class="card-header">
@@ -968,39 +954,39 @@ function getGradeClass($grade) {
                         <select id="class_id" name="class_id" class="form-control" onchange="this.form.submit()">
                             <option value="">-- All Classes --</option>
                             <?php foreach ($classes as $class): ?>
-                            <option value="<?php echo $class['id']; ?>" 
+                            <option value="<?php echo e($class['id']); ?>"
                                 <?php echo $selectedClass == $class['id'] ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($class['class_name'] . ' ' . ($class['section'] ?? '')); ?>
                             </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    
+
                     <div class="form-group col-md-3">
                         <label for="term">Term</label>
                         <select id="term" name="term" class="form-control" onchange="this.form.submit()">
                             <option value="">-- All Terms --</option>
                             <?php foreach ($availableTerms as $termKey => $termName): ?>
-                            <option value="<?php echo $termKey; ?>" <?php echo $selectedTerm == $termKey ? 'selected' : ''; ?>>
-                                <?php echo $termName; ?>
+                            <option value="<?php echo e($termKey); ?>" <?php echo $selectedTerm == $termKey ? 'selected' : ''; ?>>
+                                <?php echo e($termName); ?>
                             </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    
+
                     <div class="form-group col-md-3">
                         <label for="academic_year">Academic Year</label>
-                        <input type="text" id="academic_year" name="academic_year" class="form-control" 
-                               value="<?php echo htmlspecialchars($selectedYear); ?>" 
+                        <input type="text" id="academic_year" name="academic_year" class="form-control"
+                               value="<?php echo htmlspecialchars($selectedYear); ?>"
                                placeholder="YYYY-YYYY" onchange="this.form.submit()">
                     </div>
-                    
+
                     <div class="form-group col-md-3">
                         <label for="subject_id">Subject</label>
                         <select id="subject_id" name="subject_id" class="form-control" onchange="this.form.submit()">
                             <option value="0">-- All Subjects --</option>
                             <?php foreach ($subjects as $subject): ?>
-                            <option value="<?php echo $subject['id']; ?>" 
+                            <option value="<?php echo e($subject['id']); ?>"
                                 <?php echo $selectedSubject == $subject['id'] ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($subject['subject_name']); ?>
                             </option>
@@ -1010,14 +996,14 @@ function getGradeClass($grade) {
                 </form>
             </div>
         </div>
-        
+
         <?php if ($selectedClass && $selectedTerm): ?>
         <!-- Results Table -->
         <div class="card">
             <div class="card-header">
                 <h3>
-                    <i class="fas fa-chart-line"></i> 
-                    Results - 
+                    <i class="fas fa-chart-line"></i>
+                    Results -
                     <?php if ($classInfo): ?>
                         <?php echo htmlspecialchars($classInfo['class_name'] . ' ' . ($classInfo['section'] ?? '')); ?>
                     <?php else: ?>
@@ -1038,7 +1024,7 @@ function getGradeClass($grade) {
                 <form id="approveForm" method="POST">
                     <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
                     <input type="hidden" name="action" value="approve_results">
-                    
+
                     <div class="table-responsive">
                         <table class="data-table" id="resultsTable">
                             <thead>
@@ -1058,7 +1044,7 @@ function getGradeClass($grade) {
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php foreach ($results as $result): 
+                                <?php foreach ($results as $result):
                                     $percentage = ($result['score'] / $result['max_score']) * 100;
                                     $rowClass = '';
                                     if ($percentage >= 70) $rowClass = 'table-success';
@@ -1066,20 +1052,20 @@ function getGradeClass($grade) {
                                     elseif ($percentage >= 40) $rowClass = 'table-warning';
                                     else $rowClass = 'table-danger';
                                 ?>
-                                <tr class="<?php echo $rowClass; ?>">
+                                <tr class="<?php echo e($rowClass); ?>">
                                     <td>
                                         <?php if (!$result['is_approved']): ?>
-                                        <input type="checkbox" class="select-item" name="result_ids[]" value="<?php echo $result['id']; ?>">
+                                        <input type="checkbox" class="select-item" name="result_ids[]" value="<?php echo e($result['id']); ?>">
                                         <?php endif; ?>
                                     </td>
                                     <td><?php echo htmlspecialchars($result['admission_number']); ?></td>
                                     <td><?php echo htmlspecialchars($result['student_name']); ?></td>
                                     <td><?php echo htmlspecialchars($result['subject_name']); ?></td>
-                                    <td><?php echo ucfirst($result['assessment_type']); ?></td>
-                                    <td><strong><?php echo $result['score']; ?></strong></td>
-                                    <td><?php echo $result['max_score']; ?></td>
+                                    <td><?php echo e(ucfirst($result['assessment_type'])); ?></td>
+                                    <td><strong><?php echo e($result['score']); ?></strong></td>
+                                    <td><?php echo e($result['max_score']); ?></td>
                                     <td><?php echo number_format($percentage, 1); ?>%</td>
-                                    <td><span class="badge-<?php echo strtolower($result['grade']); ?>"><?php echo $result['grade']; ?></span></td>
+                                    <td><span class="badge-<?php echo e(strtolower($result['grade'])); ?>"><?php echo e($result['grade']); ?></span></td>
                                     <td>
                                         <?php if ($result['is_approved']): ?>
                                         <span class="badge-success">Approved</span>
@@ -1090,11 +1076,11 @@ function getGradeClass($grade) {
                                     <td><?php echo htmlspecialchars($result['entered_by_name'] ?? 'N/A'); ?></td>
                                     <td>
                                         <div class="action-buttons">
-                                            <a href="?action=edit&id=<?php echo $result['id']; ?><?php echo $selectedClass ? '&class_id=' . $selectedClass : ''; ?>" class="btn-icon" title="Edit">
+                                            <a href="?action=edit&id=<?php echo e($result['id']); ?><?php echo $selectedClass ? '&class_id=' . $selectedClass : ''; ?>" class="btn-icon" title="Edit">
                                                 <i class="fas fa-edit"></i>
                                             </a>
-                                            <button class="btn-icon text-danger" 
-                                                    onclick="deleteResult(<?php echo $result['id']; ?>)"
+                                            <button class="btn-icon text-danger"
+                                                    onclick="deleteResult(<?php echo e($result['id']); ?>)"
                                                     title="Delete">
                                                 <i class="fas fa-trash"></i>
                                             </button>
@@ -1106,17 +1092,17 @@ function getGradeClass($grade) {
                         </table>
                     </div>
                 </form>
-                
+
                 <?php else: ?>
                 <div class="alert alert-info">
                     <i class="fas fa-info-circle"></i>
-                    No results found for the selected filters. <a href="?action=add&class_id=<?php echo $selectedClass; ?>">Add a result</a>.
+                    No results found for the selected filters. <a href="?action=add&class_id=<?php echo e($selectedClass); ?>">Add a result</a>.
                 </div>
                 <?php endif; ?>
             </div>
         </div>
         <?php endif; ?>
-        
+
         <!-- Pending Approvals Section -->
         <?php if (!empty($pendingApprovals)): ?>
         <div class="card" id="pendingApprovals">
@@ -1147,10 +1133,10 @@ function getGradeClass($grade) {
                                 </td>
                                 <td><?php echo htmlspecialchars($pending['class_name'] . ' ' . ($pending['section'] ?? '')); ?></td>
                                 <td><?php echo htmlspecialchars($pending['subject_name']); ?></td>
-                                <td><?php echo $pending['score']; ?>/<?php echo $pending['max_score']; ?></td>
+                                <td><?php echo e($pending['score']); ?>/<?php echo e($pending['max_score']); ?></td>
                                 <td><?php echo htmlspecialchars($pending['entered_by_name'] ?? 'N/A'); ?></td>
                                 <td>
-                                    <button class="btn btn-sm btn-success" onclick="approveSingle(<?php echo $pending['id']; ?>)">
+                                    <button class="btn btn-sm btn-success" onclick="approveSingle(<?php echo e($pending['id']); ?>)">
                                         <i class="fas fa-check"></i> Approve
                                     </button>
                                 </td>
@@ -1162,7 +1148,7 @@ function getGradeClass($grade) {
             </div>
         </div>
         <?php endif; ?>
-        
+
         <?php endif; ?>
     </main>
 </div>
@@ -1190,7 +1176,7 @@ function getGradeClass($grade) {
     </div>
 </div>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 // Select All functionality
 document.getElementById('selectAll')?.addEventListener('change', function(e) {
     const checkboxes = document.querySelectorAll('.select-item');
@@ -1203,7 +1189,7 @@ function approveSelected() {
         alert('Please select results to approve');
         return;
     }
-    
+
     if (confirm(`Approve ${selected.length} selected results?`)) {
         document.getElementById('approveForm').submit();
     }
@@ -1259,3 +1245,4 @@ $(document).ready(function() {
 });
 </script>
 
+<?php include __DIR__ . '/../includes/footer.php'; ?>

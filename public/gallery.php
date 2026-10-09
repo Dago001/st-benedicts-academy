@@ -17,7 +17,7 @@ $metaTags = [
     'og:title' => 'Gallery - ST. BENEDICT\'S EARLY YEARS BRITISH ACADEMY',
     'og:description' => 'View photos and memories from our school.',
     'og:image' => BASE_URL . '/assets/images/og-image.jpg',
-    'og:url' => BASE_URL . '/public/gallery.php',
+    'og:url' => BASE_URL . '/public/gallery',
     'twitter:card' => 'summary_large_image'
 ];
 
@@ -644,7 +644,7 @@ if (empty($categories)) {
     .gallery-grid {
         grid-template-columns: repeat(3, 1fr);
     }
-    
+
     .slideshow-container {
         height: 400px;
     }
@@ -655,24 +655,24 @@ if (empty($categories)) {
         font-size: 60px;
         line-height: 19.19px;
     }
-    
+
     .breadcrumb a {
         font-size: 35px;
         line-height: 20px;
     }
-    
+
     .section-title {
         font-size: var(--text-2xl);
     }
-    
+
     .gallery-grid {
         grid-template-columns: repeat(2, 1fr);
     }
-    
+
     .slideshow-container {
         height: 350px;
     }
-    
+
     .slide-caption h2 {
         font-size: var(--text-xl);
     }
@@ -682,58 +682,58 @@ if (empty($categories)) {
     .page-header {
         padding: 30px 0;
     }
-    
+
     .page-header h1 {
         font-size: 48px;
         line-height: 19.19px;
     }
-    
+
     .breadcrumb a {
         font-size: 28px;
         line-height: 20px;
     }
-    
+
     .section-title {
         font-size: var(--text-xl);
     }
-    
+
     .slideshow-container {
         height: 300px;
     }
-    
+
     .slide-caption {
         padding: var(--spacing-lg);
     }
-    
+
     .slide-caption h2 {
         font-size: var(--text-lg);
     }
-    
+
     .slide-caption p {
         font-size: var(--text-sm);
     }
-    
+
     .slideshow-controls {
         bottom: var(--spacing-lg);
         right: var(--spacing-lg);
     }
-    
+
     .slideshow-prev,
     .slideshow-next {
         width: 40px;
         height: 40px;
         font-size: var(--text-md);
     }
-    
+
     .slideshow-dots {
         bottom: var(--spacing-lg);
     }
-    
+
     .filter-buttons {
         flex-direction: row;
         flex-wrap: wrap;
     }
-    
+
     .filter-btn {
         width: auto;
         padding: var(--spacing-xs) var(--spacing-lg);
@@ -744,72 +744,72 @@ if (empty($categories)) {
     .page-header {
         padding: 20px 0;
     }
-    
+
     .page-header h1 {
         font-size: 36px;
         line-height: 19.19px;
     }
-    
+
     .breadcrumb a {
         font-size: 22px;
         line-height: 20px;
     }
-    
+
     .section-title {
         font-size: var(--text-lg);
     }
-    
+
     .gallery-grid {
         grid-template-columns: 1fr;
         gap: var(--spacing-sm);
     }
-    
+
     .slideshow-container {
         height: 250px;
     }
-    
+
     .slide-caption h2 {
         font-size: var(--text-md);
     }
-    
+
     .slide-caption p {
         font-size: var(--text-xs);
     }
-    
+
     .slideshow-controls {
         bottom: var(--spacing-md);
         right: var(--spacing-md);
     }
-    
+
     .slideshow-prev,
     .slideshow-next {
         width: 35px;
         height: 35px;
         font-size: var(--text-sm);
     }
-    
+
     .slideshow-dots {
         bottom: var(--spacing-md);
     }
-    
+
     .slideshow-dot {
         width: 8px;
         height: 8px;
     }
-    
+
     .filter-buttons {
         flex-direction: column;
         align-items: center;
     }
-    
+
     .filter-btn {
         width: 200px;
     }
-    
+
     .pagination {
         gap: var(--spacing-xs);
     }
-    
+
     .page-link {
         min-width: 35px;
         height: 35px;
@@ -823,7 +823,7 @@ if (empty($categories)) {
     <div class="container">
         <h1>Photo Gallery</h1>
         <div class="breadcrumb">
-            <a href="<?php echo BASE_URL; ?>/index.php">Home</a> / Gallery
+            <a href="<?php echo BASE_URL; ?>/">Home</a> / Gallery
         </div>
     </div>
 </section>
@@ -834,8 +834,8 @@ if (empty($categories)) {
     <div class="container">
         <div class="slideshow-container" id="slideshow">
             <?php foreach ($featuredImages as $index => $image): ?>
-            <div class="slideshow-slide <?php echo $index === 0 ? 'active' : ''; ?>" data-index="<?php echo $index; ?>">
-                <img src="<?php echo BASE_URL; ?>/uploads/gallery/<?php echo htmlspecialchars($image['image_path']); ?>" 
+            <div class="slideshow-slide <?php echo $index === 0 ? 'active' : ''; ?>" data-index="<?php echo e($index); ?>">
+                <img src="<?php echo BASE_URL; ?>/uploads/gallery/<?php echo htmlspecialchars($image['image_path']); ?>"
                      alt="<?php echo htmlspecialchars($image['title']); ?>">
                 <div class="slide-caption">
                     <h2><?php echo htmlspecialchars($image['title']); ?></h2>
@@ -845,7 +845,7 @@ if (empty($categories)) {
                 </div>
             </div>
             <?php endforeach; ?>
-            
+
             <div class="slideshow-controls">
                 <button class="slideshow-prev" onclick="changeSlide(-1)">
                     <i class="fas fa-chevron-left"></i>
@@ -854,11 +854,11 @@ if (empty($categories)) {
                     <i class="fas fa-chevron-right"></i>
                 </button>
             </div>
-            
+
             <div class="slideshow-dots">
                 <?php foreach ($featuredImages as $index => $image): ?>
-                <span class="slideshow-dot <?php echo $index === 0 ? 'active' : ''; ?>" 
-                      onclick="currentSlide(<?php echo $index; ?>)"></span>
+                <span class="slideshow-dot <?php echo $index === 0 ? 'active' : ''; ?>"
+                      onclick="currentSlide(<?php echo e($index); ?>)"></span>
                 <?php endforeach; ?>
             </div>
         </div>
@@ -874,7 +874,7 @@ if (empty($categories)) {
                 All Photos
             </a>
             <?php foreach ($categories as $cat): ?>
-            <a href="?category=<?php echo urlencode($cat['category']); ?>" 
+            <a href="?category=<?php echo urlencode($cat['category']); ?>"
                class="filter-btn <?php echo $selectedCategory === $cat['category'] ? 'active' : ''; ?>">
                 <?php echo ucfirst(htmlspecialchars($cat['category'])); ?>
             </a>
@@ -890,7 +890,7 @@ if (empty($categories)) {
         <div class="gallery-grid" id="galleryGrid">
             <?php foreach ($images as $index => $image): ?>
             <div class="gallery-item" data-category="<?php echo htmlspecialchars($image['category'] ?? ''); ?>">
-                <img src="<?php echo BASE_URL; ?>/uploads/gallery/<?php echo htmlspecialchars($image['image_path']); ?>" 
+                <img src="<?php echo BASE_URL; ?>/uploads/gallery/<?php echo htmlspecialchars($image['image_path']); ?>"
                      alt="<?php echo htmlspecialchars($image['title']); ?>"
                      loading="lazy">
                 <div class="gallery-overlay">
@@ -901,8 +901,8 @@ if (empty($categories)) {
                         <?php endif; ?>
                     </div>
                     <div class="gallery-actions">
-                        <a href="<?php echo BASE_URL; ?>/uploads/gallery/<?php echo htmlspecialchars($image['image_path']); ?>" 
-                           class="gallery-link" 
+                        <a href="<?php echo BASE_URL; ?>/uploads/gallery/<?php echo htmlspecialchars($image['image_path']); ?>"
+                           class="gallery-link"
                            data-fancybox="gallery"
                            data-caption="<?php echo htmlspecialchars($image['title']); ?>">
                             <i class="fas fa-search-plus"></i>
@@ -912,7 +912,7 @@ if (empty($categories)) {
             </div>
             <?php endforeach; ?>
         </div>
-        
+
         <!-- Pagination -->
         <?php if (isset($totalPages) && $totalPages > 1): ?>
         <div class="pagination-section">
@@ -922,14 +922,14 @@ if (empty($categories)) {
                     <i class="fas fa-chevron-left"></i>
                 </a>
                 <?php endif; ?>
-                
+
                 <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                <a href="?category=<?php echo urlencode($selectedCategory); ?>&page=<?php echo $i; ?>" 
+                <a href="?category=<?php echo urlencode($selectedCategory); ?>&page=<?php echo e($i); ?>"
                    class="page-link <?php echo $i == $page ? 'active' : ''; ?>">
-                    <?php echo $i; ?>
+                    <?php echo e($i); ?>
                 </a>
                 <?php endfor; ?>
-                
+
                 <?php if ($page < $totalPages): ?>
                 <a href="?category=<?php echo urlencode($selectedCategory); ?>&page=<?php echo $page + 1; ?>" class="page-link">
                     <i class="fas fa-chevron-right"></i>
@@ -938,7 +938,7 @@ if (empty($categories)) {
             </div>
         </div>
         <?php endif; ?>
-        
+
         <?php else: ?>
         <div class="no-images">
             <i class="fas fa-images"></i>
@@ -950,10 +950,10 @@ if (empty($categories)) {
 </section>
 
 <!-- Fancybox CSS and JS -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.css">
-<script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.umd.js"></script>
+<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/vendor/fancybox/fancybox.css">
+<script src="<?php echo BASE_URL; ?>/assets/vendor/fancybox/fancybox.umd.js"></script>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 // Initialize Fancybox
 document.addEventListener('DOMContentLoaded', function() {
     Fancybox.bind('[data-fancybox="gallery"]', {
@@ -977,13 +977,13 @@ document.addEventListener('DOMContentLoaded', function() {
             },
         },
     });
-    
+
     // Initialize slideshow
     initSlideshow();
-    
+
     // Add animation on scroll
     const elements = document.querySelectorAll('.gallery-item');
-    
+
     const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
@@ -992,7 +992,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }, { threshold: 0.1 });
-    
+
     elements.forEach(el => {
         el.style.opacity = '0';
         observer.observe(el);
@@ -1008,7 +1008,7 @@ const dots = document.querySelectorAll('.slideshow-dot');
 function initSlideshow() {
     if (slides.length > 0) {
         startSlideshow();
-        
+
         // Pause slideshow on hover
         const container = document.getElementById('slideshow');
         if (container) {
@@ -1037,7 +1037,7 @@ function pauseSlideshow() {
 
 function showSlide(index) {
     if (!slides.length) return;
-    
+
     if (index >= slides.length) {
         slideIndex = 0;
     } else if (index < 0) {
@@ -1045,10 +1045,10 @@ function showSlide(index) {
     } else {
         slideIndex = index;
     }
-    
+
     slides.forEach(slide => slide.classList.remove('active'));
     dots.forEach(dot => dot.classList.remove('active'));
-    
+
     slides[slideIndex].classList.add('active');
     if (dots[slideIndex]) {
         dots[slideIndex].classList.add('active');

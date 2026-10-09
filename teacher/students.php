@@ -1,7 +1,6 @@
 <?php
 // teacher/students.php - View Students (Teacher View)
 require_once '../config/config.php';
-require_once '../config/database.php';
 require_once '../config/security.php';
 
 Security::requireRole('teacher');
@@ -9,26 +8,22 @@ Security::requireRole('teacher');
 $pageTitle = 'My Students';
 $extraJS = ['students.js'];
 
-include '../includes/header.php';
+include __DIR__ . '/../includes/header.php';
 
 $db = db();
-$userId = $_SESSION['user_id'];
+$userId = (int)$_SESSION['user_id'];
+$teacherId = Security::currentTeacherId() ?? 0;
 
-// Get teacher info
-$teacher = $db->getRow(
-    "SELECT id FROM teachers WHERE user_id = ?",
-    [$userId]
-);
-
-// Get teacher's classes
+// Classes the teacher leads or teaches in
 $classes = $db->getRows(
-    "SELECT c.* FROM classes c 
-     WHERE c.teacher_id = ? AND c.is_active = 1
-     ORDER BY c.class_name",
-    [$teacher['id']]
-);
+    "SELECT c.* FROM classes c WHERE c.is_active = 1
+       AND c.id IN (SELECT id FROM classes WHERE teacher_id = ? UNION SELECT class_id FROM subjects WHERE teacher_id = ?)
+     ORDER BY c.class_name, c.section", [$teacherId, $teacherId]);
 
-$selectedClass = $_GET['class'] ?? ($classes[0]['id'] ?? null);
+$selectedClass = (int)($_GET['class_id'] ?? $_GET['class'] ?? ($classes[0]['id'] ?? 0));
+if ($selectedClass && !Security::canAccessClass($selectedClass)) {
+    $selectedClass = (int)($classes[0]['id'] ?? 0);
+}
 
 // Get students for selected class
 $students = [];
@@ -60,30 +55,13 @@ if ($selectedClass) {
 ?>
 
 <div class="dashboard-container">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <h3>Teacher Panel</h3>
-        </div>
-        <nav class="sidebar-nav">
-            <ul>
-                <li><a href="dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
-                <li><a href="classes.php"><i class="fas fa-school"></i> My Classes</a></li>
-                <li><a href="attendance.php"><i class="fas fa-calendar-check"></i> Attendance</a></li>
-                <li><a href="results.php"><i class="fas fa-chart-line"></i> Results</a></li>
-                <li><a href="assignments.php"><i class="fas fa-tasks"></i> Assignments</a></li>
-                <li class="active"><a href="students.php"><i class="fas fa-user-graduate"></i> Students</a></li>
-                <li><a href="messages.php"><i class="fas fa-envelope"></i> Messages</a></li>
-                <li><a href="profile.php"><i class="fas fa-user-cog"></i> Profile</a></li>
-            </ul>
-        </nav>
-    </aside>
-    
+    <?php render_sidebar('teacher'); ?>
+
     <main class="dashboard-main">
         <div class="dashboard-header">
             <h1>My Students</h1>
         </div>
-        
+
         <!-- Class Selection -->
         <?php if (count($classes) > 0): ?>
         <div class="card">
@@ -93,7 +71,7 @@ if ($selectedClass) {
                         <label for="class">Select Class:</label>
                         <select name="class" id="class" class="form-control" onchange="this.form.submit()">
                             <?php foreach ($classes as $class): ?>
-                            <option value="<?php echo $class['id']; ?>" 
+                            <option value="<?php echo e($class['id']); ?>"
                                 <?php echo ($selectedClass == $class['id']) ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($class['class_name'] . ' ' . $class['section']); ?>
                             </option>
@@ -103,7 +81,7 @@ if ($selectedClass) {
                 </form>
             </div>
         </div>
-        
+
         <!-- Class Overview -->
         <?php if ($classInfo): ?>
         <div class="class-overview">
@@ -122,17 +100,17 @@ if ($selectedClass) {
                 </div>
                 <div class="stat-box">
                     <span class="stat-label">Class Capacity</span>
-                    <span class="stat-value"><?php echo $classInfo['capacity']; ?></span>
+                    <span class="stat-value"><?php echo e($classInfo['capacity']); ?></span>
                 </div>
             </div>
         </div>
         <?php endif; ?>
-        
+
         <!-- Students List -->
         <div class="card">
             <div class="card-header">
                 <h3>
-                    <i class="fas fa-users"></i> 
+                    <i class="fas fa-users"></i>
                     Student List - <?php echo $classInfo ? htmlspecialchars($classInfo['class_name'] . ' ' . $classInfo['section']) : ''; ?>
                 </h3>
                 <div class="card-tools">
@@ -161,7 +139,7 @@ if ($selectedClass) {
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($students as $student): 
+                            <?php foreach ($students as $student):
                                 $dob = new DateTime($student['date_of_birth']);
                                 $now = new DateTime();
                                 $age = $now->diff($dob)->y;
@@ -169,7 +147,7 @@ if ($selectedClass) {
                             <tr>
                                 <td>
                                     <?php if ($student['profile_image']): ?>
-                                    <img src="<?php echo BASE_URL; ?>/uploads/students/<?php echo $student['profile_image']; ?>" 
+                                    <img src="<?php echo BASE_URL; ?>/uploads/students/<?php echo e($student['profile_image']); ?>"
                                          alt="Profile" class="student-thumbnail">
                                     <?php else: ?>
                                     <div class="thumbnail-placeholder">
@@ -180,30 +158,30 @@ if ($selectedClass) {
                                 <td><strong><?php echo htmlspecialchars($student['admission_number']); ?></strong></td>
                                 <td><?php echo htmlspecialchars($student['first_name'] . ' ' . $student['last_name']); ?></td>
                                 <td><?php echo date('d M Y', strtotime($student['date_of_birth'])); ?></td>
-                                <td><?php echo $age; ?> years</td>
-                                <td><?php echo ucfirst($student['gender']); ?></td>
+                                <td><?php echo e($age); ?> years</td>
+                                <td><?php echo e(ucfirst($student['gender'])); ?></td>
                                 <td><?php echo htmlspecialchars($student['parent_name'] ?? 'N/A'); ?></td>
                                 <td><?php echo htmlspecialchars($student['parent_phone'] ?? 'N/A'); ?></td>
                                 <td>
                                     <?php if ($student['blood_group']): ?>
-                                    <span class="blood-badge"><?php echo $student['blood_group']; ?></span>
+                                    <span class="blood-badge"><?php echo e($student['blood_group']); ?></span>
                                     <?php else: ?>
                                     --
                                     <?php endif; ?>
                                 </td>
                                 <td>
                                     <div class="action-buttons">
-                                        <button class="btn-icon" onclick="viewStudent(<?php echo $student['id']; ?>)" title="View Details">
+                                        <button class="btn-icon" onclick="viewStudent(<?php echo e($student['id']); ?>)" title="View Details">
                                             <i class="fas fa-eye"></i>
                                         </button>
-                                        <button class="btn-icon" onclick="markAttendance(<?php echo $student['id']; ?>)" title="Mark Attendance">
+                                        <button class="btn-icon" onclick="markAttendance(<?php echo e($student['id']); ?>)" title="Mark Attendance">
                                             <i class="fas fa-calendar-check"></i>
                                         </button>
-                                        <button class="btn-icon" onclick="contactParent(<?php echo $student['id']; ?>)" title="Contact Parent">
+                                        <button class="btn-icon" onclick="contactParent(<?php echo e($student['id']); ?>)" title="Contact Parent">
                                             <i class="fas fa-envelope"></i>
                                         </button>
                                         <?php if ($student['medical_notes']): ?>
-                                        <button class="btn-icon medical" onclick="showMedicalNotes('<?php echo addslashes($student['medical_notes']); ?>')" title="Medical Notes">
+                                        <button class="btn-icon medical" data-notes="<?php echo e($student['medical_notes']); ?>" onclick="showMedicalNotes(this.dataset.notes)" title="Medical Notes">
                                             <i class="fas fa-notes-medical"></i>
                                         </button>
                                         <?php endif; ?>
@@ -222,7 +200,7 @@ if ($selectedClass) {
                 <?php endif; ?>
             </div>
         </div>
-        
+
         <?php else: ?>
         <div class="alert alert-info">
             <i class="fas fa-info-circle"></i>
@@ -438,29 +416,29 @@ if ($selectedClass) {
     .overview-stats {
         grid-template-columns: 1fr;
     }
-    
+
     .card-tools {
         flex-direction: column;
         gap: 10px;
     }
-    
+
     #searchStudent {
         width: 100% !important;
     }
 }
 </style>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 // Search functionality
 document.getElementById('searchStudent')?.addEventListener('keyup', function() {
     const searchTerm = this.value.toLowerCase();
     const table = document.getElementById('studentsTable');
     const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-    
+
     for (let row of rows) {
         const name = row.cells[2].textContent.toLowerCase();
         const admission = row.cells[1].textContent.toLowerCase();
-        
+
         if (name.includes(searchTerm) || admission.includes(searchTerm)) {
             row.style.display = '';
         } else {
@@ -471,7 +449,7 @@ document.getElementById('searchStudent')?.addEventListener('keyup', function() {
 
 // View student details
 function viewStudent(studentId) {
-    fetch(`../api/get-student-details.php?id=${studentId}`)
+    fetch(`${BASE_URL}/api/get-student-details?id=${encodeURIComponent(studentId)}`, {credentials: 'same-origin'})
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -485,18 +463,18 @@ function viewStudent(studentId) {
 function displayStudentDetails(student) {
     const modal = document.getElementById('studentModal');
     const details = document.getElementById('studentDetails');
-    
+
     details.innerHTML = `
         <div class="student-detail-grid">
             <div class="detail-section">
                 <h4><i class="fas fa-user"></i> Personal Information</h4>
                 <div class="detail-row">
                     <span class="detail-label">Full Name:</span>
-                    <span class="detail-value">${student.first_name} ${student.last_name}</span>
+                    <span class="detail-value">${escapeHtml(student.first_name)} ${escapeHtml(student.last_name)}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Admission No:</span>
-                    <span class="detail-value">${student.admission_number}</span>
+                    <span class="detail-value">${escapeHtml(student.admission_number)}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Date of Birth:</span>
@@ -504,75 +482,75 @@ function displayStudentDetails(student) {
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Gender:</span>
-                    <span class="detail-value">${student.gender}</span>
+                    <span class="detail-value">${escapeHtml(student.gender)}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Blood Group:</span>
-                    <span class="detail-value">${student.blood_group || 'Not specified'}</span>
+                    <span class="detail-value">${escapeHtml(student.blood_group || 'Not specified')}</span>
                 </div>
             </div>
-            
+
             <div class="detail-section">
                 <h4><i class="fas fa-address-card"></i> Contact Information</h4>
                 <div class="detail-row">
                     <span class="detail-label">Email:</span>
-                    <span class="detail-value">${student.email}</span>
+                    <span class="detail-value">${escapeHtml(student.email)}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Phone:</span>
-                    <span class="detail-value">${student.phone || 'Not provided'}</span>
+                    <span class="detail-value">${escapeHtml(student.phone || 'Not provided')}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Address:</span>
-                    <span class="detail-value">${student.address || 'Not provided'}</span>
+                    <span class="detail-value">${escapeHtml(student.address || 'Not provided')}</span>
                 </div>
             </div>
-            
+
             <div class="detail-section">
                 <h4><i class="fas fa-users"></i> Parent/Guardian Information</h4>
                 <div class="detail-row">
                     <span class="detail-label">Name:</span>
-                    <span class="detail-value">${student.parent_name || 'Not assigned'}</span>
+                    <span class="detail-value">${escapeHtml(student.parent_name || 'Not assigned')}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Parent Phone:</span>
-                    <span class="detail-value">${student.parent_phone || 'Not provided'}</span>
+                    <span class="detail-value">${escapeHtml(student.parent_phone || 'Not provided')}</span>
                 </div>
             </div>
-            
+
             <div class="detail-section">
                 <h4><i class="fas fa-notes-medical"></i> Medical Notes</h4>
-                <p>${student.medical_notes || 'No medical notes'}</p>
+                <p>${escapeHtml(student.medical_notes || 'No medical notes')}</p>
             </div>
         </div>
     `;
-    
+
     modal.style.display = 'block';
 }
 
 // Mark attendance
 function markAttendance(studentId) {
-    window.location.href = `attendance.php?mark=${studentId}`;
+    window.location.href = `attendance?class_id=${<?php echo (int)$selectedClass; ?>}`;
 }
 
 // Contact parent
 function contactParent(studentId) {
-    window.location.href = `messages.php?compose&student=${studentId}`;
+    window.location.href = `messages`;
 }
 
 // Show medical notes
 function showMedicalNotes(notes) {
     const modal = document.getElementById('medicalModal');
     const notesDiv = document.getElementById('medicalNotes');
-    
-    notesDiv.innerHTML = `<p>${notes}</p>`;
+
+    notesDiv.innerHTML = `<p>${escapeHtml(notes)}</p>`;
     modal.style.display = 'block';
 }
 
 // Export student list
 function exportStudentList() {
     const classId = document.getElementById('class').value;
-    window.location.href = `export.php?type=students&class=${classId}`;
+    window.location.href = `export?type=students&class=${classId}`;
 }
 
 // Close modals
@@ -588,7 +566,7 @@ function closeMedicalModal() {
 window.onclick = function(event) {
     const studentModal = document.getElementById('studentModal');
     const medicalModal = document.getElementById('medicalModal');
-    
+
     if (event.target === studentModal) {
         studentModal.style.display = 'none';
     }

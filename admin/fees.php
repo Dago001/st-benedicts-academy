@@ -1,30 +1,15 @@
 <?php
 // admin/fees.php - Complete Fee Management System
 require_once __DIR__ . '/../config/config.php';
-require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/security.php';
 
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Require admin role
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
-    header('Location: ' . BASE_URL . '/login.php');
-    exit;
-}
+Security::requireRole('admin');
 
 $pageTitle = 'Fee Management';
 $extraCSS = ['admin.css', 'dashboard.css'];
 $extraJS = ['fees.js', 'charts.js'];
 
-// Check if header exists
-$headerPath = __DIR__ . '/../includes/header.php';
-if (!file_exists($headerPath)) {
-    die("Error: Header file not found at: $headerPath");
-}
-include $headerPath;
+include __DIR__ . '/../includes/header.php';
 
 // Get database instance
 try {
@@ -33,12 +18,11 @@ try {
     die("Database connection error: " . $e->getMessage());
 }
 
-$message = '';
-$messageType = '';
+[$message, $messageType] = flash_get();
 
 // Handle actions
 $action = isset($_GET['action']) ? $_GET['action'] : 'list';
-$id = isset($_GET['id']) ? (int)$_GET['id'] : null;
+$id = isset($_POST['id']) ? (int)$_POST['id'] : (isset($_GET['id']) ? (int)$_GET['id'] : null);
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -47,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $messageType = 'error';
     } else {
         $postAction = $_POST['action'] ?? '';
-        
+
         switch ($postAction) {
             case 'add_fee_structure':
             case 'edit_fee_structure':
@@ -57,45 +41,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $amount = (float)($_POST['amount'] ?? 0);
                 $term = Security::sanitize($_POST['term'] ?? '');
                 $academicYear = Security::sanitize($_POST['academic_year'] ?? '');
-                $dueDate = !empty($_POST['due_date']) ? Security::sanitize($_POST['due_date']) : null;
+                $dueDate = valid_date($_POST['due_date'] ?? '');
                 $isMandatory = isset($_POST['is_mandatory']) ? 1 : 0;
                 $description = Security::sanitize($_POST['description'] ?? '');
-                
+
                 if (!$classId || empty($feeType) || $amount <= 0 || empty($term) || empty($academicYear)) {
                     $message = 'Please fill in all required fields';
                     $messageType = 'error';
                     break;
                 }
-                
+
                 // Validate academic year format
                 if (!preg_match('/^\d{4}-\d{4}$/', $academicYear)) {
                     $message = 'Academic year must be in format YYYY-YYYY';
                     $messageType = 'error';
                     break;
                 }
-                
-                // Validate due date if provided
-                if ($dueDate && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dueDate)) {
+
+                if (!empty($_POST['due_date']) && !$dueDate) {
                     $message = 'Invalid due date format';
                     $messageType = 'error';
                     break;
                 }
-                
+                if ($amount > 100000000 || mb_strlen($feeType) > 50 || mb_strlen($term) > 20) {
+                    $message = 'Amount, fee type or term is out of range';
+                    $messageType = 'error';
+                    break;
+                }
+                if (!$db->getRow('SELECT id FROM classes WHERE id = ?', [$classId])) {
+                    $message = 'Selected class does not exist';
+                    $messageType = 'error';
+                    break;
+                }
+
                 try {
                     if ($postAction === 'add_fee_structure') {
                         // Check if fee structure already exists
                         $existing = $db->getRow(
-                            "SELECT id FROM fee_structure 
+                            "SELECT id FROM fee_structure
                              WHERE class_id = ? AND fee_type = ? AND term = ? AND academic_year = ?",
                             [$classId, $feeType, $term, $academicYear]
                         );
-                        
+
                         if ($existing) {
                             throw new Exception("Fee structure already exists for this class, term and academic year");
                         }
-                        
+
                         $result = $db->insert(
-                            "INSERT INTO fee_structure (class_id, fee_type, amount, term, academic_year, due_date, is_mandatory, description) 
+                            "INSERT INTO fee_structure (class_id, fee_type, amount, term, academic_year, due_date, is_mandatory, description)
                              VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                             [
                                 $classId,
@@ -108,22 +101,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $description
                             ]
                         );
-                        
+
                         if (!$result) {
                             throw new Exception("Failed to insert fee structure");
                         }
-                        
+
                         Security::logAudit('ADDED_FEE_STRUCTURE', 'fee_structure');
                         $message = 'Fee structure added successfully';
                         $messageType = 'success';
-                        
+
                     } else {
-                        if (!$id) {
-                            throw new Exception("Invalid fee structure ID");
+                        if (!$id || !$db->getRow('SELECT id FROM fee_structure WHERE id = ?', [$id])) {
+                            throw new Exception("Fee structure not found");
                         }
-                        
+
                         $result = $db->query(
-                            "UPDATE fee_structure SET class_id = ?, fee_type = ?, amount = ?, term = ?, 
+                            "UPDATE fee_structure SET class_id = ?, fee_type = ?, amount = ?, term = ?,
                              academic_year = ?, due_date = ?, is_mandatory = ?, description = ? WHERE id = ?",
                             [
                                 $classId,
@@ -137,23 +130,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $id
                             ]
                         );
-                        
+
                         if (!$result) {
                             throw new Exception("Failed to update fee structure");
                         }
-                        
+
                         Security::logAudit('UPDATED_FEE_STRUCTURE', 'fee_structure', $id);
                         $message = 'Fee structure updated successfully';
                         $messageType = 'success';
                     }
-                    
+
                 } catch (Exception $e) {
                     $message = 'Error: ' . $e->getMessage();
                     $messageType = 'error';
                     error_log("Fee structure error: " . $e->getMessage());
                 }
                 break;
-                
+
             case 'record_payment':
                 // Validate required fields
                 $studentId = (int)($_POST['student_id'] ?? 0);
@@ -167,52 +160,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $bankName = Security::sanitize($_POST['bank_name'] ?? '');
                 $chequeNumber = Security::sanitize($_POST['cheque_number'] ?? '');
                 $remarks = Security::sanitize($_POST['remarks'] ?? '');
-                
+
                 if (!$studentId || $amount <= 0 || empty($paymentDate) || empty($paymentMethod) || empty($term) || empty($academicYear)) {
                     $message = 'Please fill in all required fields';
                     $messageType = 'error';
                     break;
                 }
-                
-                // Generate unique receipt number
-                $receiptNumber = 'RCP-' . date('Ymd') . '-' . str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);
-                
+                if (!valid_date($paymentDate) || $paymentDate > date('Y-m-d')) {
+                    $message = 'Payment date is invalid or in the future';
+                    $messageType = 'error';
+                    break;
+                }
+                if (!in_array($paymentMethod, ['cash', 'bank_transfer', 'card', 'cheque'], true)) {
+                    $message = 'Invalid payment method';
+                    $messageType = 'error';
+                    break;
+                }
+                if ($amount > 100000000 || !preg_match('/^\d{4}-\d{4}$/', $academicYear)) {
+                    $message = 'Amount or academic year is invalid';
+                    $messageType = 'error';
+                    break;
+                }
+                if ($feeStructureId && !$db->getRow('SELECT id FROM fee_structure WHERE id = ?', [$feeStructureId])) {
+                    $feeStructureId = null;
+                }
+
+                $receiptNumber = generateReceiptNumber();
+
                 try {
                     // Check if student exists
                     $studentExists = $db->getRow("SELECT id FROM students WHERE id = ?", [$studentId]);
                     if (!$studentExists) {
                         throw new Exception("Selected student does not exist");
                     }
-                    
-                    // Check if receipt number already exists
-                    $existingReceipt = $db->getRow(
-                        "SELECT id FROM payments WHERE receipt_number = ?",
-                        [$receiptNumber]
-                    );
-                    
-                    if ($existingReceipt) {
-                        // Generate a new unique receipt number
-                        $receiptNumber = 'RCP-' . date('Ymd') . '-' . str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);
-                    }
-                    
+
                     // Insert payment - using the correct columns based on your table structure
                     $sql = "INSERT INTO payments (
-                        student_id, 
-                        receipt_number, 
-                        fee_structure_id, 
-                        amount, 
-                        payment_date, 
-                        payment_method, 
-                        transaction_id, 
-                        bank_name, 
-                        cheque_number, 
-                        term, 
-                        academic_year, 
-                        remarks, 
-                        recorded_by, 
+                        student_id,
+                        receipt_number,
+                        fee_structure_id,
+                        amount,
+                        payment_date,
+                        payment_method,
+                        transaction_id,
+                        bank_name,
+                        cheque_number,
+                        term,
+                        academic_year,
+                        remarks,
+                        recorded_by,
                         status
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-                    
+
                     $params = [
                         $studentId,
                         $receiptNumber,
@@ -229,39 +228,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $_SESSION['user_id'],
                         'completed'
                     ];
-                    
-                    error_log("Payment SQL: " . $sql);
-                    error_log("Payment Params: " . print_r($params, true));
-                    
+
                     $result = $db->insert($sql, $params);
-                    
+
                     if (!$result) {
                         throw new Exception("Failed to record payment - database error");
                     }
-                    
-                    Security::logAudit('RECORDED_PAYMENT', 'payments');
+
+                    Security::logAudit('RECORDED_PAYMENT', 'payments', $result);
                     $message = 'Payment recorded successfully. Receipt: ' . $receiptNumber;
                     $messageType = 'success';
-                    
+
                 } catch (Exception $e) {
-                    $message = 'Error recording payment: ' . $e->getMessage();
+                    $message = 'Error recording payment. Please check the details and try again.';
                     $messageType = 'error';
                     error_log("Payment recording error: " . $e->getMessage());
                 }
                 break;
-                
+
             case 'delete_fee_structure':
                 try {
                     if (!$id) {
                         throw new Exception("Invalid fee structure ID");
                     }
-                    
+
                     // Check if fee structure has payments
                     $paymentCount = $db->getRow(
                         "SELECT COUNT(*) as count FROM payments WHERE fee_structure_id = ?",
                         [$id]
                     )['count'] ?? 0;
-                    
+
                     if ($paymentCount > 0) {
                         $message = 'Cannot delete fee structure with existing payments';
                         $messageType = 'error';
@@ -276,27 +272,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $messageType = 'error';
                 }
                 break;
-                
+
             case 'update_payment_status':
                 $paymentId = (int)($_POST['payment_id'] ?? 0);
                 $status = Security::sanitize($_POST['status'] ?? '');
-                
+
                 if (!$paymentId || !in_array($status, ['completed', 'pending', 'failed', 'refunded'])) {
                     $message = 'Invalid payment or status';
                     $messageType = 'error';
                     break;
                 }
-                
+
                 try {
                     $db->query(
                         "UPDATE payments SET status = ?, approved_by = ?, approved_at = NOW() WHERE id = ?",
                         [$status, $_SESSION['user_id'], $paymentId]
                     );
-                    
+
                     Security::logAudit('UPDATED_PAYMENT_STATUS', 'payments', $paymentId);
                     $message = 'Payment status updated successfully';
                     $messageType = 'success';
-                    
+
                 } catch (Exception $e) {
                     $message = 'Error: ' . $e->getMessage();
                     $messageType = 'error';
@@ -304,6 +300,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 break;
         }
     }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $messageType === 'success') {
+    flash_redirect($message, 'success', BASE_URL . '/admin/fees');
 }
 
 // Get fee structure for editing
@@ -337,7 +337,7 @@ $feeStructures = $db->getRows(
 
 // Get recent payments with student and staff details
 $recentPayments = $db->getRows(
-    "SELECT p.*, 
+    "SELECT p.*,
             CONCAT(u.first_name, ' ', u.last_name) as student_name,
             s.admission_number,
             c.class_name, c.section,
@@ -352,7 +352,7 @@ $recentPayments = $db->getRows(
 
 // Get summary statistics
 $summary = $db->getRow(
-    "SELECT 
+    "SELECT
         COUNT(DISTINCT student_id) as total_students_with_payments,
         COUNT(*) as total_transactions,
         COALESCE(SUM(amount), 0) as total_collected,
@@ -370,28 +370,28 @@ if (!$summary) {
 }
 
 // Get current academic year
-$currentAcademicYear = date('Y') . '-' . (date('Y') + 1);
+$currentAcademicYear = currentAcademicYear();
 
 // Get ALL students with their fee structures and payments for real-time outstanding calculation
 $outstanding = $db->getRows(
-    "SELECT 
-        s.id, 
-        u.first_name, 
-        u.last_name, 
-        s.admission_number, 
-        c.class_name, 
+    "SELECT
+        s.id,
+        u.first_name,
+        u.last_name,
+        s.admission_number,
+        c.class_name,
         c.section,
         COALESCE((
-            SELECT SUM(fs.amount) 
-            FROM fee_structure fs 
-            WHERE fs.class_id = s.class_id 
+            SELECT SUM(fs.amount)
+            FROM fee_structure fs
+            WHERE fs.class_id = s.class_id
             AND fs.academic_year = ?
         ), 0) as total_fees,
         COALESCE((
-            SELECT SUM(p.amount) 
-            FROM payments p 
-            WHERE p.student_id = s.id 
-            AND p.academic_year = ? 
+            SELECT SUM(p.amount)
+            FROM payments p
+            WHERE p.student_id = s.id
+            AND p.academic_year = ?
             AND p.status = 'completed'
         ), 0) as total_paid
      FROM students s
@@ -409,11 +409,11 @@ $totalOutstanding = 0;
 foreach ($outstanding as $item) {
     $balance = $item['total_fees'] - $item['total_paid'];
     $item['balance'] = $balance;
-    
+
     // Only include if there's an outstanding balance
     if ($balance > 0) {
-        $item['payment_percentage'] = $item['total_fees'] > 0 
-            ? round(($item['total_paid'] / $item['total_fees']) * 100, 1) 
+        $item['payment_percentage'] = $item['total_fees'] > 0
+            ? round(($item['total_paid'] / $item['total_fees']) * 100, 1)
             : 0;
         $outstandingList[] = $item;
         $totalOutstanding += $balance;
@@ -422,15 +422,15 @@ foreach ($outstanding as $item) {
 
 // Get total expected fees for the current academic year
 $totalExpectedFees = $db->getRow(
-    "SELECT COALESCE(SUM(amount), 0) as total 
-     FROM fee_structure 
+    "SELECT COALESCE(SUM(amount), 0) as total
+     FROM fee_structure
      WHERE academic_year = ?",
     [$currentAcademicYear]
 )['total'];
 
 // Get monthly collection data for chart
 $monthlyCollection = $db->getRows(
-    "SELECT 
+    "SELECT
         DATE_FORMAT(payment_date, '%Y-%m') as month,
         COUNT(*) as transaction_count,
         SUM(amount) as total
@@ -442,7 +442,7 @@ $monthlyCollection = $db->getRows(
      LIMIT 12"
 );
 
-// Debug function to check payment status
+// Payment status helper
 function getPaymentStatus($paid, $total) {
     if ($total == 0) return 'no-fees';
     if ($paid >= $total) return 'completed';
@@ -549,30 +549,8 @@ function getPaymentStatus($paid, $total) {
 </style>
 
 <div class="dashboard-container">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <h3>Admin Panel</h3>
-        </div>
-        <nav class="sidebar-nav">
-            <ul>
-                <li><a href="dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
-                <li><a href="students.php"><i class="fas fa-user-graduate"></i> Students</a></li>
-                <li><a href="parents.php"><i class="fas fa-users"></i> Parents</a></li>
-                <li><a href="teachers.php"><i class="fas fa-chalkboard-teacher"></i> Teachers</a></li>
-                <li><a href="classes.php"><i class="fas fa-school"></i> Classes</a></li>
-                <li><a href="subjects.php"><i class="fas fa-book"></i> Subjects</a></li>
-                <li><a href="attendance.php"><i class="fas fa-calendar-check"></i> Attendance</a></li>
-                <li class="active"><a href="fees.php"><i class="fas fa-money-bill"></i> Fees</a></li>
-                <li><a href="results.php"><i class="fas fa-chart-line"></i> Results</a></li>
-                <li><a href="announcements.php"><i class="fas fa-bullhorn"></i> Announcements</a></li>
-                <li><a href="gallery.php"><i class="fas fa-images"></i> Gallery</a></li>
-                <li><a href="reports.php"><i class="fas fa-file-alt"></i> Reports</a></li>
-                <li><a href="audit-logs.php"><i class="fas fa-history"></i> Audit Logs</a></li>
-            </ul>
-        </nav>
-    </aside>
-    
+    <?php render_sidebar('admin'); ?>
+
     <main class="dashboard-main">
         <div class="dashboard-header">
             <h1>Fee Management</h1>
@@ -583,20 +561,20 @@ function getPaymentStatus($paid, $total) {
                 <button class="btn btn-success" onclick="showRecordPaymentModal()">
                     <i class="fas fa-money-bill-wave"></i> Record Payment
                 </button>
-                <a href="export.php?type=fees" class="btn btn-outline">
+                <a href="export?type=fees" class="btn btn-outline">
                     <i class="fas fa-download"></i> Export
                 </a>
             </div>
         </div>
-        
+
         <?php if ($message): ?>
-        <div class="alert alert-<?php echo $messageType; ?> alert-dismissible">
+        <div class="alert alert-<?php echo e($messageType); ?> alert-dismissible">
             <i class="fas <?php echo $messageType === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'; ?>"></i>
             <?php echo htmlspecialchars($message); ?>
             <button type="button" class="close" onclick="this.parentElement.remove()">&times;</button>
         </div>
         <?php endif; ?>
-        
+
         <!-- Summary Cards -->
         <div class="stats-grid">
             <div class="stat-card">
@@ -604,21 +582,21 @@ function getPaymentStatus($paid, $total) {
                     <i class="fas fa-users" style="color: #002855;"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php echo $summary['total_students_with_payments']; ?></h3>
+                    <h3><?php echo e($summary['total_students_with_payments']); ?></h3>
                     <p>Students with Payments</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(40,167,69,0.1);">
                     <i class="fas fa-credit-card" style="color: #28a745;"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php echo $summary['total_transactions']; ?></h3>
+                    <h3><?php echo e($summary['total_transactions']); ?></h3>
                     <p>Total Transactions</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(255,193,7,0.1);">
                     <i class="fas fa-money-bill-wave" style="color: #ffc107;"></i>
@@ -628,7 +606,7 @@ function getPaymentStatus($paid, $total) {
                     <p>Total Collected</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(220,53,69,0.1);">
                     <i class="fas fa-clock" style="color: #dc3545;"></i>
@@ -639,7 +617,7 @@ function getPaymentStatus($paid, $total) {
                 </div>
             </div>
         </div>
-        
+
         <!-- Additional Stats -->
         <div class="stats-grid secondary" style="grid-template-columns: repeat(3, 1fr); margin-top: -10px;">
             <div class="stat-card">
@@ -651,22 +629,22 @@ function getPaymentStatus($paid, $total) {
                     <p>Total Expected Fees</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(23,162,184,0.1);">
                     <i class="fas fa-percent" style="color: #17a2b8;"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php 
-                        $collectionRate = $totalExpectedFees > 0 
-                            ? round(($summary['total_collected'] / $totalExpectedFees) * 100, 1) 
+                    <h3><?php
+                        $collectionRate = $totalExpectedFees > 0
+                            ? round(($summary['total_collected'] / $totalExpectedFees) * 100, 1)
                             : 0;
                         echo $collectionRate . '%';
                     ?></h3>
                     <p>Collection Rate</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(111,66,193,0.1);">
                     <i class="fas fa-users" style="color: #6f42c1;"></i>
@@ -677,7 +655,7 @@ function getPaymentStatus($paid, $total) {
                 </div>
             </div>
         </div>
-        
+
         <!-- Monthly Collection Chart -->
         <?php if (!empty($monthlyCollection)): ?>
         <div class="card">
@@ -689,7 +667,7 @@ function getPaymentStatus($paid, $total) {
             </div>
         </div>
         <?php endif; ?>
-        
+
         <!-- Tabs -->
         <div class="card">
             <div class="card-header">
@@ -737,19 +715,19 @@ function getPaymentStatus($paid, $total) {
                                 <tbody>
                                     <?php foreach ($feeStructures as $fs): ?>
                                     <tr>
-                                        <td><?php echo $fs['id']; ?></td>
+                                        <td><?php echo e($fs['id']); ?></td>
                                         <td><?php echo htmlspecialchars($fs['class_name'] . ' ' . ($fs['section'] ?? '')); ?></td>
                                         <td><?php echo htmlspecialchars($fs['fee_type']); ?></td>
                                         <td class="text-right">₦<?php echo number_format($fs['amount'], 2); ?></td>
                                         <td><?php echo htmlspecialchars($fs['term']); ?></td>
                                         <td><?php echo htmlspecialchars($fs['academic_year']); ?></td>
                                         <td>
-                                            <?php 
-                                            if (!empty($fs['due_date'])): 
+                                            <?php
+                                            if (!empty($fs['due_date'])):
                                                 echo date('d M Y', strtotime($fs['due_date']));
-                                            else: 
+                                            else:
                                                 echo '<span class="text-muted">No due date</span>';
-                                            endif; 
+                                            endif;
                                             ?>
                                         </td>
                                         <td>
@@ -761,11 +739,11 @@ function getPaymentStatus($paid, $total) {
                                         </td>
                                         <td>
                                             <div class="action-buttons">
-                                                <a href="?action=edit_fee_structure&id=<?php echo $fs['id']; ?>" class="btn-icon" title="Edit">
+                                                <a href="?action=edit_fee_structure&id=<?php echo e($fs['id']); ?>" class="btn-icon" title="Edit">
                                                     <i class="fas fa-edit"></i>
                                                 </a>
-                                                <button class="btn-icon text-danger" 
-                                                        onclick="deleteFeeStructure(<?php echo $fs['id']; ?>, '<?php echo htmlspecialchars(addslashes($fs['fee_type'])); ?>')"
+                                                <button class="btn-icon text-danger"
+                                                        onclick="deleteFeeStructure(<?php echo e($fs['id']); ?>, '<?php echo htmlspecialchars(addslashes($fs['fee_type'])); ?>')"
                                                         title="Delete">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
@@ -783,7 +761,7 @@ function getPaymentStatus($paid, $total) {
                         </div>
                         <?php endif; ?>
                     </div>
-                    
+
                     <!-- Payments Tab -->
                     <div class="tab-pane" id="payments" role="tabpanel">
                         <?php if (!empty($recentPayments)): ?>
@@ -836,16 +814,16 @@ function getPaymentStatus($paid, $total) {
                                                     $statusClass = 'badge-secondary';
                                             }
                                             ?>
-                                            <span class="badge <?php echo $statusClass; ?>"><?php echo ucfirst($payment['status']); ?></span>
+                                            <span class="badge <?php echo e($statusClass); ?>"><?php echo e(ucfirst($payment['status'])); ?></span>
                                         </td>
                                         <td><?php echo htmlspecialchars($payment['recorded_by_name'] ?? 'System'); ?></td>
                                         <td>
                                             <div class="action-buttons">
-                                                <a href="print-receipt.php?id=<?php echo $payment['id']; ?>" class="btn-icon" target="_blank" title="Print Receipt">
+                                                <a href="print-receipt?id=<?php echo e($payment['id']); ?>" class="btn-icon" target="_blank" title="Print Receipt">
                                                     <i class="fas fa-print"></i>
                                                 </a>
                                                 <?php if ($payment['status'] === 'pending'): ?>
-                                                <button class="btn-icon text-success" onclick="updatePaymentStatus(<?php echo $payment['id']; ?>, 'completed')" title="Mark as Completed">
+                                                <button class="btn-icon text-success" onclick="updatePaymentStatus(<?php echo e($payment['id']); ?>, 'completed')" title="Mark as Completed">
                                                     <i class="fas fa-check"></i>
                                                 </button>
                                                 <?php endif; ?>
@@ -863,7 +841,7 @@ function getPaymentStatus($paid, $total) {
                         </div>
                         <?php endif; ?>
                     </div>
-                    
+
                     <!-- Outstanding Tab - NOW WITH REAL-TIME CALCULATIONS -->
                     <div class="tab-pane" id="outstanding" role="tabpanel">
                         <?php if (!empty($outstandingList)): ?>
@@ -883,9 +861,9 @@ function getPaymentStatus($paid, $total) {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php foreach ($outstandingList as $item): 
+                                    <?php foreach ($outstandingList as $item):
                                         $status = getPaymentStatus($item['total_paid'], $item['total_fees']);
-                                        $progressClass = $item['payment_percentage'] >= 100 ? 'success' : 
+                                        $progressClass = $item['payment_percentage'] >= 100 ? 'success' :
                                                          ($item['payment_percentage'] >= 50 ? 'warning' : 'danger');
                                     ?>
                                     <tr>
@@ -897,11 +875,11 @@ function getPaymentStatus($paid, $total) {
                                         <td class="text-right text-danger font-weight-bold">₦<?php echo number_format($item['balance'], 2); ?></td>
                                         <td style="min-width: 120px;">
                                             <div class="payment-progress">
-                                                <div class="payment-progress-bar <?php echo $progressClass; ?>" 
+                                                <div class="payment-progress-bar <?php echo e($progressClass); ?>"
                                                      style="width: <?php echo min(100, $item['payment_percentage']); ?>%;">
                                                 </div>
                                             </div>
-                                            <small class="text-muted"><?php echo $item['payment_percentage']; ?>% paid</small>
+                                            <small class="text-muted"><?php echo e($item['payment_percentage']); ?>% paid</small>
                                         </td>
                                         <td>
                                             <?php if ($status === 'completed'): ?>
@@ -915,10 +893,10 @@ function getPaymentStatus($paid, $total) {
                                             <?php endif; ?>
                                         </td>
                                         <td>
-                                            <button class="btn btn-sm btn-primary" onclick="recordPayment(<?php echo $item['id']; ?>)">
+                                            <button class="btn btn-sm btn-primary" onclick="recordPayment(<?php echo e($item['id']); ?>)">
                                                 <i class="fas fa-money-bill"></i> Record Payment
                                             </button>
-                                            <a href="student-fees.php?id=<?php echo $item['id']; ?>" class="btn btn-sm btn-outline" title="View Details">
+                                            <a href="student-fees?student_id=<?php echo e($item['id']); ?>" class="btn btn-sm btn-outline" title="View Details">
                                                 <i class="fas fa-eye"></i>
                                             </a>
                                         </td>
@@ -940,7 +918,7 @@ function getPaymentStatus($paid, $total) {
                         <div class="alert alert-success">
                             <i class="fas fa-check-circle fa-2x mb-3"></i>
                             <h4>No Outstanding Fees!</h4>
-                            <p>All students have fully paid their fees for the current academic year (<?php echo $currentAcademicYear; ?>).</p>
+                            <p>All students have fully paid their fees for the current academic year (<?php echo e($currentAcademicYear); ?>).</p>
                             <hr>
                             <p class="mb-0">
                                 <strong>Total Collected:</strong> ₦<?php echo number_format($summary['total_collected'], 2); ?><br>
@@ -966,31 +944,31 @@ function getPaymentStatus($paid, $total) {
             <div class="modal-body">
                 <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
                 <input type="hidden" name="action" value="add_fee_structure">
-                
+
                 <div class="form-group">
                     <label for="class_id">Class *</label>
                     <select id="class_id" name="class_id" class="form-control" required>
                         <option value="">-- Select Class --</option>
                         <?php foreach ($classes as $class): ?>
-                        <option value="<?php echo $class['id']; ?>">
+                        <option value="<?php echo e($class['id']); ?>">
                             <?php echo htmlspecialchars($class['class_name'] . ' ' . ($class['section'] ?? '')); ?>
                         </option>
                         <?php endforeach; ?>
                     </select>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="fee_type">Fee Type *</label>
-                    <input type="text" id="fee_type" name="fee_type" class="form-control" 
+                    <input type="text" id="fee_type" name="fee_type" class="form-control"
                            placeholder="e.g., Tuition Fee, Development Levy" required>
                 </div>
-                
+
                 <div class="form-row">
                     <div class="form-group col-md-6">
                         <label for="amount">Amount (₦) *</label>
                         <input type="number" id="amount" name="amount" class="form-control" step="0.01" min="0" required>
                     </div>
-                    
+
                     <div class="form-group col-md-6">
                         <label for="term">Term *</label>
                         <select id="term" name="term" class="form-control" required>
@@ -1000,30 +978,30 @@ function getPaymentStatus($paid, $total) {
                         </select>
                     </div>
                 </div>
-                
+
                 <div class="form-row">
                     <div class="form-group col-md-6">
                         <label for="academic_year">Academic Year *</label>
-                        <input type="text" id="academic_year" name="academic_year" class="form-control" 
-                               value="<?php echo date('Y') . '-' . (date('Y') + 1); ?>" 
+                        <input type="text" id="academic_year" name="academic_year" class="form-control"
+                               value="<?php echo currentAcademicYear(); ?>"
                                placeholder="YYYY-YYYY" required>
                         <small class="form-text text-muted">Format: 2024-2025</small>
                     </div>
-                    
+
                     <div class="form-group col-md-6">
                         <label for="due_date">Due Date</label>
                         <input type="date" id="due_date" name="due_date" class="form-control">
                         <small class="form-text text-muted">Optional</small>
                     </div>
                 </div>
-                
+
                 <div class="form-group">
                     <label class="checkbox-label">
                         <input type="checkbox" name="is_mandatory" value="1" checked>
                         Mandatory Fee
                     </label>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="description">Description</label>
                     <textarea id="description" name="description" class="form-control" rows="3"></textarea>
@@ -1048,44 +1026,44 @@ function getPaymentStatus($paid, $total) {
             <div class="modal-body">
                 <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
                 <input type="hidden" name="action" value="record_payment">
-                
+
                 <div class="form-group">
                     <label for="student_id">Student *</label>
                     <select id="student_id" name="student_id" class="form-control" required>
                         <option value="">-- Select Student --</option>
                         <?php foreach ($students as $student): ?>
-                        <option value="<?php echo $student['id']; ?>">
+                        <option value="<?php echo e($student['id']); ?>">
                             <?php echo htmlspecialchars($student['first_name'] . ' ' . $student['last_name'] . ' (' . $student['admission_number'] . ') - ' . ($student['class_name'] ?? 'No Class') . ' ' . ($student['section'] ?? '')); ?>
                         </option>
                         <?php endforeach; ?>
                     </select>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="fee_structure_id">Fee Structure (Optional)</label>
                     <select id="fee_structure_id" name="fee_structure_id" class="form-control">
                         <option value="">-- Select Fee Type (Optional) --</option>
                         <?php foreach ($feeStructures as $fee): ?>
-                        <option value="<?php echo $fee['id']; ?>">
+                        <option value="<?php echo e($fee['id']); ?>">
                             <?php echo htmlspecialchars($fee['fee_type'] . ' - ' . $fee['term'] . ' ' . $fee['academic_year'] . ' (₦' . number_format($fee['amount'], 2) . ')'); ?>
                         </option>
                         <?php endforeach; ?>
                     </select>
                 </div>
-                
+
                 <div class="form-row">
                     <div class="form-group col-md-6">
                         <label for="amount">Amount (₦) *</label>
                         <input type="number" id="amount" name="amount" class="form-control" step="0.01" min="0" required>
                     </div>
-                    
+
                     <div class="form-group col-md-6">
                         <label for="payment_date">Payment Date *</label>
-                        <input type="date" id="payment_date" name="payment_date" class="form-control" 
+                        <input type="date" id="payment_date" name="payment_date" class="form-control"
                                value="<?php echo date('Y-m-d'); ?>" max="<?php echo date('Y-m-d'); ?>" required>
                     </div>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="payment_method">Payment Method *</label>
                     <select id="payment_method" name="payment_method" class="form-control" required onchange="togglePaymentFields()">
@@ -1096,19 +1074,19 @@ function getPaymentStatus($paid, $total) {
                         <option value="pos">POS</option>
                     </select>
                 </div>
-                
+
                 <div id="bankFields" style="display: none;">
                     <div class="form-group">
                         <label for="bank_name">Bank Name</label>
                         <input type="text" id="bank_name" name="bank_name" class="form-control">
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="transaction_id">Transaction ID / Reference</label>
                         <input type="text" id="transaction_id" name="transaction_id" class="form-control">
                     </div>
                 </div>
-                
+
                 <div id="chequeFields" style="display: none;">
                     <div class="form-group">
                         <label for="cheque_number">Cheque Number</label>
@@ -1119,7 +1097,7 @@ function getPaymentStatus($paid, $total) {
                         <input type="text" id="bank_name_cheque" name="bank_name" class="form-control">
                     </div>
                 </div>
-                
+
                 <div class="form-row">
                     <div class="form-group col-md-6">
                         <label for="term">Term *</label>
@@ -1129,15 +1107,15 @@ function getPaymentStatus($paid, $total) {
                             <option value="Term 3">Term 3</option>
                         </select>
                     </div>
-                    
+
                     <div class="form-group col-md-6">
                         <label for="academic_year">Academic Year *</label>
-                        <input type="text" id="academic_year" name="academic_year" class="form-control" 
-                               value="<?php echo date('Y') . '-' . (date('Y') + 1); ?>" 
+                        <input type="text" id="academic_year" name="academic_year" class="form-control"
+                               value="<?php echo currentAcademicYear(); ?>"
                                placeholder="YYYY-YYYY" required>
                     </div>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="remarks">Remarks / Notes</label>
                     <textarea id="remarks" name="remarks" class="form-control" rows="2"></textarea>
@@ -1159,9 +1137,7 @@ function getPaymentStatus($paid, $total) {
     <input type="hidden" name="status" id="status_value">
 </form>
 
-<!-- Chart.js Script -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 <?php if (!empty($monthlyCollection)): ?>
 // Monthly Collection Chart
 const monthlyCtx = document.getElementById('monthlyChart')?.getContext('2d');
@@ -1176,7 +1152,7 @@ if (monthlyCtx) {
                 label: 'Monthly Collection (₦)',
                 data: <?php echo json_encode(array_map(function($item) {
                     return $item['total'];
-                }, array_reverse($monthlyCollection))); ?>,
+                }, array_reverse($monthlyCollection)), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
                 backgroundColor: '#ffd700',
                 borderColor: '#002855',
                 borderWidth: 1
@@ -1216,10 +1192,10 @@ function togglePaymentFields() {
     const method = document.getElementById('payment_method').value;
     const bankFields = document.getElementById('bankFields');
     const chequeFields = document.getElementById('chequeFields');
-    
+
     bankFields.style.display = 'none';
     chequeFields.style.display = 'none';
-    
+
     if (method === 'bank_transfer' || method === 'pos') {
         bankFields.style.display = 'block';
     } else if (method === 'cheque') {
@@ -1258,7 +1234,7 @@ function updatePaymentStatus(paymentId, status) {
 window.onclick = function(event) {
     const addModal = document.getElementById('addFeeModal');
     const paymentModal = document.getElementById('paymentModal');
-    
+
     if (event.target === addModal) {
         addModal.style.display = 'none';
     }
@@ -1279,7 +1255,7 @@ $(document).ready(function() {
                 info: "Showing _START_ to _END_ of _TOTAL_ entries"
             }
         });
-        
+
         $('#paymentsTable').DataTable({
             pageLength: 10,
             order: [[1, 'desc']],
@@ -1489,15 +1465,16 @@ $(document).ready(function() {
     .action-buttons {
         justify-content: center;
     }
-    
+
     .nav-tabs .nav-link {
         padding: 8px 12px;
         font-size: 13px;
     }
-    
+
     .status-badge {
         white-space: normal;
     }
 }
 </style>
 
+<?php include __DIR__ . '/../includes/footer.php'; ?>

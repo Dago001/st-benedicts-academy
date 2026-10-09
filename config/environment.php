@@ -1,55 +1,35 @@
 <?php
 // config/environment.php
-// Environment-specific configuration
+// Environment detection and database settings. No secrets live in this file:
+// set DB_HOST / DB_NAME / DB_USER / DB_PASS (and APP_ENV) as environment
+// variables, or define them in config/local.php (git-ignored).
 
-// Detect environment
-$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-
-if (strpos($host, 'localhost') !== false || strpos($host, '127.0.0.1') !== false) {
-    define('ENVIRONMENT', 'development');
-} elseif (strpos($host, 'staging.') !== false) {
-    define('ENVIRONMENT', 'staging');
-} else {
-    define('ENVIRONMENT', 'production');
+if (!defined('ENVIRONMENT')) {
+    $appEnv = getenv('APP_ENV');
+    if (!$appEnv) {
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        if (PHP_SAPI === 'cli' || preg_match('/^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/', $host)) {
+            $appEnv = 'development';
+        } elseif (strpos($host, 'staging.') === 0) {
+            $appEnv = 'staging';
+        } else {
+            $appEnv = 'production';
+        }
+    }
+    define('ENVIRONMENT', $appEnv);
 }
 
-// Environment-specific settings
-switch (ENVIRONMENT) {
-    case 'development':
-        error_reporting(E_ALL);
-        ini_set('display_errors', 1);
-        define('DEBUG_MODE', true);
-        break;
-        
-    case 'staging':
-        error_reporting(E_ALL & ~E_DEPRECATED & ~E_STRICT);
-        ini_set('display_errors', 0);
-        ini_set('log_errors', 1);
-        define('DEBUG_MODE', true);
-        break;
-        
-    case 'production':
-        error_reporting(0);
-        ini_set('display_errors', 0);
-        ini_set('log_errors', 1);
-        define('DEBUG_MODE', false);
-        break;
+if (!defined('DEBUG_MODE')) {
+    define('DEBUG_MODE', ENVIRONMENT === 'development');
 }
 
-// Database configuration based on environment
-if (ENVIRONMENT === 'development') {
-    define('DB_HOST', 'localhost');
-    define('DB_NAME', 'st_benedicts_academy');
-    define('DB_USER', 'root');
-    define('DB_PASS', '');
-} elseif (ENVIRONMENT === 'staging') {
-    define('DB_HOST', 'localhost');
-    define('DB_NAME', 'st_benedicts_staging');
-    define('DB_USER', 'staging_user');
-    define('DB_PASS', 'staging_password');
-} else {
-    define('DB_HOST', 'localhost');
-    define('DB_NAME', 'st_benedicts_prod');
-    define('DB_USER', 'prod_user');
-    define('DB_PASS', 'secure_prod_password');
-}
+$__dbDefault = function ($name, $default) {
+    $v = getenv($name);
+    return ($v === false || $v === '') ? $default : $v;
+};
+
+if (!defined('DB_HOST')) define('DB_HOST', $__dbDefault('DB_HOST', 'localhost'));
+if (!defined('DB_NAME')) define('DB_NAME', $__dbDefault('DB_NAME', 'st_benedicts_academy'));
+if (!defined('DB_USER')) define('DB_USER', $__dbDefault('DB_USER', ENVIRONMENT === 'development' ? 'root' : ''));
+if (!defined('DB_PASS')) define('DB_PASS', $__dbDefault('DB_PASS', ''));
+unset($__dbDefault);

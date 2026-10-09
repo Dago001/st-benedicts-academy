@@ -1,48 +1,44 @@
 <?php
 // teacher/assignments.php - Manage Homework/Assignments
-require_once '../config/config.php';
-require_once '../config/database.php';
-require_once '../config/security.php';
+require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../config/security.php';
 
 Security::requireRole('teacher');
 
 $pageTitle = 'Manage Assignments';
 $extraCSS = ['dashboard.css'];
-$extraJS = ['assignments.js', 'ckeditor.js'];
+$extraJS = ['assignments.js'];
 
-include '../includes/header.php';
+include __DIR__ . '/../includes/header.php';
 
 $db = db();
-$userId = $_SESSION['user_id'];
-$message = '';
-$messageType = '';
+$userId = (int)$_SESSION['user_id'];
+[$message, $messageType] = flash_get();
 
-// Get teacher info
 $teacher = $db->getRow(
-    "SELECT t.*, u.first_name, u.last_name 
-     FROM teachers t 
-     JOIN users u ON t.user_id = u.id 
-     WHERE t.user_id = ?",
+    "SELECT t.*, u.first_name, u.last_name FROM teachers t JOIN users u ON t.user_id = u.id WHERE t.user_id = ?",
     [$userId]
 );
+if (!$teacher) {
+    echo '<div class="container" style="padding:24px"><div class="alert alert-error">Your teacher profile is incomplete. Please contact the school office.</div></div>';
+    include __DIR__ . '/../includes/footer.php';
+    exit;
+}
+$teacherId = (int)$teacher['id'];
 
-// Get teacher's classes
+// Classes the teacher teaches a subject in (or leads)
 $classes = $db->getRows(
-    "SELECT c.* FROM classes c 
-     WHERE c.teacher_id = ? AND c.is_active = 1
-     ORDER BY c.class_name",
-    [$teacher['id']]
-);
+    "SELECT c.* FROM classes c WHERE c.is_active = 1
+       AND c.id IN (SELECT id FROM classes WHERE teacher_id = ? UNION SELECT class_id FROM subjects WHERE teacher_id = ?)
+     ORDER BY c.class_name, c.section", [$teacherId, $teacherId]);
 
-// Get teacher's subjects
+// Subjects the teacher teaches
 $subjects = $db->getRows(
-    "SELECT s.*, c.class_name 
-     FROM subjects s
-     JOIN classes c ON s.class_id = c.id
-     WHERE s.teacher_id = ? AND s.is_active = 1
-     ORDER BY c.class_name, s.subject_name",
-    [$teacher['id']]
-);
+    "SELECT s.*, c.class_name FROM subjects s JOIN classes c ON s.class_id = c.id
+     WHERE s.teacher_id = ? AND s.is_active = 1 ORDER BY c.class_name, s.subject_name", [$teacherId]);
+
+$attachDir = UPLOAD_PATH . 'assignments/';
+if (!is_dir($attachDir)) { @mkdir($attachDir, 0755, true); }
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -51,88 +47,110 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $messageType = 'error';
     } else {
         $action = $_POST['action'] ?? '';
-        
+
         switch ($action) {
             case 'add_assignment':
             case 'edit_assignment':
                 $data = [
-                    'class_id' => Security::sanitize($_POST['class_id']),
-                    'subject_id' => Security::sanitize($_POST['subject_id']),
-                    'title' => Security::sanitize($_POST['title']),
-                    'description' => Security::sanitize($_POST['description']),
-                    'instructions' => Security::sanitize($_POST['instructions']),
-                    'due_date' => Security::sanitize($_POST['due_date']),
-                    'total_marks' => Security::sanitize($_POST['total_marks']),
-                    'is_published' => isset($_POST['is_published']) ? 1 : 0
+                    'class_id' => (int)($_POST['class_id'] ?? 0),
+                    'subject_id' => (int)($_POST['subject_id'] ?? 0),
+                    'title' => Security::sanitize($_POST['title'] ?? ''),
+                    'description' => Security::sanitize($_POST['description'] ?? ''),
+                    'instructions' => Security::sanitize($_POST['instructions'] ?? ''),
+                    'due_date' => valid_datetime($_POST['due_date'] ?? ''),
+                    'total_marks' => is_numeric($_POST['total_marks'] ?? null) ? (float)$_POST['total_marks'] : 0,
+                    'is_published' => isset($_POST['is_published']) ? 1 : 0,
                 ];
-                
-                // Handle file upload
-                $attachmentPath = null;
-                if (isset($_FILES['attachment']) && $_FILES['attachment']['error'] === UPLOAD_ERR_OK) {
-                    $upload = Security::validateFileUpload($_FILES['attachment']);
-                    if ($upload['valid']) {
-                        $fileName = 'assignment_' . time() . '_' . bin2hex(random_bytes(8)) . '.' . $upload['extension'];
-                        $uploadPath = UPLOAD_PATH . 'assignments/' . $fileName;
-                        
-                        if (move_uploaded_file($_FILES['attachment']['tmp_name'], $uploadPath)) {
-                            $attachmentPath = $fileName;
-                        }
-                    }
+                $assignmentId = (int)($_POST['assignment_id'] ?? 0);
+
+                if ($data['title'] === '' || mb_strlen($data['title']) > 200 || !$data['due_date']) {
+                    $message = 'Please enter a title (max 200 characters) and a valid due date';
+                    $messageType = 'error';
+                    break;
                 }
-                
+                if ($data['total_marks'] <= 0 || $data['total_marks'] > 1000) {
+                    $message = 'Total marks must be between 1 and 1000';
+                    $messageType = 'error';
+                    break;
+                }
+                // The subject must be one this teacher teaches, in the chosen class
+                $subject = $db->getRow('SELECT id FROM subjects WHERE id = ? AND class_id = ? AND teacher_id = ?', [$data['subject_id'], $data['class_id'], $teacherId]);
+                if (!$subject) {
+                    $message = 'Choose a class and one of your own subjects taught in it';
+                    $messageType = 'error';
+                    break;
+                }
+
+                $attachmentPath = null;
+                if (isset($_FILES['attachment']) && $_FILES['attachment']['error'] !== UPLOAD_ERR_NO_FILE) {
+                    $upload = Security::validateFileUpload($_FILES['attachment']);
+                    if (!$upload['valid']) {
+                        $message = 'Attachment rejected: ' . $upload['message'];
+                        $messageType = 'error';
+                        break;
+                    }
+                    $fileName = 'assignment_' . time() . '_' . bin2hex(random_bytes(8)) . '.' . $upload['extension'];
+                    if (!move_uploaded_file($_FILES['attachment']['tmp_name'], $attachDir . $fileName)) {
+                        $message = 'Could not store the attachment';
+                        $messageType = 'error';
+                        break;
+                    }
+                    $attachmentPath = $fileName;
+                }
+
                 try {
                     if ($action === 'add_assignment') {
-                        $db->insert(
-                            "INSERT INTO homework (class_id, subject_id, teacher_id, title, description, 
-                             instructions, attachment_path, due_date, total_marks, is_published) 
+                        $newId = $db->insert(
+                            "INSERT INTO homework (class_id, subject_id, teacher_id, title, description, instructions, attachment_path, due_date, total_marks, is_published)
                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                            [$data['class_id'], $data['subject_id'], $teacher['id'], $data['title'],
-                             $data['description'], $data['instructions'], $attachmentPath,
-                             $data['due_date'], $data['total_marks'], $data['is_published']]
+                            [$data['class_id'], $data['subject_id'], $teacherId, $data['title'], $data['description'], $data['instructions'],
+                             $attachmentPath, $data['due_date'], $data['total_marks'], $data['is_published']]
                         );
-                        Security::logAudit('ADDED_ASSIGNMENT', 'homework');
+                        Security::logAudit('ADDED_ASSIGNMENT', 'homework', $newId);
                         $message = 'Assignment created successfully';
                     } else {
-                        $assignmentId = Security::sanitize($_POST['assignment_id']);
-                        $sql = "UPDATE homework SET class_id = ?, subject_id = ?, title = ?, description = ?, 
-                                instructions = ?, due_date = ?, total_marks = ?, is_published = ?";
-                        $params = [$data['class_id'], $data['subject_id'], $data['title'],
-                                  $data['description'], $data['instructions'], $data['due_date'],
-                                  $data['total_marks'], $data['is_published']];
-                        
+                        $existing = $db->getRow('SELECT attachment_path FROM homework WHERE id = ? AND teacher_id = ?', [$assignmentId, $teacherId]);
+                        if (!$existing) {
+                            throw new Exception('Assignment not found');
+                        }
+                        $sql = "UPDATE homework SET class_id = ?, subject_id = ?, title = ?, description = ?, instructions = ?, due_date = ?, total_marks = ?, is_published = ?";
+                        $params = [$data['class_id'], $data['subject_id'], $data['title'], $data['description'], $data['instructions'],
+                                   $data['due_date'], $data['total_marks'], $data['is_published']];
                         if ($attachmentPath) {
                             $sql .= ", attachment_path = ?";
                             $params[] = $attachmentPath;
                         }
-                        
-                        $sql .= " WHERE id = ? AND teacher_id = ?";
-                        $params[] = $assignmentId;
-                        $params[] = $teacher['id'];
-                        
-                        $db->query($sql, $params);
+                        $db->query($sql . " WHERE id = ? AND teacher_id = ?", array_merge($params, [$assignmentId, $teacherId]));
+                        if ($attachmentPath && $existing['attachment_path'] && is_file($attachDir . basename($existing['attachment_path']))) {
+                            @unlink($attachDir . basename($existing['attachment_path']));
+                        }
                         Security::logAudit('UPDATED_ASSIGNMENT', 'homework', $assignmentId);
                         $message = 'Assignment updated successfully';
                     }
                     $messageType = 'success';
                 } catch (Exception $e) {
+                    if ($attachmentPath) { @unlink($attachDir . $attachmentPath); }
                     $message = 'Error: ' . $e->getMessage();
                     $messageType = 'error';
                 }
                 break;
-                
+
             case 'delete_assignment':
-                $assignmentId = Security::sanitize($_POST['assignment_id']);
-                
+                $assignmentId = (int)($_POST['assignment_id'] ?? 0);
                 try {
-                    // Delete submissions first
-                    $db->query("DELETE FROM homework_submissions WHERE homework_id = ?", [$assignmentId]);
-                    
-                    // Delete assignment
-                    $db->query(
-                        "DELETE FROM homework WHERE id = ? AND teacher_id = ?",
-                        [$assignmentId, $teacher['id']]
-                    );
-                    
+                    $hw = $db->getRow('SELECT attachment_path FROM homework WHERE id = ? AND teacher_id = ?', [$assignmentId, $teacherId]);
+                    if (!$hw) {
+                        throw new Exception('Assignment not found');
+                    }
+                    $files = $db->getRows('SELECT attachment_path FROM homework_submissions WHERE homework_id = ? AND attachment_path IS NOT NULL', [$assignmentId]);
+                    $db->query("DELETE FROM homework WHERE id = ? AND teacher_id = ?", [$assignmentId, $teacherId]); // submissions cascade
+                    foreach ($files as $f) {
+                        $path = UPLOAD_PATH . 'submissions/' . basename($f['attachment_path']);
+                        if (is_file($path)) { @unlink($path); }
+                    }
+                    if ($hw['attachment_path'] && is_file($attachDir . basename($hw['attachment_path']))) {
+                        @unlink($attachDir . basename($hw['attachment_path']));
+                    }
                     Security::logAudit('DELETED_ASSIGNMENT', 'homework', $assignmentId);
                     $message = 'Assignment deleted successfully';
                     $messageType = 'success';
@@ -141,29 +159,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $messageType = 'error';
                 }
                 break;
-                
+
             case 'grade_submission':
-                $submissionId = Security::sanitize($_POST['submission_id']);
-                $obtainedMarks = Security::sanitize($_POST['obtained_marks']);
-                $feedback = Security::sanitize($_POST['feedback']);
-                
-                try {
+                $submissionId = (int)($_POST['submission_id'] ?? 0);
+                $feedback = mb_substr(Security::sanitize($_POST['feedback'] ?? ''), 0, 2000);
+                // Only submissions of this teacher's own assignments
+                $sub = $db->getRow(
+                    "SELECT hs.id, h.total_marks FROM homework_submissions hs JOIN homework h ON hs.homework_id = h.id
+                     WHERE hs.id = ? AND h.teacher_id = ?", [$submissionId, $teacherId]);
+                $marks = is_numeric($_POST['obtained_marks'] ?? null) ? (float)$_POST['obtained_marks'] : -1;
+                if (!$sub) {
+                    $message = 'Submission not found';
+                    $messageType = 'error';
+                } elseif ($marks < 0 || $marks > (float)$sub['total_marks']) {
+                    $message = 'Marks must be between 0 and ' . ($sub['total_marks'] + 0);
+                    $messageType = 'error';
+                } else {
                     $db->query(
-                        "UPDATE homework_submissions SET obtained_marks = ?, feedback = ?, 
-                         graded_by = ?, graded_at = NOW(), status = 'graded' 
-                         WHERE id = ?",
-                        [$obtainedMarks, $feedback, $userId, $submissionId]
+                        "UPDATE homework_submissions SET obtained_marks = ?, feedback = ?, graded_by = ?, graded_at = NOW(), status = 'graded' WHERE id = ?",
+                        [$marks, $feedback, $userId, $submissionId]
                     );
-                    
                     Security::logAudit('GRADED_SUBMISSION', 'homework_submissions', $submissionId);
                     $message = 'Submission graded successfully';
                     $messageType = 'success';
-                } catch (Exception $e) {
-                    $message = 'Error grading submission: ' . $e->getMessage();
-                    $messageType = 'error';
                 }
                 break;
         }
+    }
+    if ($messageType === 'success') {
+        flash_redirect($message, 'success', BASE_URL . '/teacher/assignments');
     }
 }
 
@@ -172,19 +196,15 @@ $assignments = $db->getRows(
     "SELECT h.*, c.class_name, c.section, s.subject_name,
             (SELECT COUNT(*) FROM homework_submissions WHERE homework_id = h.id) as submission_count,
             (SELECT COUNT(*) FROM students WHERE class_id = h.class_id) as total_students
-     FROM homework h
-     JOIN classes c ON h.class_id = c.id
-     JOIN subjects s ON h.subject_id = s.id
-     WHERE h.teacher_id = ?
-     ORDER BY h.created_at DESC",
-    [$teacher['id']]
+     FROM homework h JOIN classes c ON h.class_id = c.id JOIN subjects s ON h.subject_id = s.id
+     WHERE h.teacher_id = ? ORDER BY h.created_at DESC",
+    [$teacherId]
 );
 
 // Get pending grading
 $pendingGrading = $db->getRows(
     "SELECT hs.*, h.title, h.total_marks, s.subject_name, c.class_name,
-            CONCAT(u.first_name, ' ', u.last_name) as student_name,
-            u.email as student_email
+            CONCAT(u.first_name, ' ', u.last_name) as student_name, u.email as student_email
      FROM homework_submissions hs
      JOIN homework h ON hs.homework_id = h.id
      JOIN subjects s ON h.subject_id = s.id
@@ -193,30 +213,13 @@ $pendingGrading = $db->getRows(
      JOIN users u ON st.user_id = u.id
      WHERE h.teacher_id = ? AND hs.obtained_marks IS NULL
      ORDER BY hs.submission_date DESC",
-    [$teacher['id']]
+    [$teacherId]
 );
 ?>
 
 <div class="dashboard-container">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <h3>Teacher Panel</h3>
-        </div>
-        <nav class="sidebar-nav">
-            <ul>
-                <li><a href="dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
-                <li><a href="classes.php"><i class="fas fa-school"></i> My Classes</a></li>
-                <li><a href="attendance.php"><i class="fas fa-calendar-check"></i> Attendance</a></li>
-                <li><a href="results.php"><i class="fas fa-chart-line"></i> Results</a></li>
-                <li class="active"><a href="assignments.php"><i class="fas fa-tasks"></i> Assignments</a></li>
-                <li><a href="students.php"><i class="fas fa-user-graduate"></i> Students</a></li>
-                <li><a href="messages.php"><i class="fas fa-envelope"></i> Messages</a></li>
-                <li><a href="profile.php"><i class="fas fa-user-cog"></i> Profile</a></li>
-            </ul>
-        </nav>
-    </aside>
-    
+    <?php render_sidebar('teacher'); ?>
+
     <main class="dashboard-main">
         <div class="dashboard-header">
             <h1>Manage Assignments</h1>
@@ -224,14 +227,14 @@ $pendingGrading = $db->getRows(
                 <i class="fas fa-plus"></i> New Assignment
             </button>
         </div>
-        
+
         <?php if ($message): ?>
-        <div class="alert alert-<?php echo $messageType; ?> alert-dismissible">
-            <?php echo $message; ?>
+        <div class="alert alert-<?php echo e($messageType); ?> alert-dismissible">
+            <?php echo e($message); ?>
             <button type="button" class="close" onclick="this.parentElement.remove()">&times;</button>
         </div>
         <?php endif; ?>
-        
+
         <!-- Pending Grading Alert -->
         <?php if (!empty($pendingGrading)): ?>
         <div class="alert alert-warning">
@@ -240,7 +243,7 @@ $pendingGrading = $db->getRows(
             <a href="#pendingGrading" class="alert-link">Grade now</a>
         </div>
         <?php endif; ?>
-        
+
         <!-- Assignments List -->
         <div class="card">
             <div class="card-header">
@@ -263,7 +266,7 @@ $pendingGrading = $db->getRows(
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($assignments as $assignment): 
+                            <?php foreach ($assignments as $assignment):
                                 $isOverdue = strtotime($assignment['due_date']) < time();
                             ?>
                             <tr>
@@ -278,11 +281,11 @@ $pendingGrading = $db->getRows(
                                 <td class="<?php echo $isOverdue ? 'text-danger' : ''; ?>">
                                     <?php echo date('d M Y, h:i A', strtotime($assignment['due_date'])); ?>
                                 </td>
-                                <td><?php echo $assignment['total_marks']; ?></td>
+                                <td><?php echo e($assignment['total_marks']); ?></td>
                                 <td>
-                                    <?php echo $assignment['submission_count']; ?>/<?php echo $assignment['total_students']; ?>
+                                    <?php echo e($assignment['submission_count']); ?>/<?php echo e($assignment['total_students']); ?>
                                     <div class="progress" style="height: 5px; width: 100px;">
-                                        <div class="progress-bar bg-success" 
+                                        <div class="progress-bar bg-success"
                                              style="width: <?php echo ($assignment['submission_count'] / max($assignment['total_students'], 1)) * 100; ?>%;">
                                         </div>
                                     </div>
@@ -296,14 +299,14 @@ $pendingGrading = $db->getRows(
                                 </td>
                                 <td>
                                     <div class="action-buttons">
-                                        <button class="btn-icon" onclick="viewSubmissions(<?php echo $assignment['id']; ?>)" title="View Submissions">
+                                        <button class="btn-icon" onclick="viewSubmissions(<?php echo e($assignment['id']); ?>)" title="View Submissions">
                                             <i class="fas fa-eye"></i>
                                         </button>
-                                        <button class="btn-icon" onclick="editAssignment(<?php echo $assignment['id']; ?>)" title="Edit">
+                                        <button class="btn-icon" onclick="editAssignment(<?php echo e($assignment['id']); ?>)" title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                        <button class="btn-icon text-danger" 
-                                                onclick="deleteAssignment(<?php echo $assignment['id']; ?>, '<?php echo htmlspecialchars($assignment['title']); ?>')"
+                                        <button class="btn-icon text-danger"
+                                                onclick="deleteAssignment(<?php echo e($assignment['id']); ?>, '<?php echo htmlspecialchars($assignment['title']); ?>')"
                                                 title="Delete">
                                             <i class="fas fa-trash"></i>
                                         </button>
@@ -322,7 +325,7 @@ $pendingGrading = $db->getRows(
                 <?php endif; ?>
             </div>
         </div>
-        
+
         <!-- Pending Grading Section -->
         <?php if (!empty($pendingGrading)): ?>
         <div class="card" id="pendingGrading">
@@ -353,7 +356,7 @@ $pendingGrading = $db->getRows(
                                 <td><?php echo htmlspecialchars($submission['subject_name']); ?></td>
                                 <td><?php echo date('d M Y, h:i A', strtotime($submission['submission_date'])); ?></td>
                                 <td>
-                                    <button class="btn btn-sm btn-primary" onclick="gradeSubmission(<?php echo $submission['id']; ?>, <?php echo $submission['total_marks']; ?>)">
+                                    <button class="btn btn-sm btn-primary" onclick="gradeSubmission(<?php echo e($submission['id']); ?>, <?php echo e($submission['total_marks']); ?>)">
                                         Grade
                                     </button>
                                 </td>
@@ -380,66 +383,66 @@ $pendingGrading = $db->getRows(
                 <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
                 <input type="hidden" name="action" id="formAction" value="add_assignment">
                 <input type="hidden" name="assignment_id" id="assignment_id">
-                
+
                 <div class="form-row">
                     <div class="form-group col-md-6">
                         <label for="class_id">Class *</label>
                         <select id="class_id" name="class_id" class="form-control" required>
                             <option value="">-- Select Class --</option>
                             <?php foreach ($classes as $class): ?>
-                            <option value="<?php echo $class['id']; ?>">
+                            <option value="<?php echo e($class['id']); ?>">
                                 <?php echo htmlspecialchars($class['class_name'] . ' ' . $class['section']); ?>
                             </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    
+
                     <div class="form-group col-md-6">
                         <label for="subject_id">Subject *</label>
                         <select id="subject_id" name="subject_id" class="form-control" required>
                             <option value="">-- Select Subject --</option>
                             <?php foreach ($subjects as $subject): ?>
-                            <option value="<?php echo $subject['id']; ?>">
+                            <option value="<?php echo e($subject['id']); ?>">
                                 <?php echo htmlspecialchars($subject['subject_name']); ?>
                             </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="title">Assignment Title *</label>
                     <input type="text" id="title" name="title" class="form-control" required>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="description">Description</label>
                     <textarea id="description" name="description" class="form-control" rows="3"></textarea>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="instructions">Instructions</label>
                     <textarea id="instructions" name="instructions" class="form-control" rows="5"></textarea>
                 </div>
-                
+
                 <div class="form-row">
                     <div class="form-group col-md-6">
                         <label for="due_date">Due Date *</label>
                         <input type="datetime-local" id="due_date" name="due_date" class="form-control" required>
                     </div>
-                    
+
                     <div class="form-group col-md-6">
                         <label for="total_marks">Total Marks *</label>
                         <input type="number" id="total_marks" name="total_marks" class="form-control" min="1" required>
                     </div>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="attachment">Attachment (Optional)</label>
                     <input type="file" id="attachment" name="attachment" class="form-control-file">
                     <small class="form-text">Allowed: PDF, DOC, DOCX, JPG, PNG (Max: 5MB)</small>
                 </div>
-                
+
                 <div class="form-group">
                     <label class="checkbox-label">
                         <input type="checkbox" name="is_published" value="1" checked>
@@ -467,14 +470,14 @@ $pendingGrading = $db->getRows(
                 <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
                 <input type="hidden" name="action" value="grade_submission">
                 <input type="hidden" name="submission_id" id="grade_submission_id">
-                
+
                 <div class="form-group">
                     <label for="obtained_marks">Marks Obtained *</label>
-                    <input type="number" id="obtained_marks" name="obtained_marks" class="form-control" 
+                    <input type="number" id="obtained_marks" name="obtained_marks" class="form-control"
                            step="0.5" min="0" required>
                     <small class="form-text">Maximum: <span id="max_marks"></span></small>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="feedback">Feedback</label>
                     <textarea id="feedback" name="feedback" class="form-control" rows="4"></textarea>
@@ -549,7 +552,7 @@ $pendingGrading = $db->getRows(
 }
 </style>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 function showAssignmentModal() {
     document.getElementById('modalTitle').textContent = 'Create New Assignment';
     document.getElementById('formAction').value = 'add_assignment';
@@ -559,7 +562,7 @@ function showAssignmentModal() {
 
 function editAssignment(id) {
     // Fetch assignment data via AJAX
-    fetch(`../api/get-assignment.php?id=${id}`)
+    fetch(`${BASE_URL}/api/get-assignment?id=${encodeURIComponent(id)}`, {credentials: 'same-origin'})
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -600,14 +603,14 @@ function closeGradeModal() {
 }
 
 function viewSubmissions(assignmentId) {
-    window.location.href = `submissions.php?assignment_id=${assignmentId}`;
+    window.location.href = `submissions?assignment_id=${assignmentId}`;
 }
 
 // Close modals when clicking outside
 window.onclick = function(event) {
     const assignmentModal = document.getElementById('assignmentModal');
     const gradeModal = document.getElementById('gradeModal');
-    
+
     if (event.target === assignmentModal) {
         assignmentModal.style.display = 'none';
     }

@@ -1,38 +1,23 @@
 <?php
 // admin/classes.php
 require_once __DIR__ . '/../config/config.php';
-require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/security.php';
 
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Require admin role
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
-    header('Location: ' . BASE_URL . '/login.php');
-    exit;
-}
+Security::requireRole('admin');
 
 $pageTitle = 'Class Management';
 $extraJS = ['classes.js'];
 
-// Check if header exists
-$headerPath = __DIR__ . '/../includes/header.php';
-if (!file_exists($headerPath)) {
-    die("Error: Header file not found at: $headerPath");
-}
-include $headerPath;
+include __DIR__ . '/../includes/header.php';
 
 // Get database instance
 $db = Database::getInstance();
 
-$message = '';
-$messageType = '';
+[$message, $messageType] = flash_get();
 
 $action = isset($_GET['action']) ? $_GET['action'] : 'list';
-$id = isset($_GET['id']) ? (int)$_GET['id'] : null;
+$id = isset($_POST['id']) ? (int)$_POST['id'] : (isset($_GET['id']) ? (int)$_GET['id'] : null);
+if (!in_array($action, ['list', 'add', 'edit'], true)) $action = 'list';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!Security::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
@@ -40,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $messageType = 'error';
     } else {
         $postAction = $_POST['action'] ?? '';
-        
+
         switch ($postAction) {
             case 'add':
             case 'edit':
@@ -51,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $messageType = 'error';
                     break;
                 }
-                
+
                 $data = [
                     'class_name' => Security::sanitize($_POST['class_name'] ?? ''),
                     'section' => Security::sanitize($_POST['section'] ?? 'A'),
@@ -60,24 +45,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'capacity' => (int)Security::sanitize($_POST['capacity'] ?? 30),
                     'is_active' => isset($_POST['is_active']) ? 1 : 0
                 ];
-                
+
                 // Validate required fields
+                if (mb_strlen($data['class_name']) > 50 || mb_strlen($data['section']) > 20) {
+                    $message = 'Class name or section is too long';
+                    $messageType = 'error';
+                    break;
+                }
+                if ($data['teacher_id'] && !$db->getRow('SELECT id FROM teachers WHERE id = ?', [$data['teacher_id']])) {
+                    $message = 'Selected teacher does not exist';
+                    $messageType = 'error';
+                    break;
+                }
                 if (empty($data['class_name'])) {
                     $message = 'Class name is required';
                     $messageType = 'error';
                     break;
                 }
-                
+
                 if ($data['capacity'] < 1 || $data['capacity'] > 100) {
                     $message = 'Capacity must be between 1 and 100';
                     $messageType = 'error';
                     break;
                 }
-                
+
                 try {
                     if ($postAction === 'add') {
                         $db->insert(
-                            "INSERT INTO classes (class_name, section, academic_year, teacher_id, capacity, is_active) 
+                            "INSERT INTO classes (class_name, section, academic_year, teacher_id, capacity, is_active)
                              VALUES (?, ?, ?, ?, ?, ?)",
                             [
                                 $data['class_name'],
@@ -92,12 +87,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $message = 'Class added successfully';
                         $messageType = 'success';
                     } else {
-                        if (!$id) {
-                            throw new Exception("Invalid class ID");
+                        if (!$id || !$db->getRow('SELECT id FROM classes WHERE id = ?', [$id])) {
+                            throw new Exception("Class not found");
                         }
-                        
+                        $enrolled = (int)$db->getRow('SELECT COUNT(*) c FROM students WHERE class_id = ?', [$id])['c'];
+                        if ($data['capacity'] < $enrolled) {
+                            throw new Exception("Capacity cannot be lower than the $enrolled students already enrolled");
+                        }
+
                         $db->query(
-                            "UPDATE classes SET class_name = ?, section = ?, academic_year = ?, 
+                            "UPDATE classes SET class_name = ?, section = ?, academic_year = ?,
                              teacher_id = ?, capacity = ?, is_active = ? WHERE id = ?",
                             [
                                 $data['class_name'],
@@ -118,28 +117,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $messageType = 'error';
                 }
                 break;
-                
+
             case 'delete':
                 try {
                     if (!$id) {
                         throw new Exception("Invalid class ID");
                     }
-                    
+
                     // Check if class has students
                     $studentCount = $db->getRow("SELECT COUNT(*) as count FROM students WHERE class_id = ?", [$id])['count'] ?? 0;
-                    
+
                     if ($studentCount > 0) {
                         $message = 'Cannot delete class with enrolled students';
                         $messageType = 'error';
                     } else {
                         // Check if class has subjects
                         $subjectCount = $db->getRow("SELECT COUNT(*) as count FROM subjects WHERE class_id = ?", [$id])['count'] ?? 0;
-                        
+
                         if ($subjectCount > 0) {
                             // Option 1: Prevent deletion
                             $message = 'Cannot delete class with subjects. Remove subjects first.';
                             $messageType = 'error';
-                            
+
                             // Option 2: Uncomment below to allow deletion and set subject class_id to NULL
                             // $db->query("UPDATE subjects SET class_id = NULL WHERE class_id = ?", [$id]);
                         } else {
@@ -158,6 +157,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $messageType === 'success') {
+    flash_redirect($message, 'success', BASE_URL . '/admin/classes');
+}
+
 // Get class for editing
 $class = null;
 if ($action === 'edit' && $id) {
@@ -166,16 +169,16 @@ if ($action === 'edit' && $id) {
 
 // Get teachers for dropdown (only active teachers)
 $teachers = $db->getRows(
-    "SELECT t.id, u.first_name, u.last_name 
-     FROM teachers t 
-     JOIN users u ON t.user_id = u.id 
+    "SELECT t.id, u.first_name, u.last_name
+     FROM teachers t
+     JOIN users u ON t.user_id = u.id
      WHERE u.is_active = 1
      ORDER BY u.first_name, u.last_name"
 );
 
 // Get classes list with statistics
 $classes = $db->getRows(
-    "SELECT c.*, 
+    "SELECT c.*,
             CONCAT(u.first_name, ' ', u.last_name) as teacher_name,
             (SELECT COUNT(*) FROM students WHERE class_id = c.id) as student_count,
             (SELECT COUNT(*) FROM subjects WHERE class_id = c.id) as subject_count
@@ -187,29 +190,8 @@ $classes = $db->getRows(
 ?>
 
 <div class="dashboard-container">
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <h3>Admin Panel</h3>
-        </div>
-        <nav class="sidebar-nav">
-            <ul>
-                <li><a href="dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
-                <li><a href="students.php"><i class="fas fa-user-graduate"></i> Students</a></li>
-                <li><a href="parents.php"><i class="fas fa-users"></i> Parents</a></li>
-                <li><a href="teachers.php"><i class="fas fa-chalkboard-teacher"></i> Teachers</a></li>
-                <li class="active"><a href="classes.php"><i class="fas fa-school"></i> Classes</a></li>
-                <li><a href="subjects.php"><i class="fas fa-book"></i> Subjects</a></li>
-                <li><a href="attendance.php"><i class="fas fa-calendar-check"></i> Attendance</a></li>
-                <li><a href="fees.php"><i class="fas fa-money-bill"></i> Fees</a></li>
-                <li><a href="results.php"><i class="fas fa-chart-line"></i> Results</a></li>
-                <li><a href="announcements.php"><i class="fas fa-bullhorn"></i> Announcements</a></li>
-                <li><a href="gallery.php"><i class="fas fa-images"></i> Gallery</a></li>
-                <li><a href="reports.php"><i class="fas fa-file-alt"></i> Reports</a></li>
-                <li><a href="audit-logs.php"><i class="fas fa-history"></i> Audit Logs</a></li>
-            </ul>
-        </nav>
-    </aside>
-    
+    <?php render_sidebar('admin'); ?>
+
     <main class="dashboard-main">
         <div class="dashboard-header">
             <h1>Class Management</h1>
@@ -217,20 +199,20 @@ $classes = $db->getRows(
                 <a href="?action=add" class="btn btn-primary">
                     <i class="fas fa-plus"></i> Add New Class
                 </a>
-                <a href="export.php?type=classes" class="btn btn-outline">
+                <a href="export?type=classes" class="btn btn-outline">
                     <i class="fas fa-download"></i> Export
                 </a>
             </div>
         </div>
-        
+
         <?php if ($message): ?>
-        <div class="alert alert-<?php echo $messageType; ?> alert-dismissible">
+        <div class="alert alert-<?php echo e($messageType); ?> alert-dismissible">
             <i class="fas <?php echo $messageType === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'; ?>"></i>
             <?php echo htmlspecialchars($message); ?>
             <button type="button" class="close" onclick="this.parentElement.remove()">&times;</button>
         </div>
         <?php endif; ?>
-        
+
         <?php if ($action === 'add' || $action === 'edit'): ?>
         <!-- Class Form -->
         <div class="card">
@@ -240,72 +222,72 @@ $classes = $db->getRows(
             <div class="card-body">
                 <form method="POST" class="form-container">
                     <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
-                    <input type="hidden" name="action" value="<?php echo $action; ?>">
-                    
+                    <input type="hidden" name="action" value="<?php echo e($action); ?>">
+
                     <div class="form-row">
                         <div class="form-group">
                             <label for="class_name">Class Name *</label>
-                            <input type="text" id="class_name" name="class_name" class="form-control" 
-                                   value="<?php echo htmlspecialchars($class['class_name'] ?? ''); ?>" 
+                            <input type="text" id="class_name" name="class_name" class="form-control"
+                                   value="<?php echo htmlspecialchars($class['class_name'] ?? ''); ?>"
                                    placeholder="e.g., Nursery 1, Reception, Year 1" required>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="section">Section</label>
-                            <input type="text" id="section" name="section" class="form-control" 
-                                   value="<?php echo htmlspecialchars($class['section'] ?? 'A'); ?>" 
+                            <input type="text" id="section" name="section" class="form-control"
+                                   value="<?php echo htmlspecialchars($class['section'] ?? 'A'); ?>"
                                    placeholder="e.g., A, B, C">
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="academic_year">Academic Year *</label>
-                            <input type="text" id="academic_year" name="academic_year" class="form-control" 
-                                   value="<?php echo htmlspecialchars($class['academic_year'] ?? (date('Y') . '-' . (date('Y') + 1))); ?>" 
+                            <input type="text" id="academic_year" name="academic_year" class="form-control"
+                                   value="<?php echo htmlspecialchars($class['academic_year'] ?? (currentAcademicYear())); ?>"
                                    placeholder="YYYY-YYYY" required>
                             <small class="form-text text-muted">Format: 2024-2025</small>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="teacher_id">Class Teacher</label>
                             <select id="teacher_id" name="teacher_id" class="form-control">
                                 <option value="">-- Select Teacher --</option>
                                 <?php foreach ($teachers as $teacher): ?>
-                                <option value="<?php echo $teacher['id']; ?>" 
+                                <option value="<?php echo e($teacher['id']); ?>"
                                     <?php echo (isset($class['teacher_id']) && $class['teacher_id'] == $teacher['id']) ? 'selected' : ''; ?>>
                                     <?php echo htmlspecialchars($teacher['first_name'] . ' ' . $teacher['last_name']); ?>
                                 </option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="capacity">Capacity *</label>
-                            <input type="number" id="capacity" name="capacity" class="form-control" 
-                                   value="<?php echo htmlspecialchars($class['capacity'] ?? 30); ?>" 
+                            <input type="number" id="capacity" name="capacity" class="form-control"
+                                   value="<?php echo htmlspecialchars($class['capacity'] ?? 30); ?>"
                                    min="1" max="100" required>
                         </div>
-                        
+
                         <div class="form-group">
                             <label class="checkbox-label">
-                                <input type="checkbox" name="is_active" value="1" 
+                                <input type="checkbox" name="is_active" value="1"
                                        <?php echo (!isset($class['is_active']) || $class['is_active']) ? 'checked' : ''; ?>>
                                 Active Class
                             </label>
                         </div>
                     </div>
-                    
+
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save"></i> <?php echo $action === 'add' ? 'Add Class' : 'Update Class'; ?>
                         </button>
-                        <a href="classes.php" class="btn btn-outline">
+                        <a href="classes" class="btn btn-outline">
                             <i class="fas fa-times"></i> Cancel
                         </a>
                     </div>
                 </form>
             </div>
         </div>
-        
+
         <?php else: ?>
         <!-- Classes List -->
         <div class="card">
@@ -336,14 +318,14 @@ $classes = $db->getRows(
                         <tbody>
                             <?php foreach ($classes as $cls): ?>
                             <tr>
-                                <td><?php echo $cls['id']; ?></td>
+                                <td><?php echo e($cls['id']); ?></td>
                                 <td><strong><?php echo htmlspecialchars($cls['class_name']); ?></strong></td>
                                 <td><?php echo htmlspecialchars($cls['section']); ?></td>
                                 <td><?php echo htmlspecialchars($cls['academic_year']); ?></td>
                                 <td><?php echo htmlspecialchars($cls['teacher_name'] ?? 'Not Assigned'); ?></td>
                                 <td>
-                                    <?php echo $cls['student_count']; ?>/<?php echo $cls['capacity']; ?>
-                                    <?php 
+                                    <?php echo e($cls['student_count']); ?>/<?php echo e($cls['capacity']); ?>
+                                    <?php
                                     $percentage = $cls['capacity'] > 0 ? ($cls['student_count'] / $cls['capacity']) * 100 : 0;
                                     if ($percentage >= 90): ?>
                                         <span class="badge badge-danger">Full</span>
@@ -351,8 +333,8 @@ $classes = $db->getRows(
                                         <span class="badge badge-warning">Almost Full</span>
                                     <?php endif; ?>
                                 </td>
-                                <td><?php echo $cls['subject_count']; ?></td>
-                                <td><?php echo $cls['capacity']; ?></td>
+                                <td><?php echo e($cls['subject_count']); ?></td>
+                                <td><?php echo e($cls['capacity']); ?></td>
                                 <td>
                                     <?php if ($cls['is_active']): ?>
                                     <span class="badge badge-success">Active</span>
@@ -362,21 +344,21 @@ $classes = $db->getRows(
                                 </td>
                                 <td>
                                     <div class="action-buttons">
-                                        <a href="?action=edit&id=<?php echo $cls['id']; ?>" class="btn-icon" title="Edit">
+                                        <a href="?action=edit&id=<?php echo e($cls['id']); ?>" class="btn-icon" title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <a href="subjects.php?class_id=<?php echo $cls['id']; ?>" class="btn-icon" title="Manage Subjects">
+                                        <a href="subjects?class_id=<?php echo e($cls['id']); ?>" class="btn-icon" title="Manage Subjects">
                                             <i class="fas fa-book"></i>
                                         </a>
-                                        <a href="students.php?class_id=<?php echo $cls['id']; ?>" class="btn-icon" title="View Students">
+                                        <a href="students?class_id=<?php echo e($cls['id']); ?>" class="btn-icon" title="View Students">
                                             <i class="fas fa-users"></i>
                                         </a>
-                                        <a href="timetable.php?class_id=<?php echo $cls['id']; ?>" class="btn-icon" title="Timetable">
+                                        <a href="timetable?class_id=<?php echo e($cls['id']); ?>" class="btn-icon" title="Timetable">
                                             <i class="fas fa-clock"></i>
                                         </a>
                                         <?php if ($cls['student_count'] == 0 && $cls['subject_count'] == 0): ?>
-                                        <button type="button" class="btn-icon text-danger" 
-                                                onclick="confirmDelete(<?php echo $cls['id']; ?>, '<?php echo htmlspecialchars(addslashes($cls['class_name'] . ' ' . $cls['section'])); ?>')"
+                                        <button type="button" class="btn-icon text-danger"
+                                                onclick="confirmDelete(<?php echo e($cls['id']); ?>, '<?php echo htmlspecialchars(addslashes($cls['class_name'] . ' ' . $cls['section'])); ?>')"
                                                 title="Delete">
                                             <i class="fas fa-trash"></i>
                                         </button>
@@ -506,18 +488,18 @@ $classes = $db->getRows(
         width: 100%;
         margin-top: 10px;
     }
-    
+
     #searchInput {
         width: 100% !important;
     }
-    
+
     .action-buttons {
         justify-content: center;
     }
 }
 </style>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 function confirmDelete(id, name) {
     document.getElementById('deleteId').value = id;
     document.getElementById('className').textContent = name;
@@ -533,14 +515,14 @@ document.getElementById('searchInput')?.addEventListener('keyup', function() {
     const searchTerm = this.value.toLowerCase();
     const table = document.getElementById('classesTable');
     if (!table) return;
-    
+
     const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-    
+
     for (let row of rows) {
         const className = row.cells[1]?.textContent.toLowerCase() || '';
         const section = row.cells[2]?.textContent.toLowerCase() || '';
         const teacher = row.cells[4]?.textContent.toLowerCase() || '';
-        
+
         if (className.includes(searchTerm) || section.includes(searchTerm) || teacher.includes(searchTerm)) {
             row.style.display = '';
         } else {
@@ -574,5 +556,4 @@ $(document).ready(function() {
 });
 </script>
 
-
-
+<?php include __DIR__ . '/../includes/footer.php'; ?>

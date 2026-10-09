@@ -1,0 +1,10 @@
+---
+# cPanel "Deploy HEAD Commit": copies the site into public_html, leaving server-only data untouched.
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/stbenedi/public_html/
+    - /bin/mkdir -p $DEPLOYPATH
+    - /usr/bin/rsync -rlptD --exclude='.git' --exclude='.github' --exclude='tests' --exclude='docs' --exclude='uploads/*' --exclude='!uploads/.htaccess' --exclude='storage/applications/*' --exclude='logs' --exclude='backups' --exclude='config/local.php' ./ $DEPLOYPATH
+    - /bin/mkdir -p $DEPLOYPATH/uploads $DEPLOYPATH/storage/applications $DEPLOYPATH/logs
+    - /bin/cp -n uploads/.htaccess uploads/index.html $DEPLOYPATH/uploads/
+    - /usr/local/bin/php $DEPLOYPATH/scripts/migrate.php

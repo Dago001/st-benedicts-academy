@@ -1,13 +1,12 @@
 <?php
 // public/apply.php - Online Application Form
-require_once '../config/config.php';
-require_once '../config/database.php';
-require_once '../config/security.php';
+require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../config/security.php';
 
 $pageTitle = 'Apply Now - Online Admission Application';
 $pageDescription = 'Apply online for admission to ST. BENEDICT\'S EARLY YEARS BRITISH ACADEMY. Start your child\'s educational journey with us.';
 
-include '../includes/header.php';
+include __DIR__ . '/../includes/header.php';
 
 $db = db();
 $message = '';
@@ -20,91 +19,90 @@ $classes = $db->getRows(
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $errors = [];
     if (!Security::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
-        $message = 'Invalid security token';
-        $messageType = 'error';
+        $errors[] = 'Your session expired. Please reload the page and try again.';
+    } elseif (!empty($_POST['website'])) {
+        // Honeypot field filled in: pretend success, store nothing
+        $message = 'Thank you.';
+        $messageType = 'success';
+    } elseif (($_SESSION['apply_attempts'][date('YmdH')] ?? 0) >= 5) {
+        $errors[] = 'Too many submissions from this device. Please try again later or call the school office.';
     } else {
-        // Sanitize input
+        $_SESSION['apply_attempts'] = [date('YmdH') => ($_SESSION['apply_attempts'][date('YmdH')] ?? 0) + 1];
+
+        $text = function ($key, $max = 100) {
+            return mb_substr(Security::sanitize($_POST[$key] ?? ''), 0, $max);
+        };
+        $classNames = array_column($classes, 'class_name');
         $formData = [
-            'child_first_name' => Security::sanitize($_POST['child_first_name'] ?? ''),
-            'child_last_name' => Security::sanitize($_POST['child_last_name'] ?? ''),
-            'child_dob' => Security::sanitize($_POST['child_dob'] ?? ''),
-            'child_gender' => Security::sanitize($_POST['child_gender'] ?? ''),
-            'class_applying' => Security::sanitize($_POST['class_applying'] ?? ''),
-            'parent_title' => Security::sanitize($_POST['parent_title'] ?? ''),
-            'parent_first_name' => Security::sanitize($_POST['parent_first_name'] ?? ''),
-            'parent_last_name' => Security::sanitize($_POST['parent_last_name'] ?? ''),
-            'parent_email' => Security::sanitize($_POST['parent_email'] ?? ''),
-            'parent_phone' => Security::sanitize($_POST['parent_phone'] ?? ''),
-            'parent_occupation' => Security::sanitize($_POST['parent_occupation'] ?? ''),
-            'address' => Security::sanitize($_POST['address'] ?? ''),
-            'city' => Security::sanitize($_POST['city'] ?? ''),
-            'state' => Security::sanitize($_POST['state'] ?? ''),
-            'previous_school' => Security::sanitize($_POST['previous_school'] ?? ''),
-            'reason_applying' => Security::sanitize($_POST['reason_applying'] ?? ''),
-            'how_hear' => Security::sanitize($_POST['how_hear'] ?? ''),
-            'emergency_name' => Security::sanitize($_POST['emergency_name'] ?? ''),
-            'emergency_phone' => Security::sanitize($_POST['emergency_phone'] ?? ''),
-            'emergency_relationship' => Security::sanitize($_POST['emergency_relationship'] ?? '')
+            'child_first_name' => $text('child_first_name', 50),
+            'child_last_name' => $text('child_last_name', 50),
+            'child_dob' => $_POST['child_dob'] ?? '',
+            'child_gender' => $_POST['child_gender'] ?? '',
+            'class_applying' => $text('class_applying', 50),
+            'parent_title' => in_array($_POST['parent_title'] ?? '', ['Mr', 'Mrs', 'Ms', 'Dr', 'Chief', 'Prof'], true) ? $_POST['parent_title'] : '',
+            'parent_first_name' => $text('parent_first_name', 50),
+            'parent_last_name' => $text('parent_last_name', 50),
+            'parent_email' => $text('parent_email', 100),
+            'parent_phone' => $text('parent_phone', 20),
+            'parent_occupation' => $text('parent_occupation', 100),
+            'address' => $text('address', 500),
+            'city' => $text('city', 100),
+            'state' => $text('state', 100),
+            'previous_school' => $text('previous_school', 200),
+            'reason_applying' => $text('reason_applying', 1000),
+            'how_hear' => $text('how_hear', 100),
+            'emergency_name' => $text('emergency_name', 100),
+            'emergency_phone' => $text('emergency_phone', 20),
+            'emergency_relationship' => $text('emergency_relationship', 50),
         ];
-        
-        // Validate
-        $errors = [];
-        
-        if (empty($formData['child_first_name'])) $errors[] = 'Child\'s first name is required';
-        if (empty($formData['child_last_name'])) $errors[] = 'Child\'s last name is required';
-        if (empty($formData['child_dob'])) $errors[] = 'Child\'s date of birth is required';
-        if (empty($formData['child_gender'])) $errors[] = 'Child\'s gender is required';
-        if (empty($formData['class_applying'])) $errors[] = 'Class applying for is required';
-        if (empty($formData['parent_first_name'])) $errors[] = 'Parent\'s first name is required';
-        if (empty($formData['parent_last_name'])) $errors[] = 'Parent\'s last name is required';
-        if (!filter_var($formData['parent_email'], FILTER_VALIDATE_EMAIL)) $errors[] = 'Valid parent email is required';
-        if (empty($formData['parent_phone'])) $errors[] = 'Parent phone is required';
-        if (empty($formData['address'])) $errors[] = 'Address is required';
-        
-        // Validate child's age
-        $dob = new DateTime($formData['child_dob']);
-        $now = new DateTime();
-        $age = $now->diff($dob)->y;
-        
-        if ($age < 2 || $age > 7) {
-            $errors[] = 'Child must be between 2 and 7 years old';
+
+        if ($formData['child_first_name'] === '') $errors[] = "Child's first name is required";
+        if ($formData['child_last_name'] === '') $errors[] = "Child's last name is required";
+        if (!in_array($formData['child_gender'], ['male', 'female'], true)) $errors[] = "Child's gender is required";
+        if (!in_array($formData['class_applying'], $classNames, true)) $errors[] = 'Please choose a class to apply for';
+        if ($formData['parent_first_name'] === '') $errors[] = "Parent's first name is required";
+        if ($formData['parent_last_name'] === '') $errors[] = "Parent's last name is required";
+        if (!Security::validateEmail($formData['parent_email'])) $errors[] = 'A valid parent email is required';
+        if (!Security::validatePhone($formData['parent_phone'])) $errors[] = 'A valid Nigerian parent phone number is required (e.g. 08012345678)';
+        if ($formData['emergency_phone'] !== '' && !Security::validatePhone($formData['emergency_phone'])) $errors[] = 'The emergency contact phone number is not valid';
+        if ($formData['address'] === '') $errors[] = 'Address is required';
+
+        $dob = valid_date($formData['child_dob']);
+        if (!$dob) {
+            $errors[] = "Child's date of birth is required";
+        } else {
+            $age = (new DateTime())->diff(new DateTime($dob))->y;
+            if ($dob > date('Y-m-d') || $age < 2 || $age > 7) $errors[] = 'Child must be between 2 and 7 years old';
         }
-        
-        if (empty($errors)) {
+
+        // Uploads: validated by real content type, stored outside the public web root
+        $stored = ['birth_certificate' => null, 'passport_photo' => null];
+        $uploadRules = ['birth_certificate' => ['pdf', 'jpg', 'jpeg', 'png'], 'passport_photo' => ['jpg', 'jpeg', 'png']];
+        if (!$errors) {
+            $privateDir = PRIVATE_PATH . 'applications/';
+            if (!is_dir($privateDir)) { @mkdir($privateDir, 0750, true); }
+            foreach ($uploadRules as $field => $allowed) {
+                if (!isset($_FILES[$field]) || $_FILES[$field]['error'] === UPLOAD_ERR_NO_FILE) continue;
+                $check = Security::validateFileUpload($_FILES[$field], $allowed);
+                if (!$check['valid']) {
+                    $errors[] = ucwords(str_replace('_', ' ', $field)) . ': ' . $check['message'];
+                    continue;
+                }
+                $name = $field . '_' . bin2hex(random_bytes(12)) . '.' . $check['extension'];
+                if (move_uploaded_file($_FILES[$field]['tmp_name'], $privateDir . $name)) {
+                    @chmod($privateDir . $name, 0640);
+                    $stored[$field] = $name;
+                } else {
+                    $errors[] = 'Could not store ' . str_replace('_', ' ', $field);
+                }
+            }
+        }
+
+        if (!$errors) {
             try {
-                // Generate application number
-                $appNumber = 'APP' . date('Y') . str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);
-                
-                // Handle document uploads
-                $birthCertPath = null;
-                $photoPath = null;
-                
-                // Upload birth certificate
-                if (isset($_FILES['birth_certificate']) && $_FILES['birth_certificate']['error'] === UPLOAD_ERR_OK) {
-                    $upload = Validator::file($_FILES['birth_certificate'], ['application/pdf', 'image/jpeg', 'image/png'], 5242880);
-                    if ($upload['valid']) {
-                        $fileName = 'birth_' . $appNumber . '_' . time() . '.' . pathinfo($_FILES['birth_certificate']['name'], PATHINFO_EXTENSION);
-                        $uploadPath = UPLOAD_PATH . 'applications/' . $fileName;
-                        if (move_uploaded_file($_FILES['birth_certificate']['tmp_name'], $uploadPath)) {
-                            $birthCertPath = $fileName;
-                        }
-                    }
-                }
-                
-                // Upload passport photo
-                if (isset($_FILES['passport_photo']) && $_FILES['passport_photo']['error'] === UPLOAD_ERR_OK) {
-                    $upload = Validator::image($_FILES['passport_photo']);
-                    if ($upload['valid']) {
-                        $fileName = 'photo_' . $appNumber . '_' . time() . '.' . pathinfo($_FILES['passport_photo']['name'], PATHINFO_EXTENSION);
-                        $uploadPath = UPLOAD_PATH . 'applications/' . $fileName;
-                        if (move_uploaded_file($_FILES['passport_photo']['tmp_name'], $uploadPath)) {
-                            $photoPath = $fileName;
-                        }
-                    }
-                }
-                
-                // Save to database
+                $appNumber = generateApplicationNumber();
                 $db->insert(
                     "INSERT INTO applications (
                         application_number, child_first_name, child_last_name, child_dob, child_gender,
@@ -113,106 +111,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         previous_school, reason_applying, how_hear,
                         emergency_name, emergency_phone, emergency_relationship,
                         birth_certificate_path, passport_photo_path
-                    ) VALUES (
-                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-                    )",
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     [
-                        $appNumber,
-                        $formData['child_first_name'],
-                        $formData['child_last_name'],
-                        $formData['child_dob'],
-                        $formData['child_gender'],
-                        $formData['class_applying'],
-                        $formData['parent_title'],
-                        $formData['parent_first_name'],
-                        $formData['parent_last_name'],
-                        $formData['parent_email'],
-                        $formData['parent_phone'],
-                        $formData['parent_occupation'],
-                        $formData['address'],
-                        $formData['city'],
-                        $formData['state'],
-                        $formData['previous_school'],
-                        $formData['reason_applying'],
-                        $formData['how_hear'],
-                        $formData['emergency_name'],
-                        $formData['emergency_phone'],
-                        $formData['emergency_relationship'],
-                        $birthCertPath,
-                        $photoPath
+                        $appNumber, $formData['child_first_name'], $formData['child_last_name'], $dob, $formData['child_gender'],
+                        $formData['class_applying'], $formData['parent_title'], $formData['parent_first_name'], $formData['parent_last_name'],
+                        $formData['parent_email'], $formData['parent_phone'], $formData['parent_occupation'], $formData['address'],
+                        $formData['city'], $formData['state'], $formData['previous_school'], $formData['reason_applying'], $formData['how_hear'],
+                        $formData['emergency_name'], $formData['emergency_phone'], $formData['emergency_relationship'],
+                        $stored['birth_certificate'], $stored['passport_photo'],
                     ]
                 );
-                
-                // Send confirmation email
-                $to = $formData['parent_email'];
-                $subject = "Application Received - " . SCHOOL_NAME;
-                $emailMessage = "
-                <html>
-                <body style='font-family: Arial, sans-serif;'>
-                    <div style='max-width: 600px; margin: 0 auto; padding: 20px; background: #f5f5f5;'>
-                        <div style='background: #002855; color: white; padding: 20px; text-align: center;'>
-                            <h2>Application Received</h2>
-                        </div>
-                        <div style='background: white; padding: 30px;'>
-                            <p>Dear {$formData['parent_title']} {$formData['parent_last_name']},</p>
-                            <p>Thank you for applying to <strong>" . SCHOOL_NAME . "</strong>.</p>
-                            <p><strong>Application Details:</strong></p>
-                            <ul>
-                                <li><strong>Application Number:</strong> {$appNumber}</li>
-                                <li><strong>Child's Name:</strong> {$formData['child_first_name']} {$formData['child_last_name']}</li>
-                                <li><strong>Class Applying For:</strong> {$formData['class_applying']}</li>
-                            </ul>
-                            <p>We will review your application and contact you within 3-5 working days to schedule an assessment/interview.</p>
-                            <p>If you have any questions, please contact our admissions office at " . SCHOOL_PHONE . ".</p>
-                            <p>May God bless you,</p>
-                            <p><strong>Admissions Office</strong><br>" . SCHOOL_NAME . "</p>
-                        </div>
-                        <div style='background: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; color: #666;'>
-                            <p>" . SCHOOL_ADDRESS . "<br>Phone: " . SCHOOL_PHONE . " | Email: " . SCHOOL_EMAIL . "</p>
-                        </div>
-                    </div>
-                </body>
-                </html>
-                ";
-                
-                $headers = "MIME-Version: 1.0\r\n";
-                $headers .= "Content-type:text/html;charset=UTF-8\r\n";
-                $headers .= "From: " . SCHOOL_NAME . " <" . SCHOOL_EMAIL . ">\r\n";
-                
-                mail($to, $subject, $emailMessage, $headers);
-                
-                // Show success message
-                $message = "
-                <div style='text-align: center;'>
-                    <i class='fas fa-check-circle' style='font-size: 4rem; color: #28a745; margin-bottom: 20px;'></i>
-                    <h3>Application Submitted Successfully!</h3>
-                    <p>Your application number is: <strong>{$appNumber}</strong></p>
-                    <p>We have sent a confirmation email to: <strong>{$formData['parent_email']}</strong></p>
-                    <p>Our admissions team will contact you within 3-5 working days.</p>
-                    <hr style='margin: 30px 0;'>
-                    <h4>Next Steps:</h4>
-                    <ol style='text-align: left; max-width: 400px; margin: 20px auto;'>
-                        <li>Wait for our call to schedule an assessment</li>
-                        <li>Bring your child for the assessment/interview</li>
-                        <li>Receive admission decision</li>
-                        <li>Complete enrollment if accepted</li>
-                    </ol>
-                </div>
-                ";
+
+                $name = e(trim($formData['parent_title'] . ' ' . $formData['parent_last_name']));
+                sendEmail($formData['parent_email'], 'Application Received - ' . SCHOOL_NAME,
+                    "<div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto'>"
+                    . "<h2 style='background:#002855;color:#fff;padding:16px;text-align:center'>Application Received</h2>"
+                    . "<p>Dear $name,</p><p>Thank you for applying to <strong>" . e(SCHOOL_NAME) . "</strong>.</p>"
+                    . "<ul><li><strong>Application number:</strong> " . e($appNumber) . "</li>"
+                    . "<li><strong>Child:</strong> " . e($formData['child_first_name'] . ' ' . $formData['child_last_name']) . "</li>"
+                    . "<li><strong>Class:</strong> " . e($formData['class_applying']) . "</li></ul>"
+                    . "<p>We will contact you within 3-5 working days to schedule an assessment. Questions? Call " . e(school_phone()) . ".</p>"
+                    . "<p><strong>Admissions Office</strong><br>" . e(SCHOOL_NAME) . "</p></div>");
+
+                $applied = ['number' => $appNumber, 'email' => $formData['parent_email']];
                 $messageType = 'success';
-                
-                // Clear POST data
                 $_POST = [];
-                
             } catch (Exception $e) {
-                $message = 'An error occurred. Please try again or contact us directly.';
-                $messageType = 'error';
-                error_log("Application error: " . $e->getMessage());
+                foreach ($stored as $f) { if ($f) @unlink(PRIVATE_PATH . 'applications/' . $f); }
+                error_log('Application error: ' . $e->getMessage());
+                $errors[] = 'An error occurred. Please try again or contact us directly.';
             }
         } else {
-            $message = '<ul><li>' . implode('</li><li>', $errors) . '</li></ul>';
-            $messageType = 'error';
+            foreach ($stored as $f) { if ($f) @unlink(PRIVATE_PATH . 'applications/' . $f); }
         }
+    }
+    if ($errors) {
+        $messageType = 'error';
+        $message = implode("\n", $errors);
     }
 }
 ?>
@@ -222,7 +157,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="container">
         <h1>Online Application</h1>
         <div class="breadcrumb">
-            <a href="<?php echo BASE_URL; ?>/index.php">Home</a> / Apply Now
+            <a href="<?php echo BASE_URL; ?>/">Home</a> / Apply Now
         </div>
     </div>
 </section>
@@ -230,22 +165,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <!-- Application Form -->
 <section class="application-section">
     <div class="container">
-        <?php if ($message && $messageType === 'success'): ?>
+        <?php if ($messageType === 'success'): ?>
         <div class="success-card">
-            <?php echo $message; ?>
+            <div style="text-align:center">
+                <i class="fas fa-check-circle" style="font-size:4rem;color:#28a745;margin-bottom:20px"></i>
+                <h3>Application Submitted Successfully!</h3>
+                <?php if (!empty($applied)): ?>
+                <p>Your application number is: <strong><?php echo e($applied['number']); ?></strong></p>
+                <p>We have sent a confirmation email to <strong><?php echo e($applied['email']); ?></strong>.</p>
+                <?php endif; ?>
+                <p>Our admissions team will contact you within 3-5 working days.</p>
+                <ol style="text-align:left;max-width:400px;margin:20px auto">
+                    <li>Wait for our call to schedule an assessment</li>
+                    <li>Bring your child for the assessment/interview</li>
+                    <li>Receive the admission decision</li>
+                    <li>Complete enrolment if accepted</li>
+                </ol>
+            </div>
             <div style="margin-top: 30px;">
-                <a href="<?php echo BASE_URL; ?>/index.php" class="btn btn-primary">Return to Home</a>
-                <a href="apply.php" class="btn btn-outline">Submit Another Application</a>
+                <a href="<?php echo BASE_URL; ?>/" class="btn btn-primary">Return to Home</a>
+                <a href="apply" class="btn btn-outline">Submit Another Application</a>
             </div>
         </div>
         <?php else: ?>
-        
+
         <?php if ($message): ?>
-        <div class="alert alert-<?php echo $messageType; ?>">
-            <?php echo $message; ?>
+        <div class="alert alert-<?php echo e($messageType); ?>" role="alert">
+            <ul style="margin:0;padding-left:18px"><?php foreach (explode("\n", $message) as $line): ?><li><?php echo e($line); ?></li><?php endforeach; ?></ul>
         </div>
         <?php endif; ?>
-        
+
         <div class="application-progress">
             <div class="progress-step active">
                 <span class="step-number">1</span>
@@ -264,42 +213,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <span class="step-label">Documents</span>
             </div>
         </div>
-        
+
         <div class="application-card">
             <form method="POST" enctype="multipart/form-data" id="applicationForm">
-                <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
-                
+                <?php echo csrf_field(); ?>
+                <div style="position:absolute;left:-9999px" aria-hidden="true"><label>Leave this empty <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+
                 <!-- Step 1: Child Information -->
                 <div class="form-step active" id="step1">
                     <h3><i class="fas fa-child"></i> Child's Information</h3>
-                    
+
                     <div class="form-row">
                         <div class="form-group">
                             <label for="child_first_name">First Name *</label>
-                            <input type="text" id="child_first_name" name="child_first_name" 
-                                   value="<?php echo htmlspecialchars($_POST['child_first_name'] ?? ''); ?>" 
+                            <input type="text" id="child_first_name" name="child_first_name"
+                                   value="<?php echo htmlspecialchars($_POST['child_first_name'] ?? ''); ?>"
                                    class="form-control" required>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="child_last_name">Last Name *</label>
-                            <input type="text" id="child_last_name" name="child_last_name" 
-                                   value="<?php echo htmlspecialchars($_POST['child_last_name'] ?? ''); ?>" 
+                            <input type="text" id="child_last_name" name="child_last_name"
+                                   value="<?php echo htmlspecialchars($_POST['child_last_name'] ?? ''); ?>"
                                    class="form-control" required>
                         </div>
                     </div>
-                    
+
                     <div class="form-row">
                         <div class="form-group">
                             <label for="child_dob">Date of Birth *</label>
-                            <input type="date" id="child_dob" name="child_dob" 
-                                   value="<?php echo htmlspecialchars($_POST['child_dob'] ?? ''); ?>" 
-                                   class="form-control" required 
+                            <input type="date" id="child_dob" name="child_dob"
+                                   value="<?php echo htmlspecialchars($_POST['child_dob'] ?? ''); ?>"
+                                   class="form-control" required
                                    max="<?php echo date('Y-m-d', strtotime('-2 years')); ?>"
                                    min="<?php echo date('Y-m-d', strtotime('-7 years')); ?>">
                             <small class="form-text">Child must be between 2 and 7 years old</small>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="child_gender">Gender *</label>
                             <select id="child_gender" name="child_gender" class="form-control" required>
@@ -309,38 +259,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </select>
                         </div>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="class_applying">Class Applying For *</label>
                         <select id="class_applying" name="class_applying" class="form-control" required>
                             <option value="">Select Class</option>
                             <?php foreach ($classes as $class): ?>
-                            <option value="<?php echo $class['class_name']; ?>" 
+                            <option value="<?php echo e($class['class_name']); ?>"
                                 <?php echo ($_POST['class_applying'] ?? '') === $class['class_name'] ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($class['class_name'] . ' ' . $class['section']); ?>
                             </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="previous_school">Previous School (if any)</label>
-                        <input type="text" id="previous_school" name="previous_school" 
-                               value="<?php echo htmlspecialchars($_POST['previous_school'] ?? ''); ?>" 
+                        <input type="text" id="previous_school" name="previous_school"
+                               value="<?php echo htmlspecialchars($_POST['previous_school'] ?? ''); ?>"
                                class="form-control">
                     </div>
-                    
+
                     <div class="form-navigation">
                         <button type="button" class="btn btn-primary" onclick="nextStep(1)">
                             Next Step <i class="fas fa-arrow-right"></i>
                         </button>
                     </div>
                 </div>
-                
+
                 <!-- Step 2: Parent Information -->
                 <div class="form-step" id="step2">
                     <h3><i class="fas fa-users"></i> Parent/Guardian Information</h3>
-                    
+
                     <div class="form-group">
                         <label for="parent_title">Title</label>
                         <select id="parent_title" name="parent_title" class="form-control">
@@ -350,69 +300,69 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <option value="Dr" <?php echo ($_POST['parent_title'] ?? '') === 'Dr' ? 'selected' : ''; ?>>Dr.</option>
                         </select>
                     </div>
-                    
+
                     <div class="form-row">
                         <div class="form-group">
                             <label for="parent_first_name">First Name *</label>
-                            <input type="text" id="parent_first_name" name="parent_first_name" 
-                                   value="<?php echo htmlspecialchars($_POST['parent_first_name'] ?? ''); ?>" 
+                            <input type="text" id="parent_first_name" name="parent_first_name"
+                                   value="<?php echo htmlspecialchars($_POST['parent_first_name'] ?? ''); ?>"
                                    class="form-control" required>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="parent_last_name">Last Name *</label>
-                            <input type="text" id="parent_last_name" name="parent_last_name" 
-                                   value="<?php echo htmlspecialchars($_POST['parent_last_name'] ?? ''); ?>" 
+                            <input type="text" id="parent_last_name" name="parent_last_name"
+                                   value="<?php echo htmlspecialchars($_POST['parent_last_name'] ?? ''); ?>"
                                    class="form-control" required>
                         </div>
                     </div>
-                    
+
                     <div class="form-row">
                         <div class="form-group">
                             <label for="parent_email">Email Address *</label>
-                            <input type="email" id="parent_email" name="parent_email" 
-                                   value="<?php echo htmlspecialchars($_POST['parent_email'] ?? ''); ?>" 
+                            <input type="email" id="parent_email" name="parent_email"
+                                   value="<?php echo htmlspecialchars($_POST['parent_email'] ?? ''); ?>"
                                    class="form-control" required>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="parent_phone">Phone Number *</label>
-                            <input type="tel" id="parent_phone" name="parent_phone" 
-                                   value="<?php echo htmlspecialchars($_POST['parent_phone'] ?? ''); ?>" 
+                            <input type="tel" id="parent_phone" name="parent_phone"
+                                   value="<?php echo htmlspecialchars($_POST['parent_phone'] ?? ''); ?>"
                                    class="form-control" placeholder="08012345678" required>
                         </div>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="parent_occupation">Occupation</label>
-                        <input type="text" id="parent_occupation" name="parent_occupation" 
-                               value="<?php echo htmlspecialchars($_POST['parent_occupation'] ?? ''); ?>" 
+                        <input type="text" id="parent_occupation" name="parent_occupation"
+                               value="<?php echo htmlspecialchars($_POST['parent_occupation'] ?? ''); ?>"
                                class="form-control">
                     </div>
-                    
+
                     <h4 style="margin-top: 20px;">Residential Address</h4>
-                    
+
                     <div class="form-group">
                         <label for="address">Street Address *</label>
                         <textarea id="address" name="address" class="form-control" rows="2" required><?php echo htmlspecialchars($_POST['address'] ?? ''); ?></textarea>
                     </div>
-                    
+
                     <div class="form-row">
                         <div class="form-group">
                             <label for="city">City *</label>
-                            <input type="text" id="city" name="city" 
-                                   value="<?php echo htmlspecialchars($_POST['city'] ?? 'Enugu'); ?>" 
+                            <input type="text" id="city" name="city"
+                                   value="<?php echo htmlspecialchars($_POST['city'] ?? 'Enugu'); ?>"
                                    class="form-control" required>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="state">State *</label>
-                            <input type="text" id="state" name="state" 
-                                   value="<?php echo htmlspecialchars($_POST['state'] ?? 'Enugu'); ?>" 
+                            <input type="text" id="state" name="state"
+                                   value="<?php echo htmlspecialchars($_POST['state'] ?? 'Enugu'); ?>"
                                    class="form-control" required>
                         </div>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="how_hear">How did you hear about us?</label>
                         <select id="how_hear" name="how_hear" class="form-control">
@@ -425,12 +375,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <option value="other" <?php echo ($_POST['how_hear'] ?? '') === 'other' ? 'selected' : ''; ?>>Other</option>
                         </select>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="reason_applying">Why are you choosing our school?</label>
                         <textarea id="reason_applying" name="reason_applying" class="form-control" rows="3"><?php echo htmlspecialchars($_POST['reason_applying'] ?? ''); ?></textarea>
                     </div>
-                    
+
                     <div class="form-navigation">
                         <button type="button" class="btn btn-outline" onclick="prevStep(2)">
                             <i class="fas fa-arrow-left"></i> Previous
@@ -440,35 +390,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </button>
                     </div>
                 </div>
-                
+
                 <!-- Step 3: Emergency Contact -->
                 <div class="form-step" id="step3">
                     <h3><i class="fas fa-phone-alt"></i> Emergency Contact</h3>
                     <p class="info-text">Please provide an emergency contact person (different from parent/guardian)</p>
-                    
+
                     <div class="form-row">
                         <div class="form-group">
                             <label for="emergency_name">Full Name *</label>
-                            <input type="text" id="emergency_name" name="emergency_name" 
-                                   value="<?php echo htmlspecialchars($_POST['emergency_name'] ?? ''); ?>" 
+                            <input type="text" id="emergency_name" name="emergency_name"
+                                   value="<?php echo htmlspecialchars($_POST['emergency_name'] ?? ''); ?>"
                                    class="form-control" required>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="emergency_phone">Phone Number *</label>
-                            <input type="tel" id="emergency_phone" name="emergency_phone" 
-                                   value="<?php echo htmlspecialchars($_POST['emergency_phone'] ?? ''); ?>" 
+                            <input type="tel" id="emergency_phone" name="emergency_phone"
+                                   value="<?php echo htmlspecialchars($_POST['emergency_phone'] ?? ''); ?>"
                                    class="form-control" placeholder="08012345678" required>
                         </div>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="emergency_relationship">Relationship to Child *</label>
-                        <input type="text" id="emergency_relationship" name="emergency_relationship" 
-                               value="<?php echo htmlspecialchars($_POST['emergency_relationship'] ?? ''); ?>" 
+                        <input type="text" id="emergency_relationship" name="emergency_relationship"
+                               value="<?php echo htmlspecialchars($_POST['emergency_relationship'] ?? ''); ?>"
                                class="form-control" placeholder="e.g., Grandparent, Aunt, Uncle" required>
                     </div>
-                    
+
                     <div class="form-navigation">
                         <button type="button" class="btn btn-outline" onclick="prevStep(3)">
                             <i class="fas fa-arrow-left"></i> Previous
@@ -478,31 +428,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </button>
                     </div>
                 </div>
-                
+
                 <!-- Step 4: Documents -->
                 <div class="form-step" id="step4">
                     <h3><i class="fas fa-file-upload"></i> Documents Upload</h3>
-                    
+
                     <div class="upload-area">
                         <div class="upload-box">
                             <i class="fas fa-file-pdf"></i>
                             <h4>Birth Certificate</h4>
                             <p>Upload a scanned copy of child's birth certificate (PDF, JPG, PNG, max 5MB)</p>
-                            <input type="file" id="birth_certificate" name="birth_certificate" 
+                            <input type="file" id="birth_certificate" name="birth_certificate"
                                    accept=".pdf,.jpg,.jpeg,.png" class="file-input">
                             <div class="file-info" id="birthCertInfo"></div>
                         </div>
-                        
+
                         <div class="upload-box">
                             <i class="fas fa-camera-retro"></i>
                             <h4>Passport Photograph</h4>
                             <p>Upload a recent passport photo of the child (JPG, PNG, max 5MB)</p>
-                            <input type="file" id="passport_photo" name="passport_photo" 
+                            <input type="file" id="passport_photo" name="passport_photo"
                                    accept=".jpg,.jpeg,.png" class="file-input">
                             <div class="file-info" id="photoInfo"></div>
                         </div>
                     </div>
-                    
+
                     <div class="terms-section">
                         <h4>Declaration</h4>
                         <div class="checkbox-group">
@@ -516,7 +466,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </label>
                         </div>
                     </div>
-                    
+
                     <div class="form-navigation">
                         <button type="button" class="btn btn-outline" onclick="prevStep(4)">
                             <i class="fas fa-arrow-left"></i> Previous
@@ -755,55 +705,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flex-direction: column;
         gap: 15px;
     }
-    
+
     .application-progress::before {
         display: none;
     }
-    
+
     .progress-step {
         display: flex;
         align-items: center;
         gap: 15px;
     }
-    
+
     .step-number {
         margin: 0;
     }
-    
+
     .application-card {
         padding: 20px;
     }
-    
+
     .upload-area {
         grid-template-columns: 1fr;
     }
-    
+
     .form-navigation {
         flex-direction: column;
         gap: 10px;
     }
-    
+
     .form-navigation button {
         width: 100%;
     }
 }
 </style>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 let currentStep = 1;
 
 function nextStep(step) {
     if (!validateStep(step)) {
         return;
     }
-    
+
     document.getElementById(`step${step}`).classList.remove('active');
     document.getElementById(`step${step + 1}`).classList.add('active');
-    
+
     // Update progress indicators
     document.querySelectorAll('.progress-step')[step].classList.add('completed');
     document.querySelectorAll('.progress-step')[step + 1].classList.add('active');
-    
+
     currentStep = step + 1;
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -811,12 +761,12 @@ function nextStep(step) {
 function prevStep(step) {
     document.getElementById(`step${step}`).classList.remove('active');
     document.getElementById(`step${step - 1}`).classList.add('active');
-    
+
     // Update progress indicators
     document.querySelectorAll('.progress-step')[step - 1].classList.remove('completed');
     document.querySelectorAll('.progress-step')[step - 1].classList.add('active');
     document.querySelectorAll('.progress-step')[step].classList.remove('active');
-    
+
     currentStep = step - 1;
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -829,12 +779,12 @@ function validateStep(step) {
             const childDob = document.getElementById('child_dob').value;
             const childGender = document.getElementById('child_gender').value;
             const classApply = document.getElementById('class_applying').value;
-            
+
             if (!childFirst || !childLast || !childDob || !childGender || !classApply) {
                 alert('Please fill in all required fields');
                 return false;
             }
-            
+
             // Validate age
             const dob = new Date(childDob);
             const today = new Date();
@@ -844,7 +794,7 @@ function validateStep(step) {
                 return false;
             }
             break;
-            
+
         case 2:
             const parentFirst = document.getElementById('parent_first_name').value;
             const parentLast = document.getElementById('parent_last_name').value;
@@ -853,40 +803,40 @@ function validateStep(step) {
             const address = document.getElementById('address').value;
             const city = document.getElementById('city').value;
             const state = document.getElementById('state').value;
-            
+
             if (!parentFirst || !parentLast || !parentEmail || !parentPhone || !address || !city || !state) {
                 alert('Please fill in all required fields');
                 return false;
             }
-            
+
             if (!isValidEmail(parentEmail)) {
                 alert('Please enter a valid email address');
                 return false;
             }
-            
+
             if (!isValidPhone(parentPhone)) {
                 alert('Please enter a valid Nigerian phone number (e.g., 08012345678)');
                 return false;
             }
             break;
-            
+
         case 3:
             const emergName = document.getElementById('emergency_name').value;
             const emergPhone = document.getElementById('emergency_phone').value;
             const emergRelation = document.getElementById('emergency_relationship').value;
-            
+
             if (!emergName || !emergPhone || !emergRelation) {
                 alert('Please fill in all emergency contact fields');
                 return false;
             }
-            
+
             if (!isValidPhone(emergPhone)) {
                 alert('Please enter a valid Nigerian phone number for emergency contact');
                 return false;
             }
             break;
     }
-    
+
     return true;
 }
 
@@ -921,11 +871,11 @@ document.getElementById('child_dob')?.addEventListener('change', function() {
     const today = new Date();
     const age = today.getFullYear() - dob.getFullYear();
     const monthDiff = today.getMonth() - dob.getMonth();
-    
+
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
         age--;
     }
-    
+
     if (age < 2) {
         alert('Child is too young for admission. Minimum age is 2 years.');
     } else if (age > 7) {

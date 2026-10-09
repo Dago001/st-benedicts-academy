@@ -10,11 +10,11 @@ if (session_status() === PHP_SESSION_NONE) {
 
 // Redirect to dashboard if logged in as admin
 if (isset($_SESSION['user_id']) && isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin') {
-    header('Location: dashboard.php');
+    header('Location: dashboard');
     exit;
 }
 
 // Otherwise redirect to main login
-header('Location: ' . BASE_URL . '/login.php');
+header('Location: ' . BASE_URL . '/login');
 exit;
 ?>

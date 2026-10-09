@@ -1,56 +1,25 @@
 <?php
 // api/update-subject-assignment.php
-header('Content-Type: application/json');
-require_once '../config/config.php';
-require_once '../config/database.php';
-require_once '../config/security.php';
+require_once __DIR__ . '/../includes/api.php';
 
-Security::requireRole('admin');
+$input = api_init(['POST'], 'admin');
+$subjectId = api_int($input['subject_id'] ?? null);
+$teacherId = api_int($input['teacher_id'] ?? null);
+$action = $input['action'] ?? '';
+if (!$subjectId || !$teacherId || !in_array($action, ['assign', 'unassign'], true)) api_error('Invalid parameters');
 
-$response = ['success' => false];
+$db = db();
+if (!$db->getRow('SELECT id FROM subjects WHERE id = ?', [$subjectId])) api_error('Subject not found', 404);
+if (!$db->getRow('SELECT id FROM teachers WHERE id = ?', [$teacherId])) api_error('Teacher not found', 404);
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $input = json_decode(file_get_contents('php://input'), true);
-    
-    if (!Security::verifyCSRFToken($input['csrf_token'] ?? '')) {
-        $response['message'] = 'Invalid security token';
-        echo json_encode($response);
-        exit;
+try {
+    if ($action === 'assign') {
+        $db->query('UPDATE subjects SET teacher_id = ? WHERE id = ?', [$teacherId, $subjectId]);
+    } else {
+        $db->query('UPDATE subjects SET teacher_id = NULL WHERE id = ? AND teacher_id = ?', [$subjectId, $teacherId]);
     }
-    
-    $subjectId = Security::sanitize($input['subject_id'] ?? '');
-    $teacherId = Security::sanitize($input['teacher_id'] ?? '');
-    $action = $input['action'] ?? '';
-    
-    if (!$subjectId || !$teacherId || !in_array($action, ['assign', 'unassign'])) {
-        $response['message'] = 'Invalid parameters';
-        echo json_encode($response);
-        exit;
-    }
-    
-    $db = db();
-    
-    try {
-        if ($action === 'assign') {
-            $db->query(
-                "UPDATE subjects SET teacher_id = ? WHERE id = ?",
-                [$teacherId, $subjectId]
-            );
-        } else {
-            $db->query(
-                "UPDATE subjects SET teacher_id = NULL WHERE id = ? AND teacher_id = ?",
-                [$subjectId, $teacherId]
-            );
-        }
-        
-        Security::logAudit('UPDATED_SUBJECT_ASSIGNMENT', 'subjects', $subjectId);
-        
-        $response['success'] = true;
-        
-    } catch (Exception $e) {
-        $response['message'] = 'Database error: ' . $e->getMessage();
-    }
+    Security::logAudit('UPDATED_SUBJECT_ASSIGNMENT', 'subjects', $subjectId);
+    api_ok();
+} catch (Throwable $e) {
+    api_exception($e);
 }
-
-echo json_encode($response);
-?>
