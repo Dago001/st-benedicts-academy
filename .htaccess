@@ -25,7 +25,7 @@ DirectoryIndex index.php
     RewriteRule ^(.+?)/?$ $1.php [L,QSA]
 
     # Never serve internals directly
-    RewriteRule ^(config|includes|sql|scripts|tests|logs|backups)(/|$) - [F,L]
+    RewriteRule ^(config|includes|sql|scripts|tests|logs|backups|storage|docs|\.github)(/|$) - [F,L]
 </IfModule>
 
 <IfModule mod_headers.c>

@@ -42,6 +42,7 @@ $fees = $db->getRow(
 dashboard_open('admin', $st['first_name'] . ' ' . $st['last_name'],
     '<a href="students?action=edit&id=' . $id . '" class="btn btn-primary"><i class="fas fa-edit"></i> Edit</a>'
     . '<a href="generate-login?id=' . $id . '" class="btn btn-outline"><i class="fas fa-key"></i> Reset Login</a>'
+    . '<a href="student-data?id=' . $id . '" class="btn btn-outline"><i class="fas fa-user-shield"></i> Data request</a>'
     . '<a href="students" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Back</a>');
 ?>
 <div class="stats-grid">

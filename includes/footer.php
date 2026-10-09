@@ -47,7 +47,7 @@
 
                 <div class="footer-bottom">
                     <p>&copy; <?php echo date('Y'); ?> <?php echo SCHOOL_NAME; ?>. All rights reserved.
-                       <br class="mobile-only"></p>
+                       <br class="mobile-only"> <a href="<?php echo BASE_URL; ?>/public/privacy">Privacy Notice</a></p>
                 </div>
             </div>
         </footer>

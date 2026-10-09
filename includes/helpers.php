@@ -129,14 +129,9 @@ if (!function_exists('paginate')) {
 
 if (!function_exists('sendEmail')) {
     function sendEmail($to, $subject, $message) {
-        // Reject header injection attempts
-        if (preg_match('/[\r\n]/', $to . $subject) || !filter_var($to, FILTER_VALIDATE_EMAIL)) {
-            return false;
-        }
-        $headers = "MIME-Version: 1.0\r\nContent-type:text/html;charset=UTF-8\r\n";
-        $headers .= 'From: ' . SCHOOL_NAME . ' <' . SCHOOL_EMAIL . ">\r\n";
-        return @mail($to, $subject, $message, $headers);
-    }
+        require_once __DIR__ . '/mailer.php';
+        return Mailer::send($to, $subject, $message);
+}
 }
 
 if (!function_exists('letterGrade')) {

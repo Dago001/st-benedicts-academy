@@ -19,6 +19,8 @@ CREATE TABLE users (
     last_login DATETIME,
     login_attempts INT DEFAULT 0,
     locked_until DATETIME,
+    totp_secret VARCHAR(64) NULL,
+    totp_enabled TINYINT(1) NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP NULL,
@@ -324,6 +326,14 @@ CREATE TABLE chatbot_logs (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_chat_ip (ip_hash, created_at),
     INDEX idx_chat_matched (matched, created_at)
+);
+
+-- Failed-login log used for per-IP throttling (IP stored as a salted hash)
+CREATE TABLE login_throttle (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    ip_hash CHAR(64) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_throttle (ip_hash, created_at)
 );
 
 -- Gallery table

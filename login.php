@@ -11,20 +11,30 @@ if (Security::isLoggedIn()) {
 }
 
 $error = '';
+if (isset($_GET['restart'])) { unset($_SESSION['pending_2fa']); }
 $notice = isset($_GET['reset']) ? 'Your password has been reset. Please sign in.' : '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!Security::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
         $error = 'Invalid security token. Please refresh the page and try again.';
     } else {
-        $result = (new Auth())->login(Security::sanitize($_POST['email'] ?? ''), $_POST['password'] ?? '');
+        $auth = new Auth();
+        if (isset($_POST['otp'])) {
+            $result = $auth->completeTwoFactor($_POST['otp']);
+        } else {
+            unset($_SESSION['pending_2fa']);
+            $result = $auth->login(Security::sanitize($_POST['email'] ?? ''), $_POST['password'] ?? '');
+        }
         if ($result['success']) {
             header('Location: ' . $result['redirect']);
             exit;
         }
-        $error = $result['message'];
+        // needs_2fa is a prompt, not an error
+        $error = !empty($result['needs_2fa']) && !isset($_POST['otp']) ? '' : $result['message'];
     }
 }
+
+$pending2fa = !empty($_SESSION['pending_2fa']) && $_SESSION['pending_2fa']['expires'] >= time();
 
 // Generate new CSRF token for the form
 $csrf_token = Security::generateCSRFToken();
@@ -279,6 +289,18 @@ $csrf_token = Security::generateCSRFToken();
             </div>
             <?php endif; ?>
 
+            <?php if ($pending2fa): ?>
+            <form method="POST" action="" class="login-form" id="otpForm">
+                <input type="hidden" name="csrf_token" value="<?php echo e($csrf_token); ?>">
+                <p style="margin-bottom:14px;color:#555;font-size:.95rem">Two-step verification: enter the 6-digit code from your authenticator app.</p>
+                <div class="form-group">
+                    <label for="otp"><i class="fas fa-shield-alt"></i> Authentication code</label>
+                    <input type="text" id="otp" name="otp" inputmode="numeric" pattern="[0-9 ]*" maxlength="7" autocomplete="one-time-code" placeholder="123456" required autofocus>
+                </div>
+                <div class="form-group"><button type="submit" class="btn btn-primary"><i class="fas fa-check"></i> Verify</button></div>
+                <div class="login-footer"><a href="<?php echo BASE_URL; ?>/login?restart=1"><i class="fas fa-arrow-left"></i> Start over</a></div>
+            </form>
+            <?php else: ?>
             <form method="POST" action="" class="login-form" id="loginForm">
                 <input type="hidden" name="csrf_token" value="<?php echo e($csrf_token); ?>">
 
@@ -323,6 +345,7 @@ $csrf_token = Security::generateCSRFToken();
                     </a>
                 </div>
             </form>
+            <?php endif; ?>
         </div>
     </div>
 

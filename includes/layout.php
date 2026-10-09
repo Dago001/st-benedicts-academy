@@ -22,6 +22,7 @@ if (!function_exists('nav_items')) {
                 ['chatbot', 'Chatbot', 'fa-robot'],
                 ['reports', 'Reports', 'fa-file-alt'],
                 ['audit-logs', 'Audit Logs', 'fa-history'],
+                ['profile', 'Profile', 'fa-user-cog'],
             ],
             'teacher' => [
                 ['dashboard', 'Dashboard', 'fa-home'],

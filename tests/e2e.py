@@ -461,6 +461,71 @@ if len(tok) == 64:
     st, body, _ = c.get(f'reset-password?token={tok}'); check('reset token is single use', 'invalid or has expired' in body)
 sql("UPDATE users SET password_hash=(SELECT password_hash FROM (SELECT password_hash FROM users WHERE email='student@test.com') x) WHERE email='student2@test.com'")
 
+section('Two-step verification, throttling, privacy, health')
+import hmac, hashlib, base64, struct as _st, time as _t
+def totp(secret, at=None):
+    key = base64.b32decode(secret.upper() + '=' * (-len(secret) % 8))
+    h = hmac.new(key, _st.pack('>Q', int((at or _t.time()) // 30)), hashlib.sha1).digest()
+    o = h[19] & 15
+    return '%06d' % ((int.from_bytes(h[o:o+4], 'big') & 0x7fffffff) % 1000000)
+
+tc = Client(); tc.login('teacher@test.com')
+st, body, _ = tc.get('teacher/profile'); check('profile shows 2FA section', 'Two-step verification' in body)
+tc.post('teacher/profile', {'csrf_token': tc.page_token('teacher/profile'), 'action': '2fa_start'})
+st, body, _ = tc.get('teacher/profile')
+m = re.search(r'<code[^>]*>([A-Z2-7 ]+)</code>', body)
+secret = m.group(1).replace(' ', '') if m else ''
+check('2FA setup shows a key', len(secret) == 32)
+st, body, _ = tc.post('teacher/profile', {'csrf_token': tc.page_token('teacher/profile'), 'action': '2fa_enable', 'code': '000000'})
+check('2FA rejects wrong code', sql("SELECT totp_enabled FROM users WHERE email='teacher@test.com'") == '0')
+tc.post('teacher/profile', {'csrf_token': tc.page_token('teacher/profile'), 'action': '2fa_enable', 'code': totp(secret)})
+check('2FA enabled with valid code', sql("SELECT totp_enabled FROM users WHERE email='teacher@test.com'") == '1')
+
+c2 = Client()
+st, _, h = c2.login('teacher@test.com')
+check('password alone no longer logs in', st == 200)
+st, body, _ = c2.get('teacher/dashboard'); check('dashboard blocked before 2FA step', st == 302)
+st, body, _ = c2.get('login'); check('login shows code prompt', 'name="otp"' in body)
+st, body, h = c2.post('login', {'csrf_token': c2.page_token('login'), 'otp': '123456'})
+check('wrong 2FA code rejected', st == 200 and 'not correct' in body)
+st, body, h = c2.post('login', {'csrf_token': c2.page_token('login'), 'otp': totp(secret)})
+check('correct 2FA code signs in', st == 302 and 'teacher/dashboard' in h.get('Location', ''))
+st, body, _ = c2.get('teacher/dashboard'); check('dashboard open after 2FA', st == 200)
+
+c3 = Client(); c3.login('teacher@test.com')
+for i in range(5):
+    c3.post('login', {'csrf_token': c3.page_token('login'), 'otp': '000000'})
+st, body, _ = c3.post('login', {'csrf_token': c3.page_token('login'), 'otp': totp(secret)})
+check('2FA attempts capped (pending login cancelled)', st == 200 and 'expired' in body.lower() or 'sign in again' in body.lower())
+
+tc.post('teacher/profile', {'csrf_token': tc.page_token('teacher/profile'), 'action': '2fa_disable', 'current_password': PW})
+check('2FA can be disabled with password', sql("SELECT totp_enabled FROM users WHERE email='teacher@test.com'") == '0')
+sql("DELETE FROM login_throttle")
+
+st, body, _ = admin.get('admin/profile'); check('admin profile page works', st == 200 and 'Two-step verification' in body)
+st, body, h = Client().get('public/privacy'); check('privacy notice public', st == 200 and 'Privacy Notice' in body)
+st, body, h = Client().get('health'); check('health endpoint ok', st == 200 and '"status":"ok"' in body.replace(' ', ''))
+st, body, h = Client().get(''); csp = h.get('Content-Security-Policy', '')
+check('CSP header present, no unsafe-eval, no external script hosts', "script-src 'self' 'nonce-" in csp and 'unsafe-eval' not in csp and 'cdn' not in csp)
+check('inline scripts carry the nonce', all('nonce=' in x for x in re.findall(r'<script(?![^>]*\bsrc=)[^>]*>', body)))
+
+sid = sql("SELECT id FROM students ORDER BY id LIMIT 1")
+st, body, h = admin.get(f'admin/student-data?id={sid}&download=1')
+check('student data export is JSON', st == 200 and 'json' in h.get('Content-Type', '') and '"results"' in body and 'password_hash' not in body)
+adm = sql(f"SELECT admission_number FROM students WHERE id={sid}")
+st, body, h = admin.post('admin/student-data', {'csrf_token': admin.page_token(f'admin/student-data?id={sid}'), 'id': sid, 'confirm': 'WRONG'})
+check('erase needs exact admission number', sql(f"SELECT u.first_name FROM students s JOIN users u ON u.id=s.user_id WHERE s.id={sid}") != 'Erased')
+
+# per-IP throttle: many failures across different accounts block this client
+bad = Client()
+for i in range(21):
+    bad.post('login', {'csrf_token': bad.page_token('login'), 'email': f'nobody{i}@test.com', 'password': 'wrong'})
+st, body, _ = bad.post('login', {'csrf_token': bad.page_token('login'), 'email': 'admin@stbenedicts.edu.ng', 'password': PW})
+check('per-IP throttle blocks even valid credentials', st == 200 and 'Too many failed' in body)
+sql("DELETE FROM login_throttle")
+st, _, h = Client().login('admin@stbenedicts.edu.ng'); check('login works again after throttle clears', st == 302)
+
+
 section('Misc')
 st, body, hh = Client().get('config/config', follow=True); check('config dir not served', st in (403, 404) or body.strip() == '')
 st, body, hh = Client().get('sql/database.sql'); check('sql dump not served by PHP server? (needs .htaccess on Apache)', True)

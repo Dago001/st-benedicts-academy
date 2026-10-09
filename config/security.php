@@ -163,7 +163,35 @@ class Security {
         return true;
     }
 
+    // Per-IP throttle: stops one client from guessing across many accounts
+    const IP_MAX_FAILURES = 20;
+    const IP_WINDOW_SECONDS = 900;
+
+    public static function ipHash() {
+        return hash('sha256', ($_SERVER['REMOTE_ADDR'] ?? '') . '|' . (getenv('APP_KEY') ?: ROOT_PATH));
+    }
+
+    public static function ipThrottled() {
+        try {
+            $row = self::getDB()->getRow(
+                'SELECT COUNT(*) AS c FROM login_throttle WHERE ip_hash = ? AND created_at > DATE_SUB(NOW(), INTERVAL ? SECOND)',
+                [self::ipHash(), self::IP_WINDOW_SECONDS]
+            );
+            $n = (int)($row['c'] ?? 0);
+            return $n >= self::IP_MAX_FAILURES;
+        } catch (Throwable $e) {
+            return false; // table missing before migration: fail open, account lockout still applies
+        }
+    }
+
+    public static function logIpFailure() {
+        try {
+            self::getDB()->query('INSERT INTO login_throttle (ip_hash) VALUES (?)', [self::ipHash()]);
+        } catch (Throwable $e) { /* see ipThrottled() */ }
+    }
+
     public static function logFailedAttempt($email) {
+        self::logIpFailure();
         self::getDB()->query('UPDATE users SET login_attempts = login_attempts + 1 WHERE email = ?', [$email]);
     }
 

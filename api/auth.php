@@ -24,6 +24,19 @@ switch ($action) {
             api_error('Invalid security token', 419);
         }
         $result = (new Auth())->login(Security::sanitize($input['email'] ?? ''), (string)($input['password'] ?? ''));
+        if (!empty($result['needs_2fa'])) {
+            api_ok(['needs_2fa' => true, 'message' => $result['message'], 'csrf_token' => Security::generateCSRFToken()]);
+        }
+        if (!$result['success']) {
+            api_error($result['message'], 401);
+        }
+        api_ok(['role' => $result['role'], 'redirect' => $result['redirect'], 'csrf_token' => Security::generateCSRFToken()]);
+
+    case 'verify_2fa':
+        if (!Security::verifyCSRFToken($input[CSRF_TOKEN_NAME] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''))) {
+            api_error('Invalid security token', 419);
+        }
+        $result = (new Auth())->completeTwoFactor((string)($input['code'] ?? ''));
         if (!$result['success']) {
             api_error($result['message'], 401);
         }

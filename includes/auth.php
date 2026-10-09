@@ -2,6 +2,7 @@
 // includes/auth.php - Authentication (single login path for web form and API)
 
 require_once __DIR__ . '/../config/security.php';
+require_once __DIR__ . '/totp.php';
 
 class Auth {
     private $db;
@@ -22,12 +23,15 @@ class Auth {
             return ['success' => false, 'message' => 'Please enter both email and password'];
         }
 
+        if (Security::ipThrottled()) {
+            return ['success' => false, 'message' => 'Too many failed sign-in attempts from your network. Please try again in 15 minutes.'];
+        }
         if (!Security::checkLoginAttempts($email)) {
             return ['success' => false, 'message' => 'Account temporarily locked. Please try again after 15 minutes.'];
         }
 
         $user = $this->db->getRow(
-            'SELECT id, username, email, password_hash, first_name, last_name, role, is_active
+            'SELECT id, username, email, password_hash, first_name, last_name, role, is_active, totp_enabled, totp_secret
              FROM users WHERE email = ? AND deleted_at IS NULL',
             [$email]
         );
@@ -49,7 +53,51 @@ class Auth {
             $this->db->query('UPDATE users SET password_hash = ? WHERE id = ?', [Security::hashPassword($password), $user['id']]);
         }
 
-        $redirect = $_SESSION['redirect_after_login'] ?? null;
+        if (!empty($user['totp_enabled']) && !empty($user['totp_secret'])) {
+            // Password is right; hold the session until the authenticator code is verified
+            $redirect = $_SESSION['redirect_after_login'] ?? null;
+            $_SESSION = ['pending_2fa' => ['user_id' => (int)$user['id'], 'expires' => time() + 300, 'tries' => 0, 'redirect' => $redirect]];
+            session_regenerate_id(true);
+            Security::generateCSRFToken();
+            return ['success' => false, 'needs_2fa' => true, 'message' => 'Enter the 6-digit code from your authenticator app.'];
+        }
+
+        return $this->startSession($user);
+    }
+
+    /** Second step of a 2FA login. */
+    public function completeTwoFactor($code) {
+        $p = $_SESSION['pending_2fa'] ?? null;
+        if (!$p || $p['expires'] < time()) {
+            unset($_SESSION['pending_2fa']);
+            return ['success' => false, 'expired' => true, 'message' => 'Your sign-in session expired. Please sign in again.'];
+        }
+        if (Security::ipThrottled()) {
+            return ['success' => false, 'needs_2fa' => true, 'message' => 'Too many failed attempts. Please try again later.'];
+        }
+        $user = $this->db->getRow(
+            'SELECT id, username, email, first_name, last_name, role, is_active, totp_enabled, totp_secret
+             FROM users WHERE id = ? AND deleted_at IS NULL', [$p['user_id']]);
+        if (!$user || !$user['is_active'] || empty($user['totp_secret'])) {
+            unset($_SESSION['pending_2fa']);
+            return ['success' => false, 'expired' => true, 'message' => 'Sign-in failed. Please try again.'];
+        }
+        if (!Totp::verify($user['totp_secret'], $code)) {
+            Security::logIpFailure();
+            $_SESSION['pending_2fa']['tries']++;
+            if ($_SESSION['pending_2fa']['tries'] >= 5) {
+                unset($_SESSION['pending_2fa']);
+                return ['success' => false, 'expired' => true, 'message' => 'Too many incorrect codes. Please sign in again.'];
+            }
+            Security::logAudit('LOGIN_2FA_FAILED', 'users', $user['id']);
+            return ['success' => false, 'needs_2fa' => true, 'message' => 'That code is not correct. Please try again.'];
+        }
+        $_SESSION['redirect_after_login'] = $p['redirect'];
+        return $this->startSession($user);
+    }
+
+    private function startSession($user) {
+        $redirect = $_SESSION['redirect_after_login'] ?? ($_SESSION['pending_2fa']['redirect'] ?? null);
         $_SESSION = [];
         session_regenerate_id(true);
         $_SESSION['user_id'] = (int)$user['id'];

@@ -35,6 +35,8 @@ $columns = [
     ['payments', 'approved_by', 'ALTER TABLE payments ADD COLUMN approved_by INT NULL'],
     ['payments', 'approved_at', 'ALTER TABLE payments ADD COLUMN approved_at DATETIME NULL'],
     ['gallery', 'is_featured', 'ALTER TABLE gallery ADD COLUMN is_featured TINYINT(1) NOT NULL DEFAULT 0'],
+    ['users', 'totp_secret', 'ALTER TABLE users ADD COLUMN totp_secret VARCHAR(64) NULL'],
+    ['users', 'totp_enabled', 'ALTER TABLE users ADD COLUMN totp_enabled TINYINT(1) NOT NULL DEFAULT 0'],
     ['admissions', 'middle_name', 'ALTER TABLE admissions ADD COLUMN middle_name VARCHAR(50) NULL AFTER first_name'],
 ];
 foreach ($columns as [$t, $c, $sql]) {
@@ -89,6 +91,9 @@ $tables = [
     id INT PRIMARY KEY AUTO_INCREMENT, ip_hash CHAR(64) NOT NULL, question VARCHAR(300) NOT NULL, intent VARCHAR(40),
     matched TINYINT(1) NOT NULL DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_chat_ip (ip_hash, created_at), INDEX idx_chat_matched (matched, created_at)) ENGINE=InnoDB",
+'login_throttle' => "CREATE TABLE login_throttle (
+    id INT PRIMARY KEY AUTO_INCREMENT, ip_hash CHAR(64) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_throttle (ip_hash, created_at)) ENGINE=InnoDB",
 ];
 foreach ($tables as $name => $sql) {
     if (!has_table($pdo, $db, $name)) run($pdo, $dry, "create table $name", $sql);
