@@ -499,7 +499,7 @@ $classes = $db->getRows(
 }
 </style>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 function confirmDelete(id, name) {
     document.getElementById('deleteId').value = id;
     document.getElementById('className').textContent = name;

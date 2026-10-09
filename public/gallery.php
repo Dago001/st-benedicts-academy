@@ -950,10 +950,10 @@ if (empty($categories)) {
 </section>
 
 <!-- Fancybox CSS and JS -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.css">
-<script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.umd.js"></script>
+<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/vendor/fancybox/fancybox.css">
+<script src="<?php echo BASE_URL; ?>/assets/vendor/fancybox/fancybox.umd.js"></script>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 // Initialize Fancybox
 document.addEventListener('DOMContentLoaded', function() {
     Fancybox.bind('[data-fancybox="gallery"]', {

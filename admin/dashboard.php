@@ -368,7 +368,7 @@ if (!function_exists('timeAgo')) {
     </main>
 </div>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 // Attendance Chart
 <?php if (!empty($attendanceData)): ?>
 const attendanceCtx = document.getElementById('attendanceChart')?.getContext('2d');

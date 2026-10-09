@@ -1137,7 +1137,7 @@ function getPaymentStatus($paid, $total) {
     <input type="hidden" name="status" id="status_value">
 </form>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 <?php if (!empty($monthlyCollection)): ?>
 // Monthly Collection Chart
 const monthlyCtx = document.getElementById('monthlyChart')?.getContext('2d');

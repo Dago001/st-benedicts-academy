@@ -1170,7 +1170,7 @@ define('ANNOUNCEMENT_UPLOAD_PATH', BASE_URL . '/uploads/announcements/');
     </div>
 </div>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 // Store announcements data for modal viewing
 const announcements = <?php echo json_encode(array_values($announcements), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 const uploadPath = '<?php echo ANNOUNCEMENT_UPLOAD_PATH; ?>';

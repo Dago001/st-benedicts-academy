@@ -984,7 +984,7 @@ if (empty($classes)) {
     </div>
 </section>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('admissionForm');
     const submitBtn = document.getElementById('submitBtn');

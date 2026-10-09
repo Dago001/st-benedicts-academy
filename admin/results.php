@@ -869,7 +869,7 @@ function getGradeClass($grade) {
             </div>
         </div>
 
-        <script>
+        <script nonce="<?php echo CSP_NONCE; ?>">
         function updateStudentsAndSubjects() {
             const classId = document.getElementById('class_id').value;
             if (classId) {
@@ -1176,7 +1176,7 @@ function getGradeClass($grade) {
     </div>
 </div>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 // Select All functionality
 document.getElementById('selectAll')?.addEventListener('change', function(e) {
     const checkboxes = document.querySelectorAll('.select-item');

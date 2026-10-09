@@ -898,7 +898,7 @@ $students = $db->getRows(
 }
 </style>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 function confirmDeactivate(id, name) {
     document.getElementById('deactivateId').value = id;
     document.getElementById('studentName').textContent = name;

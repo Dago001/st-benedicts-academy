@@ -739,7 +739,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 </style>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 let currentStep = 1;
 
 function nextStep(step) {

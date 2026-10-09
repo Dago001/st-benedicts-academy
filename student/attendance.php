@@ -798,7 +798,7 @@ for ($m = 1; $m <= 12; $m++) {
     </main>
 </div>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 <?php if (!empty($monthlyStats) && count($monthlyStats) > 1): ?>
 document.addEventListener('DOMContentLoaded', function() {
     const ctx = document.getElementById('attendanceChart').getContext('2d');

@@ -761,7 +761,7 @@ $announcements = $db->getRows(
             </div>
         </div>
 
-        <script>
+        <script nonce="<?php echo CSP_NONCE; ?>">
         // Initialize CKEditor
         CKEDITOR.replace('content', {
             height: 300,
@@ -986,7 +986,7 @@ $announcements = $db->getRows(
     <input type="hidden" name="ids" id="bulkIds">
 </form>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 let selectedItems = [];
 
 // Search functionality

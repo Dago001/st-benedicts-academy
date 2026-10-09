@@ -539,7 +539,7 @@ $categories = $db->getRows("SELECT DISTINCT category FROM gallery ORDER BY categ
 }
 </style>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 let selectedImages = [];
 
 function showUploadModal() {

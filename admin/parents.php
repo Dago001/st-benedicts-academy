@@ -1122,7 +1122,7 @@ textarea.form-control {
     <input type="hidden" name="id" id="activateId">
 </form>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 let selectedItems = [];
 
 // Search functionality

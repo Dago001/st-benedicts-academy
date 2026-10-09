@@ -1492,7 +1492,7 @@ if (!file_exists(__DIR__ . '/assets/images/welcome-image.jpg')) {
 ?>
 
 <!-- MVG Slideshow JavaScript -->
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 document.addEventListener('DOMContentLoaded', function() {
     // MVG Slideshow
     const mvgSlides = document.querySelectorAll('.mvg-slide');

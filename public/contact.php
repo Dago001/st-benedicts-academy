@@ -1030,7 +1030,7 @@ $businessHours = SCHOOL_HOURS;
     </div>
 </section>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 function toggleFAQ(element) {
     const faqItem = element.closest('.faq-item');
     faqItem.classList.toggle('active');

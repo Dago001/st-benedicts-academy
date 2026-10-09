@@ -428,7 +428,7 @@ if ($selectedClass) {
 }
 </style>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 // Search functionality
 document.getElementById('searchStudent')?.addEventListener('keyup', function() {
     const searchTerm = this.value.toLowerCase();

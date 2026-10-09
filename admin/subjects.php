@@ -1097,7 +1097,7 @@ if (!function_exists('generateSubjectCode')) {
     </div>
 </div>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 let selectedSubjects = [];
 
 // Auto-generate subject code

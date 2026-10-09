@@ -1032,7 +1032,7 @@ if ($db) {
     </div>
 </section>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 function subscribeNewsletter(event) {
     event.preventDefault();
 

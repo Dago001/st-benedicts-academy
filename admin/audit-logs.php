@@ -264,7 +264,7 @@ $users = $db->getRows(
     <?php echo csrf_field(); ?>
     <input type="hidden" name="action" value="clear_old">
 </form>
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 function viewDetails(logId) {
     fetch(`${BASE_URL}/api/get-audit-log?id=${encodeURIComponent(logId)}`, {credentials: 'same-origin'})
         .then(response => response.json())

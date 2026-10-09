@@ -782,7 +782,7 @@ if (!function_exists('generateEmployeeId')) {
 }
 </style>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 function confirmDeactivate(id, name) {
     document.getElementById('deactivateId').value = id;
     document.getElementById('teacherName').textContent = name;

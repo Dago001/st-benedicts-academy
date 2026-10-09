@@ -1000,7 +1000,7 @@ $announcements = $db->getRows(
     </main>
 </div>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 // Auto-refresh for new data (every 60 seconds)
 setTimeout(function() {
     location.reload();

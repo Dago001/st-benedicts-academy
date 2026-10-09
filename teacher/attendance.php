@@ -110,7 +110,7 @@ render_alert($message, $messageType);
         </form>
     </div>
 </div>
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 document.getElementById('markAllPresent').addEventListener('click', function () {
     document.querySelectorAll('.attendance-status').forEach(function (s) { s.value = 'present'; });
 });

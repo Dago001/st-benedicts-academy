@@ -552,7 +552,7 @@ $pendingGrading = $db->getRows(
 }
 </style>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 function showAssignmentModal() {
     document.getElementById('modalTitle').textContent = 'Create New Assignment';
     document.getElementById('formAction').value = 'add_assignment';

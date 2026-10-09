@@ -1080,7 +1080,7 @@ function getStatusBadge($paid, $total) {
     </main>
 </div>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 <?php if (!empty($monthlyPayments) && count($monthlyPayments) > 1): ?>
 document.addEventListener('DOMContentLoaded', function() {
     const ctx = document.getElementById('paymentChart').getContext('2d');

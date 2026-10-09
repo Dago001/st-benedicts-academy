@@ -83,8 +83,29 @@ if (isset($_SESSION['user_id'])) {
     $_SESSION['last_activity'] = time();
 }
 
+// Per-request nonce for inline <script> blocks (see Content-Security-Policy below)
+define('CSP_NONCE', rtrim(strtr(base64_encode(random_bytes(16)), '+/', '-_'), '='));
+
 // Security headers
 if (!headers_sent()) {
+    $csp = ["default-src 'self'",
+            // Inline <script> blocks need the nonce; injected scripts and external hosts are blocked.
+            // script-src-attr keeps the legacy onclick="..." handlers working until they are migrated.
+            "script-src 'self' 'nonce-" . CSP_NONCE . "'",
+            "script-src-attr 'unsafe-inline'",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data: blob:",
+            "font-src 'self' data:",
+            "connect-src 'self'",
+            "media-src 'self'",
+            "object-src 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
+            "frame-ancestors 'self'"];
+    if (is_https()) $csp[] = 'upgrade-insecure-requests';
+    header('Content-Security-Policy: ' . implode('; ', $csp));
+    header('Cross-Origin-Opener-Policy: same-origin');
+    header('X-Permitted-Cross-Domain-Policies: none');
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: SAMEORIGIN');
     header('Referrer-Policy: strict-origin-when-cross-origin');

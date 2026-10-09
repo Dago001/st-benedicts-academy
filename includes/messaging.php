@@ -220,7 +220,7 @@ function render_messages_page($role) {
             </form>
         </div>
     </div>
-    <script>
+    <script nonce="<?php echo CSP_NONCE; ?>">
     function showComposeModal() { document.getElementById('composeModal').style.display = 'block'; }
     function closeCompose() { document.getElementById('composeModal').style.display = 'none'; }
     document.addEventListener('DOMContentLoaded', function () {

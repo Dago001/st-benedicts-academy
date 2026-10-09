@@ -981,7 +981,7 @@ $submissions = $db->getRows(
     </div>
 </div>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 // Global functions for modal handling
 function showSubmitModal(id, title) {
     document.getElementById('assignment_id').value = id;

@@ -401,7 +401,7 @@ if ($monthlySummary && $monthlySummary['school_days'] > 0) {
     </main>
 </div>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 <?php if (!empty($monthlyStats)): ?>
 // Attendance Chart
 const ctx = document.getElementById('attendanceChart').getContext('2d');

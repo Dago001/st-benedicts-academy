@@ -2,9 +2,9 @@
 // includes/header.php
 // Expects config/config.php + config/security.php to be loaded by the page.
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
-$assetVersion = '6';
+$assetVersion = '7';
 
-/** <link>/<script> only for assets that actually exist, so a missing file never causes a 404. */
+/** <link>/<script nonce="<?php echo CSP_NONCE; ?>"> only for assets that actually exist, so a missing file never causes a 404. */
 if (!function_exists('asset_exists')) {
     function asset_exists($type, $file) {
         $file = basename($file);
@@ -37,21 +37,20 @@ $dashboardUrl = $isLoggedIn ? BASE_URL . '/' . $_SESSION['user_role'] . '/dashbo
     <link rel="icon" type="image/png" sizes="16x16" href="<?php echo BASE_URL; ?>/assets/images/favicon-16x16.png">
     <link rel="manifest" href="<?php echo BASE_URL; ?>/assets/images/site.webmanifest">
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="preload" href="<?php echo BASE_URL; ?>/assets/vendor/fonts/inter-400-4516.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/fonts.css?v=<?php echo $assetVersion; ?>">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/vendor/fontawesome/all.min.css?v=1">
 
-    <script>
+    <script nonce="<?php echo CSP_NONCE; ?>">
         window.BASE_URL = <?php echo json_encode(BASE_URL, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         window.CSRF_TOKEN = <?php echo json_encode(Security::generateCSRFToken(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
     </script>
 
     <?php if ($isLoggedIn): ?>
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/vendor/datatables/jquery.dataTables.min.css?v=1">
+    <script src="<?php echo BASE_URL; ?>/assets/vendor/chartjs/chart.umd.min.js?v=1"></script>
+    <script src="<?php echo BASE_URL; ?>/assets/vendor/jquery/jquery-3.6.0.min.js"></script>
+    <script src="<?php echo BASE_URL; ?>/assets/vendor/datatables/jquery.dataTables.min.js?v=1"></script>
     <?php endif; ?>
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css?v=<?php echo $assetVersion; ?>">
     <?php foreach (($extraCSS ?? []) as $css): if (asset_exists('css', $css)): ?>

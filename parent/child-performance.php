@@ -373,7 +373,7 @@ if ($selectedChildId) {
 </div>
 
 <!-- Charts Script -->
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 <?php if (!empty($results)): ?>
 // Performance Chart
 const ctx1 = document.getElementById('performanceChart').getContext('2d');

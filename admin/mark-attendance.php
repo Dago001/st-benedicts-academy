@@ -569,7 +569,7 @@ $todayStats = $db->getRow(
 }
 </style>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 // Set all status selects to a specific value
 function setAllStatus(status) {
     const selects = document.querySelectorAll('.status-select');

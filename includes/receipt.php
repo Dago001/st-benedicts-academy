@@ -33,7 +33,7 @@ table{width:100%;border-collapse:collapse}td{padding:9px 4px;border-bottom:1px s
 <?php if (!$p): ?>
 <div class="receipt"><h1>Receipt not found</h1><p class="sub">This receipt does not exist or you do not have access to it.</p></div>
 <?php else: ?>
-<div class="actions"><button type="button" onclick="window.print()">Print / Save as PDF</button><a class="alt" href="javascript:history.back()">Back</a></div>
+<div class="actions"><button type="button" onclick="window.print()">Print / Save as PDF</button><a class="alt" href="#" onclick="history.back();return false">Back</a></div>
 <div class="receipt">
     <h1><?php echo e(SCHOOL_NAME); ?></h1>
     <p class="sub"><?php echo e(SCHOOL_ADDRESS); ?> &middot; <?php echo e(SCHOOL_PHONE); ?></p>

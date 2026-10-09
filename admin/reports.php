@@ -390,8 +390,8 @@ elseif ($reportType == 'class_list') {
 </div>
 
 <!-- Simple Excel Export -->
-<script src="https://cdn.sheetjs.com/xlsx-0.19.2/package/dist/xlsx.full.min.js"></script>
-<script>
+<script src="<?php echo BASE_URL; ?>/assets/vendor/sheetjs/xlsx.full.min.js"></script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 function exportToExcel() {
     const table = document.getElementById('reportTable');
     if (!table) return;

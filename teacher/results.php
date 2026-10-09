@@ -411,7 +411,7 @@ if ($selectedClass && $selectedSubject && $ownsSubject($selectedSubject, $select
     <input type="hidden" name="result_id" id="delete_id">
 </form>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 function deleteResult(id) {
     if (confirm('Are you sure you want to delete this result?')) {
         document.getElementById('delete_id').value = id;

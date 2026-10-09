@@ -461,7 +461,7 @@ $performanceData = $db->getRows(
             </div>
         </div>
 
-        <script>
+        <script nonce="<?php echo CSP_NONCE; ?>">
         document.addEventListener('DOMContentLoaded', function() {
             const ctx = document.getElementById('trendChart').getContext('2d');
             new Chart(ctx, {
@@ -524,7 +524,7 @@ $performanceData = $db->getRows(
             </div>
         </div>
 
-        <script>
+        <script nonce="<?php echo CSP_NONCE; ?>">
         document.addEventListener('DOMContentLoaded', function() {
             const ctx2 = document.getElementById('subjectChart').getContext('2d');
             new Chart(ctx2, {

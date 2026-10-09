@@ -606,7 +606,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 </style>
 
-<script>
+<script nonce="<?php echo CSP_NONCE; ?>">
 // Password strength checker
 document.getElementById('new_password')?.addEventListener('input', function() {
     const password = this.value;

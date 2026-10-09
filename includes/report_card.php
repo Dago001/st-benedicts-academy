@@ -37,7 +37,7 @@ h1{font-size:1.2rem;text-align:center;margin:0;color:#002855}.sub{text-align:cen
 </style></head><body>
 <?php if (!$st): ?><div class="card"><h1>Report not available</h1><p class="sub">The student could not be found or you do not have access.</p></div>
 <?php else: ?>
-<div class="actions"><button type="button" onclick="window.print()">Print / Save as PDF</button><a class="alt" href="javascript:history.back()">Back</a></div>
+<div class="actions"><button type="button" onclick="window.print()">Print / Save as PDF</button><a class="alt" href="#" onclick="history.back();return false">Back</a></div>
 <div class="card">
     <h1><?php echo e(SCHOOL_NAME); ?></h1>
     <p class="sub"><?php echo e(SCHOOL_ADDRESS); ?><br>REPORT CARD &mdash; <?php echo e($term); ?>, <?php echo e($year); ?></p>
