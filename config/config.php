@@ -124,4 +124,8 @@ define('SCHOOL_NAME', "ST. BENEDICT'S EARLY YEARS BRITISH ACADEMY");
 define('SCHOOL_ADDRESS', 'No 560 A A New G.R.A TRANS-EKULU, ENUGU');
 define('SCHOOL_PHONE', '09044472688');
 define('SCHOOL_EMAIL', 'info@stbenedicts.edu.ng');
+define('SCHOOL_HOURS', [
+    'Monday' => '8:00 AM - 4:00 PM', 'Tuesday' => '8:00 AM - 4:00 PM', 'Wednesday' => '8:00 AM - 4:00 PM',
+    'Thursday' => '8:00 AM - 4:00 PM', 'Friday' => '8:00 AM - 2:00 PM', 'Saturday' => 'Closed', 'Sunday' => 'Closed',
+]);
 define('SCHOOL_MOTTO', 'Christo Duce, Una Sapientia et Virtute Crescimus');

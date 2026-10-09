@@ -19,6 +19,7 @@ if (!function_exists('nav_items')) {
                 ['announcements.php', 'Announcements', 'fa-bullhorn'],
                 ['news.php', 'News & Events', 'fa-newspaper'],
                 ['gallery.php', 'Gallery', 'fa-images'],
+                ['chatbot.php', 'Chatbot', 'fa-robot'],
                 ['reports.php', 'Reports', 'fa-file-alt'],
                 ['audit-logs.php', 'Audit Logs', 'fa-history'],
             ],

@@ -314,6 +314,18 @@ CREATE TABLE password_resets (
     UNIQUE KEY uniq_token (token_hash)
 );
 
+-- Chatbot question log (emails/phone numbers are redacted before saving)
+CREATE TABLE chatbot_logs (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    ip_hash CHAR(64) NOT NULL,
+    question VARCHAR(300) NOT NULL,
+    intent VARCHAR(40),
+    matched TINYINT(1) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_chat_ip (ip_hash, created_at),
+    INDEX idx_chat_matched (matched, created_at)
+);
+
 -- Gallery table
 CREATE TABLE gallery (
     id INT PRIMARY KEY AUTO_INCREMENT,

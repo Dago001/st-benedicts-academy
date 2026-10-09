@@ -842,244 +842,6 @@ try {
         min-width: 200px;
     }
 
-    /* ===== CHATBOT ===== */
-    .chatbot-widget {
-        position: fixed;
-        bottom: 30px;
-        right: 30px;
-        z-index: 1000;
-    }
-
-    .chatbot-button {
-        width: 70px;
-        height: 70px;
-        background: linear-gradient(135deg, var(--navy) 0%, var(--red) 100%);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 30px;
-        cursor: pointer;
-        box-shadow: var(--shadow-lg);
-        transition: all var(--transition-fast);
-        position: relative;
-        animation: pulse 2s infinite;
-    }
-
-    .chatbot-button:hover {
-        transform: scale(1.1);
-        box-shadow: var(--shadow-xl);
-    }
-
-    .chatbot-notification {
-        position: absolute;
-        top: -5px;
-        right: -5px;
-        background: var(--gold);
-        color: var(--navy);
-        width: 25px;
-        height: 25px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 14px;
-        font-weight: 700;
-        border: 2px solid white;
-    }
-
-    .chatbot-container {
-        position: absolute;
-        bottom: 90px;
-        right: 0;
-        width: 350px;
-        background: white;
-        border-radius: var(--radius-lg);
-        box-shadow: var(--shadow-xl);
-        overflow: hidden;
-        display: none;
-        animation: slideIn var(--transition-normal);
-    }
-
-    .chatbot-container.active {
-        display: block;
-    }
-
-    .chatbot-header {
-        background: linear-gradient(135deg, var(--navy) 0%, var(--red) 100%);
-        color: white;
-        padding: var(--spacing-lg);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-
-    .chatbot-title {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-    .chatbot-title i {
-        font-size: 24px;
-        color: var(--gold);
-    }
-
-    .chatbot-title h3 {
-        color: white;
-        margin: 0;
-        font-size: 1rem;
-    }
-
-    .chatbot-close {
-        background: rgba(255,255,255,0.2);
-        border: none;
-        color: white;
-        width: 30px;
-        height: 30px;
-        border-radius: 50%;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: background var(--transition-fast);
-    }
-
-    .chatbot-close:hover {
-        background: rgba(255,255,255,0.3);
-    }
-
-    .chatbot-messages {
-        height: 300px;
-        overflow-y: auto;
-        padding: var(--spacing-lg);
-        background: #f8f9fa;
-    }
-
-    .message {
-        display: flex;
-        gap: 10px;
-        margin-bottom: var(--spacing-md);
-        animation: fadeIn var(--transition-fast);
-    }
-
-    .bot-message .message-avatar {
-        width: 35px;
-        height: 35px;
-        background: var(--navy);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--gold);
-        flex-shrink: 0;
-    }
-
-    .user-message {
-        flex-direction: row-reverse;
-    }
-
-    .user-message .message-avatar {
-        width: 35px;
-        height: 35px;
-        background: var(--gold);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--navy);
-        flex-shrink: 0;
-    }
-
-    .message-content {
-        background: white;
-        padding: 12px 15px;
-        border-radius: 15px;
-        max-width: 70%;
-        box-shadow: var(--shadow-sm);
-    }
-
-    .user-message .message-content {
-        background: var(--navy);
-        color: white;
-    }
-
-    .message-content p {
-        margin: 0;
-        font-size: 0.9rem;
-        line-height: 1.5;
-    }
-
-    .quick-replies {
-        padding: var(--spacing-md);
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        background: white;
-        border-top: 1px solid #eee;
-    }
-
-    .quick-reply {
-        padding: 8px 15px;
-        background: var(--light-gray);
-        border: none;
-        border-radius: 20px;
-        font-size: 0.8rem;
-        color: var(--navy);
-        cursor: pointer;
-        transition: all var(--transition-fast);
-    }
-
-    .quick-reply:hover {
-        background: var(--gold);
-        color: var(--navy);
-    }
-
-    .chatbot-input {
-        display: flex;
-        padding: var(--spacing-md);
-        background: white;
-        gap: 10px;
-    }
-
-    .chatbot-input input {
-        flex: 1;
-        padding: 12px 15px;
-        border: 2px solid #eee;
-        border-radius: 25px;
-        outline: none;
-        font-size: 0.9rem;
-        transition: border-color var(--transition-fast);
-    }
-
-    .chatbot-input input:focus {
-        border-color: var(--gold);
-    }
-
-    .chatbot-input button {
-        width: 45px;
-        height: 45px;
-        background: linear-gradient(135deg, var(--navy) 0%, var(--red) 100%);
-        border: none;
-        border-radius: 50%;
-        color: white;
-        cursor: pointer;
-        transition: transform var(--transition-fast);
-    }
-
-    .chatbot-input button:hover {
-        transform: scale(1.1);
-    }
-
-    .chatbot-footer {
-        padding: var(--spacing-sm);
-        text-align: center;
-        background: #f8f9fa;
-        font-size: 0.7rem;
-        color: var(--gray);
-        border-top: 1px solid #eee;
-    }
 
     /* ===== ANIMATIONS ===== */
     @keyframes fadeInUp {
@@ -1228,17 +990,6 @@ try {
             right: 15px;
         }
 
-        .chatbot-container {
-            width: 300px;
-            right: 0;
-        }
-
-        .chatbot-button {
-            width: 60px;
-            height: 60px;
-            font-size: 24px;
-        }
-
         .mvg-container {
             min-height: 500px;
         }
@@ -1307,10 +1058,6 @@ try {
             width: 100%;
         }
 
-        .quick-replies {
-            justify-content: center;
-        }
-
         .mvg-container {
             min-height: 550px;
         }
@@ -1335,7 +1082,7 @@ try {
 <section class="hero-section">
     <div class="hero-slider">
         <!-- Slide 1 -->
-        <div class="hero-slide active" style="background-image: linear-gradient(135deg, rgba(0,40,85,0.85) 0%, rgba(196,30,58,0.85) 100%), url('<?php echo BASE_URL; ?>/assets/images/hero-bg-1.jpg');">
+        <div class="hero-slide active" style="background-image: linear-gradient(135deg, rgba(0,40,85,0.85) 0%, rgba(196,30,58,0.85) 100%);">
             <div class="container">
                 <div class="hero-content">
                     <span class="hero-subtitle">Welcome to</span>
@@ -1355,7 +1102,7 @@ try {
         </div>
 
         <!-- Slide 2 -->
-        <div class="hero-slide" style="background-image: linear-gradient(135deg, rgba(196,30,58,0.85) 0%, rgba(255,215,0,0.85) 100%), url('<?php echo BASE_URL; ?>/assets/images/hero-bg-2.jpg');">
+        <div class="hero-slide" style="background-image: linear-gradient(135deg, rgba(196,30,58,0.85) 0%, rgba(255,215,0,0.85) 100%);">
             <div class="container">
                 <div class="hero-content">
                     <span class="hero-subtitle">Quality Education</span>
@@ -1374,7 +1121,7 @@ try {
         </div>
 
         <!-- Slide 3 -->
-        <div class="hero-slide" style="background-image: linear-gradient(135deg, rgba(255,215,0,0.85) 0%, rgba(0,40,85,0.85) 100%), url('<?php echo BASE_URL; ?>/assets/images/hero-bg-3.jpg');">
+        <div class="hero-slide" style="background-image: linear-gradient(135deg, rgba(255,215,0,0.85) 0%, rgba(0,40,85,0.85) 100%);">
             <div class="container">
                 <div class="hero-content">
                     <span class="hero-subtitle">Faith-Based Learning</span>
@@ -1735,52 +1482,6 @@ try {
     </div>
 </section>
 
-<!-- ===== CHATBOT ===== -->
-<div class="chatbot-widget">
-    <div class="chatbot-button" id="chatbotButton">
-        <i class="fas fa-comment-dots"></i>
-        <span class="chatbot-notification">1</span>
-    </div>
-
-    <div class="chatbot-container" id="chatbotContainer">
-        <div class="chatbot-header">
-            <div class="chatbot-title">
-                <i class="fas fa-robot"></i>
-                <h3>St. Benedict's Assistant</h3>
-            </div>
-            <button class="chatbot-close" id="chatbotClose">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-
-        <div class="chatbot-messages" id="chatbotMessages">
-            <div class="message bot-message">
-                <div class="message-avatar">
-                    <i class="fas fa-robot"></i>
-                </div>
-                <div class="message-content">
-                    <p>Hello! 👋 Welcome to St. Benedict's Early Years British Academy. How can I help you today?</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="quick-replies">
-            <button class="quick-reply">Admission Requirements</button>
-            <button class="quick-reply">School Fees</button>
-            <button class="quick-reply">Our Programs</button>
-            <button class="quick-reply">Contact Info</button>
-        </div>
-
-        <div class="chatbot-input">
-            <input type="text" id="chatbotInput" placeholder="Type your message here...">
-            <button id="chatbotSend"><i class="fas fa-paper-plane"></i></button>
-        </div>
-
-        <div class="chatbot-footer">
-            <span>Powered by St. Benedict's Academy</span>
-        </div>
-    </div>
-</div>
 
 <!-- Add a placeholder image if welcome-image.jpg doesn't exist -->
 <?php
@@ -1898,89 +1599,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Chatbot
-    const chatbotButton = document.getElementById('chatbotButton');
-    const chatbotContainer = document.getElementById('chatbotContainer');
-    const chatbotClose = document.getElementById('chatbotClose');
-    const chatbotInput = document.getElementById('chatbotInput');
-    const chatbotSend = document.getElementById('chatbotSend');
-    const chatbotMessages = document.getElementById('chatbotMessages');
-    const quickReplies = document.querySelectorAll('.quick-reply');
-
-    // Toggle chatbot
-    if (chatbotButton) {
-        chatbotButton.addEventListener('click', function() {
-            chatbotContainer.classList.toggle('active');
-            if (chatbotContainer.classList.contains('active')) {
-                chatbotButton.style.display = 'none';
-                const notification = document.querySelector('.chatbot-notification');
-                if (notification) notification.style.display = 'none';
-            }
-        });
-    }
-
-    if (chatbotClose) {
-        chatbotClose.addEventListener('click', function() {
-            chatbotContainer.classList.remove('active');
-            chatbotButton.style.display = 'flex';
-        });
-    }
-
-    // Send message
-    function sendMessage() {
-        if (!chatbotInput) return;
-        const message = chatbotInput.value.trim();
-        if (message === '') return;
-
-        addMessage(message, 'user');
-        chatbotInput.value = '';
-
-        setTimeout(() => {
-            addMessage('Thank you for your message. Our team will get back to you soon!', 'bot');
-        }, 1000);
-    }
-
-    if (chatbotSend) {
-        chatbotSend.addEventListener('click', sendMessage);
-    }
-
-    if (chatbotInput) {
-        chatbotInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') sendMessage();
-        });
-    }
-
-    function addMessage(text, sender) {
-        if (!chatbotMessages) return;
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${sender}-message`;
-
-        const avatar = document.createElement('div');
-        avatar.className = 'message-avatar';
-        avatar.innerHTML = sender === 'bot' ? '<i class="fas fa-robot"></i>' : '<i class="fas fa-user"></i>';
-
-        const content = document.createElement('div');
-        content.className = 'message-content';
-        content.innerHTML = `<p>${escapeHtml(text)}</p>`;
-
-        messageDiv.appendChild(avatar);
-        messageDiv.appendChild(content);
-        chatbotMessages.appendChild(messageDiv);
-
-        chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
-    }
-
-    // Quick replies
-    if (quickReplies.length > 0) {
-        quickReplies.forEach(button => {
-            button.addEventListener('click', function() {
-                if (chatbotInput) {
-                    chatbotInput.value = this.textContent;
-                    sendMessage();
-                }
-            });
-        });
-    }
 });
 </script>
 

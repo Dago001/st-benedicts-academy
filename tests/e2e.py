@@ -416,6 +416,33 @@ st, body, hh = admin.get(f'admin/applications.php?file=app&id={aid}&doc=birth');
 st, body, _ = pub.get(f'admin/applications.php?file=app&id={aid}&doc=birth', follow=True); check('anonymous cannot open application documents', 'image/png' not in body[:20] and not body.startswith('\x89PNG'))
 st, body, hh = pub.get(f'storage/applications/{files.split("|")[0]}'); check('private documents not web-accessible', st in (403, 404) or 'Access Denied' in body or not body.startswith('\x89PNG'), f'{st}')
 
+section('Chatbot')
+bot = Client(); tkn = bot.token('index.php')
+def ask(q, token=None, cl=None):
+    cl = cl or bot
+    st, body, h = cl.req('POST', 'api/chatbot.php', raw=json.dumps({'message': q}).encode(), headers={'Content-Type': 'application/json', 'X-CSRF-Token': tkn if token is None else token})
+    try: return st, json.loads(body)
+    except Exception: return st, {'raw': body[:100]}
+st, j = ask('How much are the fees for nursery?')
+check('chatbot answers fees from the database', st == 200 and any('225,000' in i for i in j.get('list', [])), str(j)[:150])
+st, j = ask('What documents do I need?'); check('chatbot lists requirements', st == 200 and any('Birth certificate' in i for i in j.get('list', [])))
+st, j = ask('what is the meaning of life'); check('chatbot admits when it does not know', st == 200 and "don't have a reliable answer" in ' '.join(j.get('reply', [])))
+st, j = ask('<script>alert(1)</script>'); check('chatbot handles markup input safely', st == 200 and j.get('success'))
+st, j = ask('x' * 400); check('overlong message rejected', st == 400)
+st, j = ask('hello', token='bad'); check('chatbot requires CSRF token', st == 419)
+st, j = ask('   '); check('empty message rejected', st == 400)
+st, body, _ = Client().req('GET', 'api/chatbot.php'); check('chatbot GET not allowed', st == 405)
+check('chatbot logs redact personal data', sql("SELECT COUNT(*) FROM chatbot_logs WHERE question LIKE '%@%'") == '0')
+ask('my email is parent@test.com and phone 08031234567, what is the fee')
+check('email/phone redacted in log', sql("SELECT COUNT(*) FROM chatbot_logs WHERE question LIKE '%parent@test.com%' OR question LIKE '%08031234567%'") == '0')
+sql("DELETE FROM chatbot_logs")
+for i in range(41): ask('hello')
+st, j = ask('hello'); check('chatbot rate limit kicks in (429)', st == 429)
+sql("DELETE FROM chatbot_logs")
+st, body, _ = admin.get('admin/chatbot.php'); no_php_errors('admin chatbot page', body); check('admin chatbot insights loads', st == 200)
+st, body, _ = Client().get('index.php'); check('widget present on public page', 'chatbotWidget' in body)
+st, body, _ = parent.get('parent/dashboard.php'); check('widget absent when logged in', 'chatbotWidget' not in body)
+
 section('Password reset')
 c = Client()
 t = c.page_token('forgot-password.php')

@@ -86,15 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Opening hours
-$businessHours = [
-    'Monday' => '8:00 AM - 4:00 PM',
-    'Tuesday' => '8:00 AM - 4:00 PM',
-    'Wednesday' => '8:00 AM - 4:00 PM',
-    'Thursday' => '8:00 AM - 4:00 PM',
-    'Friday' => '8:00 AM - 2:00 PM',
-    'Saturday' => 'Closed',
-    'Sunday' => 'Closed'
-];
+$businessHours = SCHOOL_HOURS;
 ?>
 
 <!-- Page-Specific Styles -->

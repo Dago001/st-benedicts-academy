@@ -2,7 +2,7 @@
 // includes/header.php
 // Expects config/config.php + config/security.php to be loaded by the page.
 $currentPage = basename($_SERVER['PHP_SELF']);
-$assetVersion = '1';
+$assetVersion = '6';
 
 /** <link>/<script> only for assets that actually exist, so a missing file never causes a 404. */
 if (!function_exists('asset_exists')) {
@@ -58,6 +58,7 @@ $dashboardUrl = $isLoggedIn ? BASE_URL . '/' . $_SESSION['user_role'] . '/dashbo
         <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/<?php echo e(basename($css)); ?>?v=<?php echo $assetVersion; ?>">
     <?php endif; endforeach; ?>
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/mobile.css?v=<?php echo $assetVersion; ?>">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/polish.css?v=<?php echo $assetVersion; ?>">
 </head>
 <body class="<?php echo $isLoggedIn ? 'is-auth role-' . e($_SESSION['user_role']) : 'is-public'; ?>">
     <a class="skip-link" href="#main-content">Skip to content</a>
