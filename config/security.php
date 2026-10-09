@@ -119,7 +119,7 @@ class Security {
                 echo json_encode(['success' => false, 'message' => 'Authentication required']);
                 exit;
             }
-            header('Location: ' . BASE_URL . '/login.php');
+            header('Location: ' . BASE_URL . '/login');
             exit;
         }
     }

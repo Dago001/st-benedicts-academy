@@ -80,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $messageType === 'success') {
-    flash_redirect($message, 'success', BASE_URL . '/admin/mark-attendance.php?' . http_build_query(['class_id' => $classId, 'date' => $attendanceDate]));
+    flash_redirect($message, 'success', BASE_URL . '/admin/mark-attendance?' . http_build_query(['class_id' => $classId, 'date' => $attendanceDate]));
 }
 
 // Get students for selected class
@@ -150,7 +150,7 @@ $todayStats = $db->getRow(
         <div class="dashboard-header">
             <h1>Mark Attendance</h1>
             <div class="header-actions">
-                <a href="attendance.php" class="btn btn-outline">
+                <a href="attendance" class="btn btn-outline">
                     <i class="fas fa-arrow-left"></i> Back to Attendance
                 </a>
             </div>
@@ -309,7 +309,7 @@ $todayStats = $db->getRow(
                         <button type="submit" class="btn btn-primary btn-lg">
                             <i class="fas fa-save"></i> Save Attendance
                         </button>
-                        <a href="attendance.php?date=<?php echo urlencode($selectedDate); ?>" class="btn btn-outline btn-lg">
+                        <a href="attendance?date=<?php echo urlencode($selectedDate); ?>" class="btn btn-outline btn-lg">
                             <i class="fas fa-times"></i> Cancel
                         </a>
                     </div>
@@ -322,7 +322,7 @@ $todayStats = $db->getRow(
         <div class="alert alert-warning">
             <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
             <h4>No Students Found</h4>
-            <p>There are no active students in this class. Please <a href="students.php?action=add">add students</a> first.</p>
+            <p>There are no active students in this class. Please <a href="students?action=add">add students</a> first.</p>
         </div>
         <?php endif; ?>
 

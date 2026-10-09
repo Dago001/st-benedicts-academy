@@ -17,7 +17,7 @@ $metaTags = [
     'og:title' => 'About Us - ST. BENEDICT\'S EARLY YEARS BRITISH ACADEMY',
     'og:description' => 'Learn about our school\'s history, mission, vision, and leadership.',
     'og:image' => BASE_URL . '/assets/images/og-image.jpg',
-    'og:url' => BASE_URL . '/public/about.php',
+    'og:url' => BASE_URL . '/public/about',
     'twitter:card' => 'summary_large_image'
 ];
 
@@ -616,7 +616,7 @@ if (empty($leadership)) {
     <div class="container">
         <h1>About Us</h1>
         <div class="breadcrumb">
-            <a href="<?php echo BASE_URL; ?>/index.php">Home</a> / About Us
+            <a href="<?php echo BASE_URL; ?>/">Home</a> / About Us
         </div>
     </div>
 </section>

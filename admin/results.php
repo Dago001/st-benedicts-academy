@@ -223,7 +223,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $messageType === 'success') {
-    flash_redirect($message, 'success', BASE_URL . '/admin/results.php?' . http_build_query(array_filter([
+    flash_redirect($message, 'success', BASE_URL . '/admin/results?' . http_build_query(array_filter([
         'class_id' => $_POST['class_id'] ?? null, 'term' => $_POST['term'] ?? null, 'academic_year' => $_POST['academic_year'] ?? null,
     ])));
 }
@@ -663,7 +663,7 @@ function getGradeClass($grade) {
             <h1>Results Management</h1>
             <div class="header-actions">
                 <?php if ($action === 'add'): ?>
-                <a href="results.php" class="btn btn-outline">
+                <a href="results" class="btn btn-outline">
                     <i class="fas fa-arrow-left"></i> Back to List
                 </a>
                 <?php else: ?>
@@ -671,7 +671,7 @@ function getGradeClass($grade) {
                     <i class="fas fa-plus"></i> Add Result
                 </a>
                 <?php endif; ?>
-                <a href="export.php?type=results" class="btn btn-outline">
+                <a href="export?type=results" class="btn btn-outline">
                     <i class="fas fa-download"></i> Export
                 </a>
             </div>
@@ -861,7 +861,7 @@ function getGradeClass($grade) {
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save"></i> <?php echo $action === 'add' ? 'Save Result' : 'Update Result'; ?>
                         </button>
-                        <a href="results.php<?php echo $selectedClass ? '?class_id=' . $selectedClass . '&term=' . $selectedTerm . '&academic_year=' . $selectedYear : ''; ?>" class="btn btn-outline">
+                        <a href="results<?php echo $selectedClass ? '?class_id=' . $selectedClass . '&term=' . $selectedTerm . '&academic_year=' . $selectedYear : ''; ?>" class="btn btn-outline">
                             <i class="fas fa-times"></i> Cancel
                         </a>
                     </div>

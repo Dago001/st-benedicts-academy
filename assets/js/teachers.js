@@ -105,7 +105,7 @@ function initializeSubjectAssignment() {
 function loadTeacherSubjects(teacherId) {
     if (!teacherId) return;
 
-    fetch(BASE_URL + '/api/get-teacher-subjects.php?teacher_id=' + teacherId)
+    fetch(BASE_URL + '/api/get-teacher-subjects?teacher_id=' + teacherId)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -157,7 +157,7 @@ function updateSubjectAssignment(evt) {
         return;
     }
 
-    fetch(BASE_URL + '/api/update-subject-assignment.php', {
+    fetch(BASE_URL + '/api/update-subject-assignment', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -187,7 +187,7 @@ function removeSubject(subjectId) {
 
     const teacherId = document.getElementById('teacher_id').value;
 
-    fetch(BASE_URL + '/api/update-subject-assignment.php', {
+    fetch(BASE_URL + '/api/update-subject-assignment', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -211,7 +211,7 @@ function removeSubject(subjectId) {
 
 // Generate teacher schedule
 function generateSchedule(teacherId) {
-    fetch(BASE_URL + '/api/generate-schedule.php?teacher_id=' + teacherId)
+    fetch(BASE_URL + '/api/generate-schedule?teacher_id=' + teacherId)
         .then(response => response.json())
         .then(data => {
             if (data.success) {

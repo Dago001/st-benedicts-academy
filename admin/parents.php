@@ -267,7 +267,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $messageType === 'success') {
-    flash_redirect($message, 'success', BASE_URL . '/admin/parents.php');
+    flash_redirect($message, 'success', BASE_URL . '/admin/parents');
 }
 
 // Get parent for editing
@@ -741,14 +741,14 @@ textarea.form-control {
             <h1>Parent Management</h1>
             <div class="header-actions">
                 <?php if ($action === 'add' || $action === 'edit'): ?>
-                <a href="parents.php" class="btn btn-outline">
+                <a href="parents" class="btn btn-outline">
                     <i class="fas fa-arrow-left"></i> Back to List
                 </a>
                 <?php else: ?>
                 <a href="?action=add" class="btn btn-primary">
                     <i class="fas fa-plus"></i> Add New Parent
                 </a>
-                <a href="export.php?type=parents" class="btn btn-outline">
+                <a href="export?type=parents" class="btn btn-outline">
                     <i class="fas fa-download"></i> Export
                 </a>
                 <?php endif; ?>
@@ -869,7 +869,7 @@ textarea.form-control {
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save"></i> <?php echo $action === 'add' ? 'Add Parent' : 'Update Parent'; ?>
                         </button>
-                        <a href="parents.php" class="btn btn-outline">
+                        <a href="parents" class="btn btn-outline">
                             <i class="fas fa-times"></i> Cancel
                         </a>
                     </div>
@@ -975,10 +975,10 @@ textarea.form-control {
                                         <a href="?action=edit&id=<?php echo e($parent['id']); ?>" class="btn-icon" title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <a href="view-parent.php?id=<?php echo e($parent['id']); ?>" class="btn-icon" title="View Details">
+                                        <a href="view-parent?id=<?php echo e($parent['id']); ?>" class="btn-icon" title="View Details">
                                             <i class="fas fa-eye"></i>
                                         </a>
-                                        <a href="students.php?parent_id=<?php echo e($parent['id']); ?>" class="btn-icon" title="View Children">
+                                        <a href="students?parent_id=<?php echo e($parent['id']); ?>" class="btn-icon" title="View Children">
                                             <i class="fas fa-child"></i>
                                         </a>
                                         <?php if ($parent['children_count'] == 0): ?>

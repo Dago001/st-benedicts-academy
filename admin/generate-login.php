@@ -45,7 +45,7 @@ if (!$st) {
                 <button type="submit" class="btn btn-primary" onclick="return confirm('Generate a new password for this student?')"><i class="fas fa-key"></i> Generate new password</button>
             </form>
         <?php endif; ?>
-        <p style="margin-top:16px"><a href="students.php" class="btn btn-secondary">Back to students</a></p>
+        <p style="margin-top:16px"><a href="students" class="btn btn-secondary">Back to students</a></p>
     </div></div>
 <?php }
 dashboard_close();

@@ -11,6 +11,19 @@ DirectoryIndex index.php
     RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)(:\d+)?$ [NC]
     RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
 
+    # Clean URLs: /admin/students -> admin/students.php (and /admin/ -> index.php)
+    # 1) Old .php addresses redirect (GET only) to the clean form
+    RewriteCond %{REQUEST_METHOD} =GET
+    RewriteCond %{THE_REQUEST} \s/+([^?\s]+?)(/index)?\.php[\s?] [NC]
+    RewriteCond %{DOCUMENT_ROOT}/%1.php -f
+    RewriteRule ^ /%1 [R=301,L,NE]
+    RewriteRule ^index$ / [R=301,L]
+    # 2) Internal mapping of clean URLs to files
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME}.php -f
+    RewriteRule ^(.+?)/?$ $1.php [L,QSA]
+
     # Never serve internals directly
     RewriteRule ^(config|includes|sql|scripts|tests|logs|backups)(/|$) - [F,L]
 </IfModule>

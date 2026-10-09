@@ -158,7 +158,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $messageType === 'success') {
-    flash_redirect($message, 'success', BASE_URL . '/admin/classes.php');
+    flash_redirect($message, 'success', BASE_URL . '/admin/classes');
 }
 
 // Get class for editing
@@ -199,7 +199,7 @@ $classes = $db->getRows(
                 <a href="?action=add" class="btn btn-primary">
                     <i class="fas fa-plus"></i> Add New Class
                 </a>
-                <a href="export.php?type=classes" class="btn btn-outline">
+                <a href="export?type=classes" class="btn btn-outline">
                     <i class="fas fa-download"></i> Export
                 </a>
             </div>
@@ -280,7 +280,7 @@ $classes = $db->getRows(
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save"></i> <?php echo $action === 'add' ? 'Add Class' : 'Update Class'; ?>
                         </button>
-                        <a href="classes.php" class="btn btn-outline">
+                        <a href="classes" class="btn btn-outline">
                             <i class="fas fa-times"></i> Cancel
                         </a>
                     </div>
@@ -347,13 +347,13 @@ $classes = $db->getRows(
                                         <a href="?action=edit&id=<?php echo e($cls['id']); ?>" class="btn-icon" title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <a href="subjects.php?class_id=<?php echo e($cls['id']); ?>" class="btn-icon" title="Manage Subjects">
+                                        <a href="subjects?class_id=<?php echo e($cls['id']); ?>" class="btn-icon" title="Manage Subjects">
                                             <i class="fas fa-book"></i>
                                         </a>
-                                        <a href="students.php?class_id=<?php echo e($cls['id']); ?>" class="btn-icon" title="View Students">
+                                        <a href="students?class_id=<?php echo e($cls['id']); ?>" class="btn-icon" title="View Students">
                                             <i class="fas fa-users"></i>
                                         </a>
-                                        <a href="timetable.php?class_id=<?php echo e($cls['id']); ?>" class="btn-icon" title="Timetable">
+                                        <a href="timetable?class_id=<?php echo e($cls['id']); ?>" class="btn-icon" title="Timetable">
                                             <i class="fas fa-clock"></i>
                                         </a>
                                         <?php if ($cls['student_count'] == 0 && $cls['subject_count'] == 0): ?>

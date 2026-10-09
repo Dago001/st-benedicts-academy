@@ -266,7 +266,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $messageType === 'success') {
-    flash_redirect($message, 'success', BASE_URL . '/admin/teachers.php');
+    flash_redirect($message, 'success', BASE_URL . '/admin/teachers');
 }
 
 // Get teacher for editing
@@ -336,7 +336,7 @@ if (!function_exists('generateEmployeeId')) {
                 <a href="?action=add" class="btn btn-primary">
                     <i class="fas fa-plus"></i> Add New Teacher
                 </a>
-                <a href="export.php?type=teachers" class="btn btn-outline">
+                <a href="export?type=teachers" class="btn btn-outline">
                     <i class="fas fa-download"></i> Export
                 </a>
             </div>
@@ -475,7 +475,7 @@ if (!function_exists('generateEmployeeId')) {
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save"></i> <?php echo $action === 'add' ? 'Add Teacher' : 'Update Teacher'; ?>
                         </button>
-                        <a href="teachers.php" class="btn btn-outline">
+                        <a href="teachers" class="btn btn-outline">
                             <i class="fas fa-times"></i> Cancel
                         </a>
                     </div>
@@ -541,10 +541,10 @@ if (!function_exists('generateEmployeeId')) {
                                         <a href="?action=edit&id=<?php echo e($teacher['id']); ?>" class="btn-icon" title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <a href="teacher-profile.php?id=<?php echo e($teacher['id']); ?>" class="btn-icon" title="View Profile">
+                                        <a href="teacher-profile?id=<?php echo e($teacher['id']); ?>" class="btn-icon" title="View Profile">
                                             <i class="fas fa-eye"></i>
                                         </a>
-                                        <a href="assign-subjects.php?teacher_id=<?php echo e($teacher['id']); ?>" class="btn-icon" title="Assign Subjects">
+                                        <a href="assign-subjects?teacher_id=<?php echo e($teacher['id']); ?>" class="btn-icon" title="Assign Subjects">
                                             <i class="fas fa-book"></i>
                                         </a>
                                         <?php if ($teacher['class_count'] == 0 && $teacher['subject_count'] == 0): ?>

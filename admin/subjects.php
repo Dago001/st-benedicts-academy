@@ -233,7 +233,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $messageType === 'success') {
-    flash_redirect($message, 'success', BASE_URL . '/admin/subjects.php');
+    flash_redirect($message, 'success', BASE_URL . '/admin/subjects');
 }
 
 // Get subject for editing
@@ -740,7 +740,7 @@ if (!function_exists('generateSubjectCode')) {
                 <button type="button" class="btn btn-accent" onclick="showBulkAssignModal()">
                     <i class="fas fa-tasks"></i> Bulk Assign
                 </button>
-                <a href="export.php?type=subjects" class="btn btn-outline">
+                <a href="export?type=subjects" class="btn btn-outline">
                     <i class="fas fa-download"></i> Export
                 </a>
             </div>
@@ -771,7 +771,7 @@ if (!function_exists('generateSubjectCode')) {
                     </div>
                     <div class="form-group col-md-2">
                         <label>&nbsp;</label>
-                        <a href="subjects.php" class="btn btn-outline form-control">Clear Filter</a>
+                        <a href="subjects" class="btn btn-outline form-control">Clear Filter</a>
                     </div>
                 </form>
             </div>
@@ -854,7 +854,7 @@ if (!function_exists('generateSubjectCode')) {
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save"></i> <?php echo $action === 'add' ? 'Add Subject' : 'Update Subject'; ?>
                         </button>
-                        <a href="subjects.php<?php echo $classFilter ? '?class_id=' . $classFilter : ''; ?>" class="btn btn-outline">
+                        <a href="subjects<?php echo $classFilter ? '?class_id=' . $classFilter : ''; ?>" class="btn btn-outline">
                             <i class="fas fa-times"></i> Cancel
                         </a>
                     </div>
@@ -953,7 +953,7 @@ if (!function_exists('generateSubjectCode')) {
                                         <a href="?action=edit&id=<?php echo e($subject['id']); ?><?php echo $classFilter ? '&class_id=' . $classFilter : ''; ?>" class="btn-icon" title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <a href="results.php?subject_id=<?php echo e($subject['id']); ?>" class="btn-icon" title="View Results">
+                                        <a href="results?subject_id=<?php echo e($subject['id']); ?>" class="btn-icon" title="View Results">
                                             <i class="fas fa-chart-line"></i>
                                         </a>
                                         <?php if ($subject['result_count'] == 0 && $subject['homework_count'] == 0): ?>

@@ -11,7 +11,7 @@ $metaTags = [
     'og:title' => 'Contact Us - ST. BENEDICT\'S EARLY YEARS BRITISH ACADEMY',
     'og:description' => 'Get in touch with our school. Visit us, call, or send a message.',
     'og:image' => BASE_URL . '/assets/images/og-image.jpg',
-    'og:url' => BASE_URL . '/public/contact.php',
+    'og:url' => BASE_URL . '/public/contact',
     'twitter:card' => 'summary_large_image'
 ];
 
@@ -790,7 +790,7 @@ $businessHours = SCHOOL_HOURS;
     <div class="container">
         <h1>Contact Us</h1>
         <div class="breadcrumb">
-            <a href="<?php echo BASE_URL; ?>/index.php">Home</a> / Contact
+            <a href="<?php echo BASE_URL; ?>/">Home</a> / Contact
         </div>
     </div>
 </section>

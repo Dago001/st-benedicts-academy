@@ -35,9 +35,9 @@ dashboard_open('parent', 'My Children');
             <li>Fee balance (<?php echo e($year); ?>): <strong><?php echo e(formatCurrency($c['balance'])); ?></strong></li>
         </ul>
         <div class="card-actions">
-            <a class="btn btn-sm btn-primary" href="child-performance.php?child=<?php echo (int)$c['id']; ?>">Performance</a>
-            <a class="btn btn-sm btn-outline" href="fees.php?child=<?php echo (int)$c['id']; ?>">Fees</a>
-            <a class="btn btn-sm btn-outline" href="schedule.php?child=<?php echo (int)$c['id']; ?>">Timetable</a>
+            <a class="btn btn-sm btn-primary" href="child-performance?child=<?php echo (int)$c['id']; ?>">Performance</a>
+            <a class="btn btn-sm btn-outline" href="fees?child=<?php echo (int)$c['id']; ?>">Fees</a>
+            <a class="btn btn-sm btn-outline" href="schedule?child=<?php echo (int)$c['id']; ?>">Timetable</a>
         </div>
     </div></div>
 <?php endforeach; ?>

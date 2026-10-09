@@ -22,6 +22,12 @@ $parent = $db->getRow(
     [$userId]
 );
 
+if (!$parent) {
+    echo '<div class="container" style="padding:24px"><div class="alert alert-error">Your parent profile is incomplete. Please contact the school office.</div></div>';
+    include __DIR__ . '/../includes/footer.php';
+    exit;
+}
+
 // Get children of this parent
 $children = $db->getRows(
     "SELECT s.*, u.first_name, u.last_name, u.email,
@@ -282,7 +288,7 @@ if ($selectedChildId) {
                                 <tr>
                                     <td><?php echo date('d/m/Y', strtotime($payment['payment_date'])); ?></td>
                                     <td>
-                                        <a href="view-receipt.php?id=<?php echo e($payment['id']); ?>" target="_blank">
+                                        <a href="view-receipt?id=<?php echo e($payment['id']); ?>" target="_blank">
                                             <?php echo e($payment['receipt_number']); ?>
                                         </a>
                                     </td>

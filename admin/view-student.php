@@ -20,7 +20,7 @@ include __DIR__ . '/../includes/header.php';
 
 if (!$st) {
     dashboard_open('admin', 'Student not found');
-    echo '<div class="alert alert-error">No student with that ID.</div><a class="btn btn-secondary" href="students.php">Back to students</a>';
+    echo '<div class="alert alert-error">No student with that ID.</div><a class="btn btn-secondary" href="students">Back to students</a>';
     dashboard_close();
     include __DIR__ . '/../includes/footer.php';
     exit;
@@ -40,9 +40,9 @@ $fees = $db->getRow(
     [$st['class_id'] ?? 0, currentAcademicYear(), $id, currentAcademicYear()]);
 
 dashboard_open('admin', $st['first_name'] . ' ' . $st['last_name'],
-    '<a href="students.php?action=edit&id=' . $id . '" class="btn btn-primary"><i class="fas fa-edit"></i> Edit</a>'
-    . '<a href="generate-login.php?id=' . $id . '" class="btn btn-outline"><i class="fas fa-key"></i> Reset Login</a>'
-    . '<a href="students.php" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Back</a>');
+    '<a href="students?action=edit&id=' . $id . '" class="btn btn-primary"><i class="fas fa-edit"></i> Edit</a>'
+    . '<a href="generate-login?id=' . $id . '" class="btn btn-outline"><i class="fas fa-key"></i> Reset Login</a>'
+    . '<a href="students" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Back</a>');
 ?>
 <div class="stats-grid">
     <div class="stat-card"><div class="stat-icon"><i class="fas fa-school"></i></div><div class="stat-content"><h3><?php echo e(trim(($st['class_name'] ?? '-') . ' ' . ($st['section'] ?? ''))); ?></h3><p>Class</p></div></div>
@@ -67,13 +67,13 @@ dashboard_open('admin', $st['first_name'] . ' ' . $st['last_name'],
 
 <div class="card"><div class="card-header"><h3>Parent / guardian</h3></div><div class="card-body">
     <?php if ($st['pid']): ?>
-        <p><strong><a href="view-parent.php?id=<?php echo (int)$st['pid']; ?>"><?php echo e($st['parent_name']); ?></a></strong><br>
+        <p><strong><a href="view-parent?id=<?php echo (int)$st['pid']; ?>"><?php echo e($st['parent_name']); ?></a></strong><br>
         <?php echo e($st['parent_email']); ?> &middot; <?php echo e($st['parent_phone'] ?: 'no phone'); ?></p>
     <?php else: ?><p class="text-muted">No parent linked.</p><?php endif; ?>
 </div></div>
 
 <div class="card"><div class="card-header"><h3>Recent results</h3>
-    <a class="btn btn-sm btn-outline" href="student-fees.php?student_id=<?php echo $id; ?>">Fee statement</a></div>
+    <a class="btn btn-sm btn-outline" href="student-fees?student_id=<?php echo $id; ?>">Fee statement</a></div>
 <div class="card-body">
     <?php if ($results): ?><div class="table-responsive"><table class="table"><thead><tr><th>Year</th><th>Term</th><th>Subject</th><th>Type</th><th>Score</th><th>Grade</th><th>Status</th></tr></thead><tbody>
     <?php foreach ($results as $r): ?><tr>

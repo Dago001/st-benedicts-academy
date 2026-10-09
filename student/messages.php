@@ -50,7 +50,7 @@ if (isset($_GET['mark_read']) && isset($_GET['id'])) {
     }
 
     // Redirect to remove query parameters
-    $redirectUrl = 'messages.php';
+    $redirectUrl = 'messages';
     if (isset($_GET['view'])) {
         $redirectUrl .= '?view=' . urlencode($_GET['view']);
     }
@@ -74,7 +74,7 @@ if (isset($_GET['mark_all_read'])) {
         }
     }
 
-    header('Location: messages.php');
+    header('Location: messages');
     exit;
 }
 
@@ -1018,7 +1018,7 @@ define('ANNOUNCEMENT_UPLOAD_PATH', BASE_URL . '/uploads/announcements/');
                 <?php endif; ?>
 
                 <?php if (!empty($search) || $view !== 'all' || $priority !== 'all'): ?>
-                <a href="messages.php" class="btn btn-outline btn-sm">
+                <a href="messages" class="btn btn-outline btn-sm">
                     <i class="fas fa-times"></i> Clear Filters
                 </a>
                 <?php endif; ?>
@@ -1145,7 +1145,7 @@ define('ANNOUNCEMENT_UPLOAD_PATH', BASE_URL . '/uploads/announcements/');
                 <?php endif; ?>
             </p>
             <?php if (!empty($search) || $view !== 'all' || $priority !== 'all'): ?>
-            <a href="messages.php" class="btn btn-primary" style="margin-top: 20px;">
+            <a href="messages" class="btn btn-primary" style="margin-top: 20px;">
                 <i class="fas fa-home"></i> View All Messages
             </a>
             <?php endif; ?>
@@ -1181,7 +1181,7 @@ function viewAnnouncement(id) {
 
     // Mark as read if unread (via AJAX)
     if (!announcement.is_read) {
-        fetch(`messages.php?mark_read=1&id=${id}`, {
+        fetch(`messages?mark_read=1&id=${id}`, {
             method: 'GET',
             headers: {
                 'X-Requested-With': 'XMLHttpRequest'
@@ -1322,7 +1322,7 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'm' && e.ctrlKey) {
         e.preventDefault();
         if (confirm('Mark all messages as read?')) {
-            window.location.href = 'messages.php?mark_all_read=1';
+            window.location.href = 'messages?mark_all_read=1';
         }
     }
 });

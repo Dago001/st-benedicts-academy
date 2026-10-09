@@ -165,7 +165,7 @@ $feeStatus = $db->getRow(
                     </div>
                     <?php endforeach; ?>
                 </div>
-                <a href="results.php" class="btn-link">View All Results <i class="fas fa-arrow-right"></i></a>
+                <a href="results" class="btn-link">View All Results <i class="fas fa-arrow-right"></i></a>
                 <?php else: ?>
                 <p class="no-data">No results available yet.</p>
                 <?php endif; ?>
@@ -187,7 +187,7 @@ $feeStatus = $db->getRow(
                             <?php if ($assignment['submitted']): ?>
                                 <span class="badge success">Submitted</span>
                             <?php else: ?>
-                                <a href="assignments.php?submit=<?php echo e($assignment['id']); ?>"
+                                <a href="assignments?submit=<?php echo e($assignment['id']); ?>"
                                    class="btn btn-small btn-primary">Submit</a>
                             <?php endif; ?>
                         </div>
@@ -232,19 +232,19 @@ $feeStatus = $db->getRow(
         <div class="quick-actions">
             <h3>Quick Actions</h3>
             <div class="actions-grid">
-                <a href="results.php?download=all" class="action-card">
+                <a href="results?download=all" class="action-card">
                     <i class="fas fa-download"></i>
                     <span>Download Report Card</span>
                 </a>
-                <a href="assignments.php" class="action-card">
+                <a href="assignments" class="action-card">
                     <i class="fas fa-upload"></i>
                     <span>Submit Assignment</span>
                 </a>
-                <a href="messages.php?compose" class="action-card">
+                <a href="messages?compose" class="action-card">
                     <i class="fas fa-envelope"></i>
                     <span>Message Teacher</span>
                 </a>
-                <a href="profile.php" class="action-card">
+                <a href="profile" class="action-card">
                     <i class="fas fa-user-edit"></i>
                     <span>Update Profile</span>
                 </a>

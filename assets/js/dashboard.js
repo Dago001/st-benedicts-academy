@@ -30,7 +30,7 @@ function initializeCharts() {
     // Attendance chart
     const attendanceCanvas = document.getElementById('attendanceChart');
     if (attendanceCanvas && typeof Chart !== 'undefined') {
-        fetch(BASE_URL + '/api/attendance.php?action=get_report&class_id=' + getCurrentClassId())
+        fetch(BASE_URL + '/api/attendance?action=get_report&class_id=' + getCurrentClassId())
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
@@ -101,7 +101,7 @@ function loadRecentActivities() {
     const activitiesContainer = document.querySelector('.recent-activities-list');
     if (!activitiesContainer) return;
 
-    fetch(BASE_URL + '/api/activities.php?action=recent')
+    fetch(BASE_URL + '/api/activities?action=recent')
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -154,7 +154,7 @@ function createActivityItem(activity) {
 }
 
 function refreshNotifications() {
-    fetch(BASE_URL + '/api/notifications.php?action=get_count')
+    fetch(BASE_URL + '/api/notifications?action=get_count')
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -167,16 +167,16 @@ function refreshNotifications() {
 function quickMarkAttendance() {
     const classId = prompt('Enter Class ID:');
     if (classId) {
-        window.location.href = BASE_URL + '/teacher/attendance.php?class=' + classId;
+        window.location.href = BASE_URL + '/teacher/attendance?class=' + classId;
     }
 }
 
 function quickAddResult() {
-    window.location.href = BASE_URL + '/teacher/results.php?add';
+    window.location.href = BASE_URL + '/teacher/results?add';
 }
 
 function quickSendMessage() {
-    window.location.href = BASE_URL + '/messages.php?compose';
+    window.location.href = BASE_URL + '/messages?compose';
 }
 
 // Data table enhancements

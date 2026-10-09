@@ -16,12 +16,12 @@ if (shots) fs.mkdirSync(outDir, { recursive: true });
 const users = {
   admin: 'admin@stbenedicts.edu.ng', teacher: 'teacher@test.com', student: 'student@test.com', parent: 'parent@test.com',
 };
-const publicPages = ['index.php', 'login.php', 'forgot-password.php', 'public/about.php', 'public/academics.php', 'public/admissions.php', 'public/apply.php',
-  'public/contact.php', 'public/gallery.php', 'public/news.php', 'public/news-detail.php?id=1'];
+const publicPages = ['', 'login', 'forgot-password', 'public/about', 'public/academics', 'public/admissions', 'public/apply',
+  'public/contact', 'public/gallery', 'public/news', 'public/news-detail?id=1'];
 const skip = /print-receipt|view-receipt|download-report|export|report-card|print-attendance|index\.php$/;
 
 function pagesFor(role) {
-  return fs.readdirSync(path.join(__dirname, '../../' + role)).filter(f => f.endsWith('.php')).map(f => `${role}/${f}`).filter(p => !skip.test(p));
+  return fs.readdirSync(path.join(__dirname, '../../' + role)).filter(f => f.endsWith('.php')).map(f => `${role}/${f.replace(/\.php$/, '')}`).filter(p => !skip.test(p));
 }
 
 async function measure(page) {
@@ -70,7 +70,7 @@ async function measure(page) {
     page.on('pageerror', e => errors.push('JS: ' + e.message));
     page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource|net::ERR/.test(m.text())) errors.push('console: ' + m.text()); });
     if (role) {
-      await page.goto(BASE + '/login.php');
+      await page.goto(BASE + '/login');
       await page.fill('#email', users[role]);
       await page.fill('#password', 'Test@12345');
       await Promise.all([page.waitForNavigation(), page.click('button[type=submit]')]);

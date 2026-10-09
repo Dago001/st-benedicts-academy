@@ -307,7 +307,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Post/Redirect/Get so a browser refresh does not resubmit the form
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $messageType === 'success') {
-    flash_redirect($message, 'success', BASE_URL . '/admin/students.php');
+    flash_redirect($message, 'success', BASE_URL . '/admin/students');
 }
 
 // Get data based on action
@@ -376,7 +376,7 @@ $students = $db->getRows(
                 <a href="?action=promote" class="btn btn-accent">
                     <i class="fas fa-arrow-up"></i> Promote Students
                 </a>
-                <a href="export.php?type=students" class="btn btn-outline">
+                <a href="export?type=students" class="btn btn-outline">
                     <i class="fas fa-download"></i> Export
                 </a>
             </div>
@@ -545,7 +545,7 @@ $students = $db->getRows(
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save"></i> <?php echo $action === 'add' ? 'Add Student' : 'Update Student'; ?>
                         </button>
-                        <a href="students.php" class="btn btn-outline">
+                        <a href="students" class="btn btn-outline">
                             <i class="fas fa-times"></i> Cancel
                         </a>
                     </div>
@@ -607,7 +607,7 @@ $students = $db->getRows(
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-arrow-up"></i> Promote Students
                         </button>
-                        <a href="students.php" class="btn btn-outline">
+                        <a href="students" class="btn btn-outline">
                             <i class="fas fa-times"></i> Cancel
                         </a>
                     </div>
@@ -677,10 +677,10 @@ $students = $db->getRows(
                                         <a href="?action=edit&id=<?php echo e($student['id']); ?>" class="btn-icon" title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <a href="view-student.php?id=<?php echo e($student['id']); ?>" class="btn-icon" title="View">
+                                        <a href="view-student?id=<?php echo e($student['id']); ?>" class="btn-icon" title="View">
                                             <i class="fas fa-eye"></i>
                                         </a>
-                                        <a href="generate-login.php?id=<?php echo e($student['id']); ?>" class="btn-icon" title="Generate Login">
+                                        <a href="generate-login?id=<?php echo e($student['id']); ?>" class="btn-icon" title="Generate Login">
                                             <i class="fas fa-key"></i>
                                         </a>
                                         <?php if ($student['is_active']): ?>

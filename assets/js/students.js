@@ -157,7 +157,7 @@ function bulkDelete(students) {
 
     const form = document.createElement('form');
     form.method = 'POST';
-    form.action = 'students.php';
+    form.action = 'students';
 
     const csrf = document.createElement('input');
     csrf.type = 'hidden';
@@ -216,7 +216,7 @@ function previewPhoto(e) {
 
 // Generate login credentials
 function generateLogin(studentId) {
-    fetch(BASE_URL + '/api/generate-login.php', {
+    fetch(BASE_URL + '/api/generate-login', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

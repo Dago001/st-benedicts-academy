@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 is_array($_POST['remarks'] ?? null) ? $_POST['remarks'] : [], $userId);
             Security::logAudit('MARKED_ATTENDANCE', 'attendance', $selectedClass, null, ['date' => $selectedDate, 'count' => $count]);
             flash_redirect("Attendance saved for $count students", 'success',
-                BASE_URL . '/teacher/attendance.php?' . http_build_query(['class_id' => $selectedClass, 'date' => $selectedDate]));
+                BASE_URL . '/teacher/attendance?' . http_build_query(['class_id' => $selectedClass, 'date' => $selectedDate]));
         } catch (Exception $e) {
             error_log('teacher attendance: ' . $e->getMessage());
             $message = 'Error saving attendance. Please try again.';
@@ -66,7 +66,7 @@ $recent = $db->getRows(
 $pageTitle = 'Mark Attendance';
 $extraCSS = ['dashboard.css'];
 include __DIR__ . '/../includes/header.php';
-dashboard_open('teacher', 'Mark Attendance', '<a href="attendance-report.php" class="btn btn-outline"><i class="fas fa-chart-bar"></i> Reports</a>');
+dashboard_open('teacher', 'Mark Attendance', '<a href="attendance-report" class="btn btn-outline"><i class="fas fa-chart-bar"></i> Reports</a>');
 render_alert($message, $messageType);
 ?>
 <div class="card"><div class="card-body">

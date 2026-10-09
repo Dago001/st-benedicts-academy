@@ -104,7 +104,7 @@ function render_messages_page($role) {
             }
         }
         if ($messageType === 'success') {
-            flash_redirect($message, 'success', BASE_URL . '/' . $role . '/messages.php' . (!empty($_POST['receiver_id']) ? '?conversation=' . (int)$_POST['receiver_id'] : ''));
+            flash_redirect($message, 'success', BASE_URL . '/' . $role . '/messages' . (!empty($_POST['receiver_id']) ? '?conversation=' . (int)$_POST['receiver_id'] : ''));
         }
     }
 

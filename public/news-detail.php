@@ -18,9 +18,9 @@ $related = $item ? $db->getRows("SELECT id, title, created_at FROM news_events W
 <?php if (!$item): ?>
     <h1>Story not found</h1>
     <p>That news item does not exist or is no longer published.</p>
-    <a class="btn btn-primary" href="<?php echo BASE_URL; ?>/public/news.php">Back to News &amp; Events</a>
+    <a class="btn btn-primary" href="<?php echo BASE_URL; ?>/public/news">Back to News &amp; Events</a>
 <?php else: ?>
-    <p><a href="<?php echo BASE_URL; ?>/public/news.php"><i class="fas fa-arrow-left"></i> News &amp; Events</a></p>
+    <p><a href="<?php echo BASE_URL; ?>/public/news"><i class="fas fa-arrow-left"></i> News &amp; Events</a></p>
     <article>
         <h1 style="margin-bottom:6px"><?php echo e($item['title']); ?></h1>
         <p class="text-muted">
@@ -36,7 +36,7 @@ $related = $item ? $db->getRows("SELECT id, title, created_at FROM news_events W
     <?php if ($related): ?>
     <h3 style="margin-top:32px">More <?php echo $item['type'] === 'event' ? 'events' : 'news'; ?></h3>
     <ul>
-        <?php foreach ($related as $r): ?><li><a href="news-detail.php?id=<?php echo (int)$r['id']; ?>"><?php echo e($r['title']); ?></a> <small class="text-muted"><?php echo e(formatDate($r['created_at'], 'M j, Y')); ?></small></li><?php endforeach; ?>
+        <?php foreach ($related as $r): ?><li><a href="news-detail?id=<?php echo (int)$r['id']; ?>"><?php echo e($r['title']); ?></a> <small class="text-muted"><?php echo e(formatDate($r['created_at'], 'M j, Y')); ?></small></li><?php endforeach; ?>
     </ul>
     <?php endif; ?>
 <?php endif; ?>

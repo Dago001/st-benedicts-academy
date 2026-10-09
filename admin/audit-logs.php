@@ -266,7 +266,7 @@ $users = $db->getRows(
 </form>
 <script>
 function viewDetails(logId) {
-    fetch(`${BASE_URL}/api/get-audit-log.php?id=${encodeURIComponent(logId)}`, {credentials: 'same-origin'})
+    fetch(`${BASE_URL}/api/get-audit-log?id=${encodeURIComponent(logId)}`, {credentials: 'same-origin'})
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -301,7 +301,7 @@ function closeModal() {
 
 function exportLogs() {
     const params = new URLSearchParams(window.location.search);
-    window.location.href = BASE_URL + '/admin/export-logs.php?' + params.toString();
+    window.location.href = BASE_URL + '/admin/export-logs?' + params.toString();
 }
 
 function clearLogs() {

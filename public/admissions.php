@@ -12,7 +12,7 @@ $metaTags = [
     'og:title' => 'Admissions - ST. BENEDICT\'S EARLY YEARS BRITISH ACADEMY',
     'og:description' => 'Apply online for admission to our British Early Years program. Start your child\'s journey with us today.',
     'og:image' => BASE_URL . '/assets/images/og-image.jpg',
-    'og:url' => BASE_URL . '/public/admissions.php',
+    'og:url' => BASE_URL . '/public/admissions',
     'twitter:card' => 'summary_large_image'
 ];
 
@@ -117,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 sendEmail(SCHOOL_EMAIL, "New Admission Application - $appNumber",
                     "<h2>New Admission Application</h2><p><strong>Number:</strong> " . e($appNumber) . "</p><p><strong>Child:</strong> " . e($fullName)
                     . " (" . e($dob) . ", " . e($gender) . ")</p><p><strong>Class:</strong> " . e($class) . "</p><p><strong>Parent:</strong> " . e($parentName)
-                    . " &middot; " . e($parentEmail) . " &middot; " . e($parentPhone) . "</p><p><a href='" . e(BASE_URL) . "/admin/applications.php'>Review in the admin panel</a></p>");
+                    . " &middot; " . e($parentEmail) . " &middot; " . e($parentPhone) . "</p><p><a href='" . e(BASE_URL) . "/admin/applications'>Review in the admin panel</a></p>");
 
                 $applied = ['number' => $appNumber, 'email' => $parentEmail];
                 $messageType = 'success';
@@ -731,7 +731,7 @@ if (empty($classes)) {
     <div class="container">
         <h1>Admissions</h1>
         <div class="breadcrumb">
-            <a href="<?php echo BASE_URL; ?>/index.php">Home</a> / Admissions
+            <a href="<?php echo BASE_URL; ?>/">Home</a> / Admissions
         </div>
     </div>
 </section>
@@ -804,8 +804,8 @@ if (empty($classes)) {
             <?php endif; ?>
             <p>Our admissions team will contact you within 3-5 working days.</p>
             <div style="margin-top:24px">
-                <a href="<?php echo BASE_URL; ?>/index.php" class="btn btn-primary">Return to Home</a>
-                <a href="admissions.php" class="btn btn-outline">Submit Another Application</a>
+                <a href="<?php echo BASE_URL; ?>/" class="btn btn-primary">Return to Home</a>
+                <a href="admissions" class="btn btn-outline">Submit Another Application</a>
             </div>
         </div>
         <?php endif; ?>

@@ -28,7 +28,7 @@ if ($t && $_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $db->commit();
             Security::logAudit('UPDATED_SUBJECT_ASSIGNMENT', 'teachers', $teacherId, null, ['subjects' => $selected]);
-            flash_redirect('Subject assignments updated', 'success', BASE_URL . '/admin/teachers.php');
+            flash_redirect('Subject assignments updated', 'success', BASE_URL . '/admin/teachers');
         } catch (Exception $e) {
             $db->rollback();
             $message = 'Could not save the assignments';
@@ -64,8 +64,8 @@ if ($t): ?>
         <?php if (!$subjects): ?><p class="text-muted">No active subjects exist yet.</p><?php endif; ?>
         </div>
     </div>
-    <div class="card-footer"><button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save</button> <a href="teachers.php" class="btn btn-secondary">Cancel</a></div>
+    <div class="card-footer"><button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save</button> <a href="teachers" class="btn btn-secondary">Cancel</a></div>
 </form>
-<?php else: ?><a href="teachers.php" class="btn btn-secondary">Back to teachers</a><?php endif;
+<?php else: ?><a href="teachers" class="btn btn-secondary">Back to teachers</a><?php endif;
 dashboard_close();
 include __DIR__ . '/../includes/footer.php';

@@ -790,7 +790,7 @@ $announcements = $db->getRows(
                                         <i class="fas fa-check-circle"></i> Attendance Marked
                                     </span>
                                 <?php else: ?>
-                                    <a href="attendance.php?class_id=<?php echo e($class['id']); ?>"
+                                    <a href="attendance?class_id=<?php echo e($class['id']); ?>"
                                        class="btn btn-small btn-primary">
                                         <i class="fas fa-calendar-check"></i> Mark Attendance
                                     </a>
@@ -829,7 +829,7 @@ $announcements = $db->getRows(
                                 <span class="badge warning">
                                     <?php echo e($assignment['pending_count']); ?> pending
                                 </span>
-                                <a href="submissions.php?assignment_id=<?php echo e($assignment['id']); ?>"
+                                <a href="submissions?assignment_id=<?php echo e($assignment['id']); ?>"
                                    class="btn btn-small btn-outline">
                                     <i class="fas fa-check"></i> Grade
                                 </a>
@@ -940,11 +940,11 @@ $announcements = $db->getRows(
                                 </td>
                                 <td>
                                     <div class="action-buttons">
-                                        <a href="results.php?edit=<?php echo e($result['id']); ?>"
+                                        <a href="results?edit=<?php echo e($result['id']); ?>"
                                            class="btn-icon" title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <a href="results.php?view=<?php echo e($result['id']); ?>"
+                                        <a href="results?view=<?php echo e($result['id']); ?>"
                                            class="btn-icon" title="View">
                                             <i class="fas fa-eye"></i>
                                         </a>
@@ -971,27 +971,27 @@ $announcements = $db->getRows(
         <div class="quick-actions">
             <h3>Quick Actions</h3>
             <div class="actions-grid">
-                <a href="attendance.php" class="action-card">
+                <a href="attendance" class="action-card">
                     <i class="fas fa-calendar-check"></i>
                     <span>Mark Attendance</span>
                 </a>
-                <a href="results.php?action=add" class="action-card">
+                <a href="results?action=add" class="action-card">
                     <i class="fas fa-plus-circle"></i>
                     <span>Add Results</span>
                 </a>
-                <a href="assignments.php?action=add" class="action-card">
+                <a href="assignments?action=add" class="action-card">
                     <i class="fas fa-upload"></i>
                     <span>Post Assignment</span>
                 </a>
-                <a href="messages.php?compose" class="action-card">
+                <a href="messages?compose" class="action-card">
                     <i class="fas fa-paper-plane"></i>
                     <span>Send Message</span>
                 </a>
-                <a href="students.php" class="action-card">
+                <a href="students" class="action-card">
                     <i class="fas fa-user-graduate"></i>
                     <span>View Students</span>
                 </a>
-                <a href="profile.php" class="action-card">
+                <a href="profile" class="action-card">
                     <i class="fas fa-user-cog"></i>
                     <span>Update Profile</span>
                 </a>

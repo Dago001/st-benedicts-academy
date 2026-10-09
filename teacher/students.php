@@ -449,7 +449,7 @@ document.getElementById('searchStudent')?.addEventListener('keyup', function() {
 
 // View student details
 function viewStudent(studentId) {
-    fetch(`${BASE_URL}/api/get-student-details.php?id=${encodeURIComponent(studentId)}`, {credentials: 'same-origin'})
+    fetch(`${BASE_URL}/api/get-student-details?id=${encodeURIComponent(studentId)}`, {credentials: 'same-origin'})
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -530,12 +530,12 @@ function displayStudentDetails(student) {
 
 // Mark attendance
 function markAttendance(studentId) {
-    window.location.href = `attendance.php?class_id=${<?php echo (int)$selectedClass; ?>}`;
+    window.location.href = `attendance?class_id=${<?php echo (int)$selectedClass; ?>}`;
 }
 
 // Contact parent
 function contactParent(studentId) {
-    window.location.href = `messages.php`;
+    window.location.href = `messages`;
 }
 
 // Show medical notes
@@ -550,7 +550,7 @@ function showMedicalNotes(notes) {
 // Export student list
 function exportStudentList() {
     const classId = document.getElementById('class').value;
-    window.location.href = `export.php?type=students&class=${classId}`;
+    window.location.href = `export?type=students&class=${classId}`;
 }
 
 // Close modals

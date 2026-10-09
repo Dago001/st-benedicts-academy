@@ -22,6 +22,12 @@ $parent = $db->getRow(
     [$userId]
 );
 
+if (!$parent) {
+    echo '<div class="container" style="padding:24px"><div class="alert alert-error">Your parent profile is incomplete. Please contact the school office.</div></div>';
+    include __DIR__ . '/../includes/footer.php';
+    exit;
+}
+
 // Get children (students) of this parent
 $children = $db->getRows(
     "SELECT s.*, u.first_name, u.last_name, u.email, u.profile_image,
@@ -229,7 +235,7 @@ $announcements = $db->getRows(
                     </div>
                     <?php endforeach; ?>
                 </div>
-                <a href="child-performance.php?child=<?php echo e($selectedChildId); ?>" class="btn-link">
+                <a href="child-performance?child=<?php echo e($selectedChildId); ?>" class="btn-link">
                     View All Results <i class="fas fa-arrow-right"></i>
                 </a>
                 <?php else: ?>
@@ -302,7 +308,7 @@ $announcements = $db->getRows(
                 </div>
                 <?php endif; ?>
             </div>
-            <a href="fees.php?child=<?php echo e($selectedChildId); ?>" class="btn-link">View Fee Details</a>
+            <a href="fees?child=<?php echo e($selectedChildId); ?>" class="btn-link">View Fee Details</a>
             <?php else: ?>
             <p class="no-data">No fee records available.</p>
             <?php endif; ?>
@@ -346,19 +352,19 @@ $announcements = $db->getRows(
         <div class="quick-actions">
             <h3>Quick Actions</h3>
             <div class="actions-grid">
-                <a href="messages.php?compose" class="action-card">
+                <a href="messages?compose" class="action-card">
                     <i class="fas fa-envelope"></i>
                     <span>Message Teacher</span>
                 </a>
-                <a href="fees.php" class="action-card">
+                <a href="fees" class="action-card">
                     <i class="fas fa-credit-card"></i>
                     <span>Pay Fees</span>
                 </a>
-                <a href="schedule.php" class="action-card">
+                <a href="schedule" class="action-card">
                     <i class="fas fa-calendar-alt"></i>
                     <span>View Schedule</span>
                 </a>
-                <a href="children.php" class="action-card">
+                <a href="children" class="action-card">
                     <i class="fas fa-file-alt"></i>
                     <span>My Children</span>
                 </a>

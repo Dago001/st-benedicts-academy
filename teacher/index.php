@@ -5,11 +5,11 @@ require_once '../config/security.php';
 
 // Redirect to dashboard if already logged in as teacher
 if (Security::isLoggedIn() && $_SESSION['user_role'] === 'teacher') {
-    header('Location: dashboard.php');
+    header('Location: dashboard');
     exit;
 }
 
 // Otherwise redirect to main login page
-header('Location: ' . BASE_URL . '/login.php');
+header('Location: ' . BASE_URL . '/login');
 exit;
 ?>

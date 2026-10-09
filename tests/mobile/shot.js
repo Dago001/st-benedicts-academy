@@ -8,7 +8,7 @@ const users = { admin: 'admin@stbenedicts.edu.ng', teacher: 'teacher@test.com', 
   const c = await b.newContext({ viewport: { width, height: 760 }, deviceScaleFactor: 1.5, isMobile: width < 700, hasTouch: width < 700 });
   const page = await c.newPage();
   if (role !== 'public') {
-    await page.goto('http://127.0.0.1:8080/login.php');
+    await page.goto('http://127.0.0.1:8080/login');
     await page.fill('#email', users[role]); await page.fill('#password', 'Test@12345');
     await Promise.all([page.waitForNavigation(), page.click('button[type=submit]')]);
   }

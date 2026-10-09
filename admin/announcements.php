@@ -181,7 +181,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $messageType === 'success') {
-    flash_redirect($message, 'success', BASE_URL . '/admin/announcements.php');
+    flash_redirect($message, 'success', BASE_URL . '/admin/announcements');
 }
 
 // Get announcement for editing
@@ -648,7 +648,7 @@ $announcements = $db->getRows(
             <h1>Manage Announcements</h1>
             <div class="header-actions">
                 <?php if ($action === 'add' || $action === 'edit'): ?>
-                <a href="announcements.php" class="btn btn-outline">
+                <a href="announcements" class="btn btn-outline">
                     <i class="fas fa-arrow-left"></i> Back to List
                 </a>
                 <?php else: ?>
@@ -753,7 +753,7 @@ $announcements = $db->getRows(
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save"></i> <?php echo $action === 'add' ? 'Publish Announcement' : 'Update Announcement'; ?>
                         </button>
-                        <a href="announcements.php" class="btn btn-outline">
+                        <a href="announcements" class="btn btn-outline">
                             <i class="fas fa-times"></i> Cancel
                         </a>
                     </div>
@@ -1122,7 +1122,7 @@ function closeModal() {
 }
 
 function exportAnnouncements() {
-    window.location.href = 'export.php?type=announcements';
+    window.location.href = 'export?type=announcements';
 }
 
 // Close modals when clicking outside

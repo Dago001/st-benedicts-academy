@@ -17,7 +17,7 @@ $metaTags = [
     'og:title' => 'News & Events - ST. BENEDICT\'S EARLY YEARS BRITISH ACADEMY',
     'og:description' => 'Latest news and upcoming events at our school.',
     'og:image' => BASE_URL . '/assets/images/og-image.jpg',
-    'og:url' => BASE_URL . '/public/news.php',
+    'og:url' => BASE_URL . '/public/news',
     'twitter:card' => 'summary_large_image'
 ];
 
@@ -871,7 +871,7 @@ if ($db) {
     <div class="container">
         <h1>News & Events</h1>
         <div class="breadcrumb">
-            <a href="<?php echo BASE_URL; ?>/index.php">Home</a> / News & Events
+            <a href="<?php echo BASE_URL; ?>/">Home</a> / News & Events
         </div>
     </div>
 </section>
@@ -894,7 +894,7 @@ if ($db) {
                     <span><i class="far fa-calendar-alt"></i> <?php echo date('F j, Y', strtotime($featuredNews['created_at'])); ?></span>
                 </div>
                 <p><?php echo htmlspecialchars(substr($featuredNews['content'], 0, 300)); ?>...</p>
-                <a href="news-detail.php?id=<?php echo e($featuredNews['id']); ?>" class="btn btn-primary">
+                <a href="news-detail?id=<?php echo e($featuredNews['id']); ?>" class="btn btn-primary">
                     Read Full Story <i class="fas fa-arrow-right"></i>
                 </a>
             </div>
@@ -928,13 +928,13 @@ if ($db) {
                     </div>
                 </div>
                 <div class="article-content">
-                    <h3><a href="news-detail.php?id=<?php echo e($item['id']); ?>"><?php echo htmlspecialchars($item['title']); ?></a></h3>
+                    <h3><a href="news-detail?id=<?php echo e($item['id']); ?>"><?php echo htmlspecialchars($item['title']); ?></a></h3>
                     <p><?php echo htmlspecialchars(substr($item['content'], 0, 150)); ?>...</p>
                     <div class="article-footer">
                         <span class="article-author">
                             <i class="far fa-user"></i> <?php echo htmlspecialchars(($item['first_name'] ?? 'Admin') . ' ' . ($item['last_name'] ?? '')); ?>
                         </span>
-                        <a href="news-detail.php?id=<?php echo e($item['id']); ?>" class="read-more">
+                        <a href="news-detail?id=<?php echo e($item['id']); ?>" class="read-more">
                             Read More <i class="fas fa-arrow-right"></i>
                         </a>
                     </div>
@@ -1046,7 +1046,7 @@ function subscribeNewsletter(event) {
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Subscribing...';
     submitBtn.disabled = true;
 
-    fetch('../api/subscribe-newsletter.php', {
+    fetch('../api/subscribe-newsletter', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

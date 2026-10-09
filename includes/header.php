@@ -1,7 +1,7 @@
 <?php
 // includes/header.php
 // Expects config/config.php + config/security.php to be loaded by the page.
-$currentPage = basename($_SERVER['PHP_SELF']);
+$currentPage = basename($_SERVER['PHP_SELF'], '.php');
 $assetVersion = '6';
 
 /** <link>/<script> only for assets that actually exist, so a missing file never causes a 404. */
@@ -12,7 +12,7 @@ if (!function_exists('asset_exists')) {
     }
 }
 $isLoggedIn = Security::isLoggedIn();
-$dashboardUrl = $isLoggedIn ? BASE_URL . '/' . $_SESSION['user_role'] . '/dashboard.php' : BASE_URL . '/login.php';
+$dashboardUrl = $isLoggedIn ? BASE_URL . '/' . $_SESSION['user_role'] . '/dashboard' : BASE_URL . '/login';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -66,7 +66,7 @@ $dashboardUrl = $isLoggedIn ? BASE_URL . '/' . $_SESSION['user_role'] . '/dashbo
         <nav class="main-nav" aria-label="Main navigation">
             <div class="nav-container">
                 <div class="logo">
-                    <a href="<?php echo BASE_URL; ?>/index.php">
+                    <a href="<?php echo BASE_URL; ?>/">
                         <img src="<?php echo BASE_URL; ?>/assets/images/logo.png" alt="<?php echo e(SITE_NAME); ?>">
                         <span class="school-name">ST. BENEDICT'S<br><small>Early Years British Academy</small></span>
                     </a>
@@ -79,13 +79,13 @@ $dashboardUrl = $isLoggedIn ? BASE_URL . '/' . $_SESSION['user_role'] . '/dashbo
                 <ul class="nav-menu" id="navMenu">
                     <?php
                     $links = [
-                        'index.php'      => ['/index.php', 'Home'],
-                        'about.php'      => ['/public/about.php', 'About Us'],
-                        'admissions.php' => ['/public/admissions.php', 'Admissions'],
-                        'academics.php'  => ['/public/academics.php', 'Academics'],
-                        'news.php'       => ['/public/news.php', 'News & Events'],
-                        'gallery.php'    => ['/public/gallery.php', 'Gallery'],
-                        'contact.php'    => ['/public/contact.php', 'Contact'],
+                        'index'      => ['/', 'Home'],
+                        'about'      => ['/public/about', 'About Us'],
+                        'admissions' => ['/public/admissions', 'Admissions'],
+                        'academics'  => ['/public/academics', 'Academics'],
+                        'news'       => ['/public/news', 'News & Events'],
+                        'gallery'    => ['/public/gallery', 'Gallery'],
+                        'contact'    => ['/public/contact', 'Contact'],
                     ];
                     foreach ($links as $file => [$path, $label]): ?>
                     <li class="<?php echo $currentPage === $file ? 'active' : ''; ?>">
@@ -100,13 +100,13 @@ $dashboardUrl = $isLoggedIn ? BASE_URL . '/' . $_SESSION['user_role'] . '/dashbo
                             </a>
                             <ul class="dropdown-menu">
                                 <li><a href="<?php echo e($dashboardUrl); ?>">Dashboard</a></li>
-                                <li><a href="<?php echo BASE_URL; ?>/logout.php">Logout</a></li>
+                                <li><a href="<?php echo BASE_URL; ?>/logout">Logout</a></li>
                             </ul>
                         </li>
                     <?php else: ?>
                         <li class="nav-buttons">
-                            <a href="<?php echo BASE_URL; ?>/login.php" class="btn btn-primary">Login</a>
-                            <a href="<?php echo BASE_URL; ?>/public/apply.php" class="btn btn-accent">Apply Now</a>
+                            <a href="<?php echo BASE_URL; ?>/login" class="btn btn-primary">Login</a>
+                            <a href="<?php echo BASE_URL; ?>/public/apply" class="btn btn-accent">Apply Now</a>
                         </li>
                     <?php endif; ?>
                 </ul>

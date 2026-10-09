@@ -50,8 +50,8 @@ dashboard_open('teacher', 'My Classes');
 
 <?php if ($selectedClass): ?>
 <div class="card"><div class="card-header"><h3><?php echo e(trim($selectedClass['class_name'] . ' ' . $selectedClass['section'])); ?> roster</h3>
-    <div><a class="btn btn-sm btn-primary" href="attendance.php?class_id=<?php echo $selected; ?>">Take attendance</a>
-    <a class="btn btn-sm btn-outline" href="export.php?class_id=<?php echo $selected; ?>">Export CSV</a></div></div>
+    <div><a class="btn btn-sm btn-primary" href="attendance?class_id=<?php echo $selected; ?>">Take attendance</a>
+    <a class="btn btn-sm btn-outline" href="export?class_id=<?php echo $selected; ?>">Export CSV</a></div></div>
 <div class="card-body"><div class="table-responsive"><table class="table"><thead><tr><th>#</th><th>Admission No</th><th>Name</th><th>Gender</th><th>Parent</th><th>Parent phone</th></tr></thead><tbody>
 <?php foreach ($roster as $i => $s): ?><tr><td><?php echo $i + 1; ?></td><td><?php echo e($s['admission_number']); ?></td><td><?php echo e($s['first_name'] . ' ' . $s['last_name']); ?></td>
     <td><?php echo e(ucfirst((string)$s['gender'])); ?></td><td><?php echo e($s['parent_name'] ?: '-'); ?></td>

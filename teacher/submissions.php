@@ -15,7 +15,7 @@ $extraCSS = ['dashboard.css'];
 include __DIR__ . '/../includes/header.php';
 if (!$hw) {
     dashboard_open('teacher', 'Assignment not found');
-    echo '<a class="btn btn-secondary" href="assignments.php">Back to assignments</a>';
+    echo '<a class="btn btn-secondary" href="assignments">Back to assignments</a>';
     dashboard_close();
     include __DIR__ . '/../includes/footer.php';
     exit;
@@ -27,7 +27,7 @@ $rows = $db->getRows(
      LEFT JOIN homework_submissions hs ON hs.student_id = st.id AND hs.homework_id = ?
      WHERE st.class_id = ? AND u.is_active = 1 ORDER BY u.first_name, u.last_name", [$hid, $hw['class_id']]);
 
-dashboard_open('teacher', $hw['title'], '<a href="assignments.php" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Back</a>');
+dashboard_open('teacher', $hw['title'], '<a href="assignments" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Back</a>');
 ?>
 <p class="text-muted"><?php echo e($hw['subject_name']); ?> &middot; <?php echo e(trim($hw['class_name'] . ' ' . $hw['section'])); ?> &middot;
     due <?php echo e(formatDate($hw['due_date'], 'd M Y, h:i A')); ?> &middot; out of <?php echo e($hw['total_marks'] + 0); ?></p>
@@ -41,7 +41,7 @@ dashboard_open('teacher', $hw['title'], '<a href="assignments.php" class="btn bt
         <?php if (!$r['submission_text'] && !$r['attachment_path']): ?>-<?php endif; ?></td>
     <td><?php echo $r['obtained_marks'] !== null ? e($r['obtained_marks'] + 0) . '/' . e($hw['total_marks'] + 0) : '-'; ?></td>
     <td><?php if ($r['sub_id']): ?>
-        <form method="POST" action="assignments.php" class="inline-grade">
+        <form method="POST" action="assignments" class="inline-grade">
             <?php echo csrf_field(); ?><input type="hidden" name="action" value="grade_submission"><input type="hidden" name="submission_id" value="<?php echo (int)$r['sub_id']; ?>">
             <input type="number" name="obtained_marks" class="form-control form-control-sm" min="0" max="<?php echo e($hw['total_marks'] + 0); ?>" step="0.5" required value="<?php echo e($r['obtained_marks']); ?>" style="width:90px" aria-label="Marks">
             <input type="text" name="feedback" class="form-control form-control-sm" placeholder="Feedback" maxlength="2000" value="<?php echo e($r['feedback']); ?>">

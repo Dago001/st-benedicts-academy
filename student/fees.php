@@ -783,7 +783,7 @@ function getStatusBadge($paid, $total) {
 
                     <div class="form-group">
                         <label>&nbsp;</label>
-                        <a href="fees.php" class="btn btn-outline" style="padding: 8px 20px; display: inline-block; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; text-decoration: none; color: #333;">
+                        <a href="fees" class="btn btn-outline" style="padding: 8px 20px; display: inline-block; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; text-decoration: none; color: #333;">
                             <i class="fas fa-redo"></i> Current Year
                         </a>
                     </div>
@@ -994,7 +994,7 @@ function getStatusBadge($paid, $total) {
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <a href="print-receipt.php?id=<?php echo e($payment['id']); ?>" class="receipt-link" target="_blank">
+                                    <a href="print-receipt?id=<?php echo e($payment['id']); ?>" class="receipt-link" target="_blank">
                                         <i class="fas fa-print"></i> Print
                                     </a>
                                 </td>
@@ -1051,7 +1051,7 @@ function getStatusBadge($paid, $total) {
                                 <td class="text-right text-success">₦<?php echo number_format($payment['amount'], 2); ?></td>
                                 <td><?php echo ucfirst(str_replace('_', ' ', $payment['payment_method'])); ?></td>
                                 <td>
-                                    <a href="print-receipt.php?id=<?php echo e($payment['id']); ?>" class="receipt-link" target="_blank">
+                                    <a href="print-receipt?id=<?php echo e($payment['id']); ?>" class="receipt-link" target="_blank">
                                         <i class="fas fa-print"></i>
                                     </a>
                                 </td>

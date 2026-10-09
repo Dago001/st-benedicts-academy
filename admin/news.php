@@ -74,7 +74,7 @@ $items = $db->getRows('SELECT id, title, type, event_date, is_published, is_feat
 $pageTitle = 'News & Events';
 $extraCSS = ['admin.css', 'dashboard.css'];
 include __DIR__ . '/../includes/header.php';
-dashboard_open('admin', 'News & Events', $edit ? '<a class="btn btn-secondary" href="news.php">Cancel edit</a>' : '');
+dashboard_open('admin', 'News & Events', $edit ? '<a class="btn btn-secondary" href="news">Cancel edit</a>' : '');
 render_alert($message, $messageType);
 ?>
 <div class="card"><div class="card-header"><h3><?php echo $edit ? 'Edit item' : 'Add news or event'; ?></h3></div><div class="card-body">
@@ -102,7 +102,7 @@ render_alert($message, $messageType);
     <td><?php echo e(formatDate($it['type'] === 'event' ? $it['event_date'] : $it['created_at'], 'd M Y')); ?></td>
     <td><?php echo $it['is_published'] ? 'Published' : 'Draft'; ?></td>
     <td class="action-buttons"><a class="btn-icon" href="?edit=<?php echo (int)$it['id']; ?>" title="Edit"><i class="fas fa-edit"></i></a>
-        <a class="btn-icon" href="<?php echo e(BASE_URL); ?>/public/news-detail.php?id=<?php echo (int)$it['id']; ?>" target="_blank" rel="noopener" title="View"><i class="fas fa-eye"></i></a>
+        <a class="btn-icon" href="<?php echo e(BASE_URL); ?>/public/news-detail?id=<?php echo (int)$it['id']; ?>" target="_blank" rel="noopener" title="View"><i class="fas fa-eye"></i></a>
         <form method="POST" style="display:inline" onsubmit="return confirm('Delete this item?')"><?php echo csrf_field(); ?><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?php echo (int)$it['id']; ?>">
         <button class="btn-icon text-danger" type="submit" title="Delete"><i class="fas fa-trash"></i></button></form></td></tr>
 <?php endforeach; ?>

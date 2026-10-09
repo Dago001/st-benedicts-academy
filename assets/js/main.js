@@ -235,7 +235,7 @@ function showFormError(message) {
 // Notifications
 function checkNotifications() {
     if (typeof BASE_URL === 'undefined' || !window.IS_AUTH) return;
-    fetch(BASE_URL + '/api/notifications.php?action=get_count', { credentials: 'same-origin' })
+    fetch(BASE_URL + '/api/notifications?action=get_count', { credentials: 'same-origin' })
         .then(response => response.json())
         .then(data => {
             if (data.success && data.count > 0) {

@@ -82,7 +82,7 @@ class Auth {
 
     /** Only same-site paths are honoured as post-login redirects. */
     private function safeRedirect($target, $role) {
-        $default = BASE_URL . '/' . $role . '/dashboard.php';
+        $default = BASE_URL . '/' . $role . '/dashboard';
         if (!$target || !is_string($target) || $target[0] !== '/' || strpos($target, '//') === 0 || strpos($target, '\\') !== false) {
             return $default;
         }

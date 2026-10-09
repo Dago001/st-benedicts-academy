@@ -6,7 +6,7 @@ require_once __DIR__ . '/includes/auth.php';
 
 // Redirect if already logged in
 if (Security::isLoggedIn()) {
-    header('Location: ' . BASE_URL . '/' . $_SESSION['user_role'] . '/dashboard.php');
+    header('Location: ' . BASE_URL . '/' . $_SESSION['user_role'] . '/dashboard');
     exit;
 }
 
@@ -315,10 +315,10 @@ $csrf_token = Security::generateCSRFToken();
                 </div>
 
                 <div class="login-footer">
-                    <a href="<?php echo BASE_URL; ?>/forgot-password.php">
+                    <a href="<?php echo BASE_URL; ?>/forgot-password">
                         <i class="fas fa-question-circle"></i> Forgot Password?
                     </a>
-                    <a href="<?php echo BASE_URL; ?>/index.php">
+                    <a href="<?php echo BASE_URL; ?>/">
                         <i class="fas fa-home"></i> Back to Home
                     </a>
                 </div>

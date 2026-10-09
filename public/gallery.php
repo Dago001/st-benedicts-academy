@@ -17,7 +17,7 @@ $metaTags = [
     'og:title' => 'Gallery - ST. BENEDICT\'S EARLY YEARS BRITISH ACADEMY',
     'og:description' => 'View photos and memories from our school.',
     'og:image' => BASE_URL . '/assets/images/og-image.jpg',
-    'og:url' => BASE_URL . '/public/gallery.php',
+    'og:url' => BASE_URL . '/public/gallery',
     'twitter:card' => 'summary_large_image'
 ];
 
@@ -823,7 +823,7 @@ if (empty($categories)) {
     <div class="container">
         <h1>Photo Gallery</h1>
         <div class="breadcrumb">
-            <a href="<?php echo BASE_URL; ?>/index.php">Home</a> / Gallery
+            <a href="<?php echo BASE_URL; ?>/">Home</a> / Gallery
         </div>
     </div>
 </section>

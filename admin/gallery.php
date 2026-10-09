@@ -151,7 +151,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $messageType === 'success') {
-    flash_redirect($message, 'success', BASE_URL . '/admin/gallery.php');
+    flash_redirect($message, 'success', BASE_URL . '/admin/gallery');
 }
 
 // Get gallery images with pagination
@@ -566,7 +566,7 @@ function previewImage(input) {
 
 function editImage(id) {
     // Fetch image details via AJAX
-    fetch(`../api/get-gallery-image.php?id=${id}`)
+    fetch(`../api/get-gallery-image?id=${id}`)
         .then(response => response.json())
         .then(data => {
             if (data.success) {

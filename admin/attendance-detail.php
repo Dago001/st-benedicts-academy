@@ -13,7 +13,7 @@ $extraCSS = ['admin.css', 'dashboard.css'];
 include __DIR__ . '/../includes/header.php';
 if (!$class) {
     dashboard_open('admin', 'Class not found');
-    echo '<a class="btn btn-secondary" href="attendance.php">Back</a>';
+    echo '<a class="btn btn-secondary" href="attendance">Back</a>';
     dashboard_close();
     include __DIR__ . '/../includes/footer.php';
     exit;
@@ -27,9 +27,9 @@ $counts = ['present' => 0, 'absent' => 0, 'late' => 0, 'excused' => 0, 'unmarked
 foreach ($rows as $r) { $counts[$r['status'] ?: 'unmarked']++; }
 
 dashboard_open('admin', trim($class['class_name'] . ' ' . $class['section']) . ' attendance',
-    '<a href="mark-attendance.php?class_id=' . $classId . '&date=' . urlencode($date) . '" class="btn btn-primary"><i class="fas fa-edit"></i> Mark / edit</a>'
-    . '<a href="export.php?type=attendance&class_id=' . $classId . '&date=' . urlencode($date) . '" class="btn btn-outline"><i class="fas fa-download"></i> CSV</a>'
-    . '<a href="attendance.php?date=' . urlencode($date) . '" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Back</a>');
+    '<a href="mark-attendance?class_id=' . $classId . '&date=' . urlencode($date) . '" class="btn btn-primary"><i class="fas fa-edit"></i> Mark / edit</a>'
+    . '<a href="export?type=attendance&class_id=' . $classId . '&date=' . urlencode($date) . '" class="btn btn-outline"><i class="fas fa-download"></i> CSV</a>'
+    . '<a href="attendance?date=' . urlencode($date) . '" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Back</a>');
 ?>
 <form method="GET" class="card"><div class="card-body form-inline">
     <input type="hidden" name="class_id" value="<?php echo $classId; ?>">

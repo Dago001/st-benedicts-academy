@@ -187,7 +187,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     if ($messageType === 'success') {
-        flash_redirect($message, 'success', BASE_URL . '/teacher/assignments.php');
+        flash_redirect($message, 'success', BASE_URL . '/teacher/assignments');
     }
 }
 
@@ -562,7 +562,7 @@ function showAssignmentModal() {
 
 function editAssignment(id) {
     // Fetch assignment data via AJAX
-    fetch(`${BASE_URL}/api/get-assignment.php?id=${encodeURIComponent(id)}`, {credentials: 'same-origin'})
+    fetch(`${BASE_URL}/api/get-assignment?id=${encodeURIComponent(id)}`, {credentials: 'same-origin'})
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -603,7 +603,7 @@ function closeGradeModal() {
 }
 
 function viewSubmissions(assignmentId) {
-    window.location.href = `submissions.php?assignment_id=${assignmentId}`;
+    window.location.href = `submissions?assignment_id=${assignmentId}`;
 }
 
 // Close modals when clicking outside

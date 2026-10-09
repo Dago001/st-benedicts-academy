@@ -5,7 +5,7 @@ require_once __DIR__ . '/config/security.php';
 require_once __DIR__ . '/includes/auth_layout.php';
 
 if (Security::isLoggedIn()) {
-    header('Location: ' . BASE_URL . '/' . $_SESSION['user_role'] . '/dashboard.php');
+    header('Location: ' . BASE_URL . '/' . $_SESSION['user_role'] . '/dashboard');
     exit;
 }
 
@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 1 HOUR))',
                         [$user['id'], hash('sha256', $token)]
                     );
-                    $link = BASE_URL . '/reset-password.php?token=' . $token;
+                    $link = BASE_URL . '/reset-password?token=' . $token;
                     sendEmail($email, 'Reset your password',
                         '<p>Hello ' . e($user['first_name']) . ',</p><p>Use the link below to reset your password. It expires in one hour.</p>'
                         . '<p><a href="' . e($link) . '">Reset password</a></p><p>If you did not request this, ignore this email.</p>');
@@ -60,5 +60,5 @@ auth_page_start('Forgot Password'); ?>
     <button type="submit" class="btn btn-primary">Send reset link</button>
 </form>
 <?php endif; ?>
-<div class="links"><a href="<?php echo BASE_URL; ?>/login.php">Back to sign in</a></div>
+<div class="links"><a href="<?php echo BASE_URL; ?>/login">Back to sign in</a></div>
 <?php auth_page_end();

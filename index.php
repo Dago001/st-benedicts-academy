@@ -1090,10 +1090,10 @@ try {
                     <p class="hero-motto"><?php echo defined('SCHOOL_MOTTO') ? SCHOOL_MOTTO : 'Christo Duce, Una Sapientia et Virtute Crescimus'; ?></p>
                     <p class="hero-translation">With Christ as our guide, together we grow in wisdom and virtue</p>
                     <div class="hero-buttons">
-                        <a href="<?php echo BASE_URL; ?>/public/apply.php" class="btn btn-primary btn-large">
+                        <a href="<?php echo BASE_URL; ?>/public/apply" class="btn btn-primary btn-large">
                             <i class="fas fa-graduation-cap"></i> Apply Now
                         </a>
-                        <a href="<?php echo BASE_URL; ?>/public/contact.php" class="btn btn-outline-light btn-large">
+                        <a href="<?php echo BASE_URL; ?>/public/contact" class="btn btn-outline-light btn-large">
                             <i class="fas fa-calendar-alt"></i> Schedule a Visit
                         </a>
                     </div>
@@ -1109,10 +1109,10 @@ try {
                     <h1 class="hero-title">British <span>Early Years</span> Curriculum</h1>
                     <p class="hero-motto">Nurturing young minds with the best educational practices</p>
                     <div class="hero-buttons">
-                        <a href="<?php echo BASE_URL; ?>/public/academics.php" class="btn btn-primary btn-large">
+                        <a href="<?php echo BASE_URL; ?>/public/academics" class="btn btn-primary btn-large">
                             <i class="fas fa-book-open"></i> Our Curriculum
                         </a>
-                        <a href="<?php echo BASE_URL; ?>/public/about.php" class="btn btn-outline-light btn-large">
+                        <a href="<?php echo BASE_URL; ?>/public/about" class="btn btn-outline-light btn-large">
                             <i class="fas fa-info-circle"></i> Learn More
                         </a>
                     </div>
@@ -1128,10 +1128,10 @@ try {
                     <h1 class="hero-title">Growing in <span>Wisdom & Virtue</span></h1>
                     <p class="hero-motto">Building strong minds and kind hearts for the future</p>
                     <div class="hero-buttons">
-                        <a href="<?php echo BASE_URL; ?>/public/gallery.php" class="btn btn-primary btn-large">
+                        <a href="<?php echo BASE_URL; ?>/public/gallery" class="btn btn-primary btn-large">
                             <i class="fas fa-images"></i> View Gallery
                         </a>
-                        <a href="<?php echo BASE_URL; ?>/public/contact.php" class="btn btn-outline-light btn-large">
+                        <a href="<?php echo BASE_URL; ?>/public/contact" class="btn btn-outline-light btn-large">
                             <i class="fas fa-map-marker-alt"></i> Find Us
                         </a>
                     </div>
@@ -1229,7 +1229,7 @@ try {
                 </div>
 
                 <div class="welcome-cta">
-                    <a href="<?php echo BASE_URL; ?>/public/about.php" class="btn btn-primary">
+                    <a href="<?php echo BASE_URL; ?>/public/about" class="btn btn-primary">
                         Discover More About Us <i class="fas fa-arrow-right"></i>
                     </a>
                 </div>
@@ -1335,7 +1335,7 @@ try {
                 <h3>Nursery</h3>
                 <p class="program-age">Ages 2-3</p>
                 <p class="program-desc">Introduction to structured play, social interaction, and early communication skills.</p>
-                <a href="<?php echo BASE_URL; ?>/public/academics.php" class="btn-link">Learn More <i class="fas fa-arrow-right"></i></a>
+                <a href="<?php echo BASE_URL; ?>/public/academics" class="btn-link">Learn More <i class="fas fa-arrow-right"></i></a>
             </div>
 
             <div class="program-card">
@@ -1345,7 +1345,7 @@ try {
                 <h3>Reception</h3>
                 <p class="program-age">Ages 4-5</p>
                 <p class="program-desc">Preparation for formal learning with focus on early literacy, numeracy, and social skills.</p>
-                <a href="<?php echo BASE_URL; ?>/public/academics.php" class="btn-link">Learn More <i class="fas fa-arrow-right"></i></a>
+                <a href="<?php echo BASE_URL; ?>/public/academics" class="btn-link">Learn More <i class="fas fa-arrow-right"></i></a>
             </div>
 
             <div class="program-card">
@@ -1355,7 +1355,7 @@ try {
                 <h3>Year 1-2</h3>
                 <p class="program-age">Ages 5-7</p>
                 <p class="program-desc">Building solid foundations in core subjects following the British curriculum.</p>
-                <a href="<?php echo BASE_URL; ?>/public/academics.php" class="btn-link">Learn More <i class="fas fa-arrow-right"></i></a>
+                <a href="<?php echo BASE_URL; ?>/public/academics" class="btn-link">Learn More <i class="fas fa-arrow-right"></i></a>
             </div>
 
             <div class="program-card">
@@ -1365,7 +1365,7 @@ try {
                 <h3>Extra-Curricular</h3>
                 <p class="program-age">All Ages</p>
                 <p class="program-desc">Enrichment activities to discover and nurture individual talents.</p>
-                <a href="<?php echo BASE_URL; ?>/public/academics.php" class="btn-link">Learn More <i class="fas fa-arrow-right"></i></a>
+                <a href="<?php echo BASE_URL; ?>/public/academics" class="btn-link">Learn More <i class="fas fa-arrow-right"></i></a>
             </div>
         </div>
     </div>
@@ -1393,11 +1393,11 @@ try {
                         </div>
                     </div>
                     <div class="news-content">
-                        <h3><a href="<?php echo BASE_URL; ?>/public/news-detail.php?id=<?php echo e($item['id']); ?>"><?php echo htmlspecialchars($item['title']); ?></a></h3>
+                        <h3><a href="<?php echo BASE_URL; ?>/public/news-detail?id=<?php echo e($item['id']); ?>"><?php echo htmlspecialchars($item['title']); ?></a></h3>
                         <p><?php echo htmlspecialchars(mb_substr($item['content'], 0, 120)); ?>...</p>
                         <div class="news-meta">
                             <span class="news-author"><i class="far fa-user"></i> Admin</span>
-                            <a href="<?php echo BASE_URL; ?>/public/news-detail.php?id=<?php echo e($item['id']); ?>" class="read-more">Read More <i class="fas fa-arrow-right"></i></a>
+                            <a href="<?php echo BASE_URL; ?>/public/news-detail?id=<?php echo e($item['id']); ?>" class="read-more">Read More <i class="fas fa-arrow-right"></i></a>
                         </div>
                     </div>
                 </div>
@@ -1459,7 +1459,7 @@ try {
         </div>
 
         <div class="text-center mt-4">
-            <a href="<?php echo BASE_URL; ?>/public/news.php" class="btn btn-primary">View All News</a>
+            <a href="<?php echo BASE_URL; ?>/public/news" class="btn btn-primary">View All News</a>
         </div>
     </div>
 </section>
@@ -1471,10 +1471,10 @@ try {
             <h2>Ready to Give Your Child the Best Start?</h2>
             <p>Enroll today at St. Benedict's Early Years British Academy</p>
             <div class="cta-buttons">
-                <a href="<?php echo BASE_URL; ?>/public/apply.php" class="btn btn-primary btn-large">
+                <a href="<?php echo BASE_URL; ?>/public/apply" class="btn btn-primary btn-large">
                     <i class="fas fa-graduation-cap"></i> Apply Now
                 </a>
-                <a href="<?php echo BASE_URL; ?>/public/contact.php" class="btn btn-outline-light btn-large">
+                <a href="<?php echo BASE_URL; ?>/public/contact" class="btn btn-outline-light btn-large">
                     <i class="fas fa-calendar-alt"></i> Request Information
                 </a>
             </div>

@@ -157,7 +157,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="container">
         <h1>Online Application</h1>
         <div class="breadcrumb">
-            <a href="<?php echo BASE_URL; ?>/index.php">Home</a> / Apply Now
+            <a href="<?php echo BASE_URL; ?>/">Home</a> / Apply Now
         </div>
     </div>
 </section>
@@ -183,8 +183,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </ol>
             </div>
             <div style="margin-top: 30px;">
-                <a href="<?php echo BASE_URL; ?>/index.php" class="btn btn-primary">Return to Home</a>
-                <a href="apply.php" class="btn btn-outline">Submit Another Application</a>
+                <a href="<?php echo BASE_URL; ?>/" class="btn btn-primary">Return to Home</a>
+                <a href="apply" class="btn btn-outline">Submit Another Application</a>
             </div>
         </div>
         <?php else: ?>

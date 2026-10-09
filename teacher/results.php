@@ -126,7 +126,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     if ($messageType === 'success') {
-        flash_redirect($message, 'success', BASE_URL . '/teacher/results.php?' . http_build_query([
+        flash_redirect($message, 'success', BASE_URL . '/teacher/results?' . http_build_query([
             'class_id' => $_POST['class_id'] ?? $selectedClass, 'subject_id' => $_POST['subject_id'] ?? $selectedSubject,
             'term' => $_POST['term'] ?? $selectedTerm, 'academic_year' => $_POST['academic_year'] ?? $selectedYear]));
     }

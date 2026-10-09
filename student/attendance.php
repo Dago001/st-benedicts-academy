@@ -664,7 +664,7 @@ for ($m = 1; $m <= 12; $m++) {
 
                     <div class="form-group">
                         <label>&nbsp;</label>
-                        <a href="attendance.php" class="btn btn-outline" style="padding: 8px 20px; display: inline-block; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; text-decoration: none; color: #333;">
+                        <a href="attendance" class="btn btn-outline" style="padding: 8px 20px; display: inline-block; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; text-decoration: none; color: #333;">
                             <i class="fas fa-redo"></i> Current Month
                         </a>
                     </div>

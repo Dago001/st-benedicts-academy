@@ -22,8 +22,11 @@ PHP 8.1+ (pdo_mysql, mbstring, fileinfo, gd), MySQL 5.7+/MariaDB 10.3+, Apache w
 
 Mail (password resets, confirmations) uses PHP `mail()`; configure sendmail/SMTP relay on the host.
 
+## Clean URLs (no `.php`)
+Pages are served without the extension (`/admin/students`, `/public/apply`, `/api/chatbot`). On Apache this is done by the rewrite rules in `.htaccess` (`mod_rewrite` and `AllowOverride All` required); old `.php` addresses redirect with a 301. For local development run `php -S 127.0.0.1:8080 router.php`, which applies the same rules.
+
 ## Tests (development only)
-Needs a local MariaDB/MySQL, `php -S 127.0.0.1:8080 -t .`, and Node + Playwright for the mobile audit.
+Needs a local MariaDB/MySQL, `php -S 127.0.0.1:8080 router.php`, and Node + Playwright for the mobile audit.
 
 | Command | Checks |
 |---|---|

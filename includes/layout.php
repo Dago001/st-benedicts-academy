@@ -6,51 +6,51 @@ if (!function_exists('nav_items')) {
     function nav_items($role) {
         $nav = [
             'admin' => [
-                ['dashboard.php', 'Dashboard', 'fa-home'],
-                ['students.php', 'Students', 'fa-user-graduate'],
-                ['parents.php', 'Parents', 'fa-users'],
-                ['teachers.php', 'Teachers', 'fa-chalkboard-teacher'],
-                ['classes.php', 'Classes', 'fa-school'],
-                ['subjects.php', 'Subjects', 'fa-book'],
-                ['attendance.php', 'Attendance', 'fa-calendar-check'],
-                ['fees.php', 'Fees', 'fa-money-bill'],
-                ['results.php', 'Results', 'fa-chart-line'],
-                ['applications.php', 'Applications', 'fa-file-signature'],
-                ['announcements.php', 'Announcements', 'fa-bullhorn'],
-                ['news.php', 'News & Events', 'fa-newspaper'],
-                ['gallery.php', 'Gallery', 'fa-images'],
-                ['chatbot.php', 'Chatbot', 'fa-robot'],
-                ['reports.php', 'Reports', 'fa-file-alt'],
-                ['audit-logs.php', 'Audit Logs', 'fa-history'],
+                ['dashboard', 'Dashboard', 'fa-home'],
+                ['students', 'Students', 'fa-user-graduate'],
+                ['parents', 'Parents', 'fa-users'],
+                ['teachers', 'Teachers', 'fa-chalkboard-teacher'],
+                ['classes', 'Classes', 'fa-school'],
+                ['subjects', 'Subjects', 'fa-book'],
+                ['attendance', 'Attendance', 'fa-calendar-check'],
+                ['fees', 'Fees', 'fa-money-bill'],
+                ['results', 'Results', 'fa-chart-line'],
+                ['applications', 'Applications', 'fa-file-signature'],
+                ['announcements', 'Announcements', 'fa-bullhorn'],
+                ['news', 'News & Events', 'fa-newspaper'],
+                ['gallery', 'Gallery', 'fa-images'],
+                ['chatbot', 'Chatbot', 'fa-robot'],
+                ['reports', 'Reports', 'fa-file-alt'],
+                ['audit-logs', 'Audit Logs', 'fa-history'],
             ],
             'teacher' => [
-                ['dashboard.php', 'Dashboard', 'fa-home'],
-                ['classes.php', 'My Classes', 'fa-school'],
-                ['attendance.php', 'Attendance', 'fa-calendar-check'],
-                ['results.php', 'Results', 'fa-chart-line'],
-                ['assignments.php', 'Assignments', 'fa-tasks'],
-                ['students.php', 'Students', 'fa-user-graduate'],
-                ['messages.php', 'Messages', 'fa-envelope'],
-                ['profile.php', 'Profile', 'fa-user-cog'],
+                ['dashboard', 'Dashboard', 'fa-home'],
+                ['classes', 'My Classes', 'fa-school'],
+                ['attendance', 'Attendance', 'fa-calendar-check'],
+                ['results', 'Results', 'fa-chart-line'],
+                ['assignments', 'Assignments', 'fa-tasks'],
+                ['students', 'Students', 'fa-user-graduate'],
+                ['messages', 'Messages', 'fa-envelope'],
+                ['profile', 'Profile', 'fa-user-cog'],
             ],
             'student' => [
-                ['dashboard.php', 'Dashboard', 'fa-home'],
-                ['results.php', 'My Results', 'fa-chart-line'],
-                ['attendance.php', 'Attendance', 'fa-calendar-check'],
-                ['assignments.php', 'Assignments', 'fa-tasks'],
-                ['timetable.php', 'Timetable', 'fa-clock'],
-                ['fees.php', 'Fees', 'fa-money-bill'],
-                ['messages.php', 'Messages', 'fa-envelope'],
-                ['profile.php', 'Profile', 'fa-user-cog'],
+                ['dashboard', 'Dashboard', 'fa-home'],
+                ['results', 'My Results', 'fa-chart-line'],
+                ['attendance', 'Attendance', 'fa-calendar-check'],
+                ['assignments', 'Assignments', 'fa-tasks'],
+                ['timetable', 'Timetable', 'fa-clock'],
+                ['fees', 'Fees', 'fa-money-bill'],
+                ['messages', 'Messages', 'fa-envelope'],
+                ['profile', 'Profile', 'fa-user-cog'],
             ],
             'parent' => [
-                ['dashboard.php', 'Dashboard', 'fa-home'],
-                ['children.php', 'My Children', 'fa-child'],
-                ['child-performance.php', 'Child Performance', 'fa-chart-line'],
-                ['fees.php', 'Fee Status', 'fa-money-bill'],
-                ['schedule.php', 'Timetable', 'fa-clock'],
-                ['messages.php', 'Messages', 'fa-envelope'],
-                ['profile.php', 'Profile', 'fa-user-cog'],
+                ['dashboard', 'Dashboard', 'fa-home'],
+                ['children', 'My Children', 'fa-child'],
+                ['child-performance', 'Child Performance', 'fa-chart-line'],
+                ['fees', 'Fee Status', 'fa-money-bill'],
+                ['schedule', 'Timetable', 'fa-clock'],
+                ['messages', 'Messages', 'fa-envelope'],
+                ['profile', 'Profile', 'fa-user-cog'],
             ],
         ];
         return $nav[$role] ?? [];
@@ -73,14 +73,14 @@ if (!function_exists('render_sidebar')) {
     function render_sidebar($role = null) {
         $role = $role ?: ($_SESSION['user_role'] ?? '');
         $titles = ['admin' => 'Admin Panel', 'teacher' => 'Teacher Panel', 'student' => 'Student Panel', 'parent' => 'Parent Portal'];
-        $current = basename($_SERVER['SCRIPT_NAME']);
+        $current = basename($_SERVER['SCRIPT_NAME'], '.php');
         // Pages that belong to a nav entry although their file name differs
         $alias = [
-            'mark-attendance.php' => 'attendance.php', 'view-student.php' => 'students.php', 'teacher-profile.php' => 'teachers.php',
-            'view-parent.php' => 'parents.php', 'student-fees.php' => 'fees.php', 'print-receipt.php' => 'fees.php',
-            'view-receipt.php' => 'fees.php', 'attendance-report.php' => 'attendance.php', 'submissions.php' => 'assignments.php',
-            'timetable.php' => 'classes.php', 'assign-subjects.php' => 'teachers.php', 'attendance-detail.php' => 'attendance.php',
-            'generate-login.php' => 'students.php',
+            'mark-attendance' => 'attendance', 'view-student' => 'students', 'teacher-profile' => 'teachers',
+            'view-parent' => 'parents', 'student-fees' => 'fees', 'print-receipt' => 'fees',
+            'view-receipt' => 'fees', 'attendance-report' => 'attendance', 'submissions' => 'assignments',
+            'timetable' => 'classes', 'assign-subjects' => 'teachers', 'attendance-detail' => 'attendance',
+            'generate-login' => 'students',
         ];
         $active = $alias[$current] ?? $current;
         $unread = unread_message_count();
@@ -100,11 +100,11 @@ if (!function_exists('render_sidebar')) {
                 <li class="<?php echo $active === $file ? 'active' : ''; ?>">
                     <a href="<?php echo e(BASE_URL . '/' . $role . '/' . $file); ?>"<?php echo $active === $file ? ' aria-current="page"' : ''; ?>>
                         <i class="fas <?php echo e($icon); ?>"></i> <?php echo e($label); ?>
-                        <?php if ($file === 'messages.php' && $unread > 0): ?><span class="badge badge-danger"><?php echo $unread; ?></span><?php endif; ?>
+                        <?php if ($file === 'messages' && $unread > 0): ?><span class="badge badge-danger"><?php echo $unread; ?></span><?php endif; ?>
                     </a>
                 </li>
                 <?php endforeach; ?>
-                <li><a href="<?php echo e(BASE_URL); ?>/logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+                <li><a href="<?php echo e(BASE_URL); ?>/logout"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
             </ul>
         </nav>
     </aside>

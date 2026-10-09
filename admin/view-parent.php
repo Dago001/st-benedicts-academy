@@ -14,7 +14,7 @@ include __DIR__ . '/../includes/header.php';
 
 if (!$pa) {
     dashboard_open('admin', 'Parent not found');
-    echo '<div class="alert alert-error">No parent with that ID.</div><a class="btn btn-secondary" href="parents.php">Back</a>';
+    echo '<div class="alert alert-error">No parent with that ID.</div><a class="btn btn-secondary" href="parents">Back</a>';
     dashboard_close();
     include __DIR__ . '/../includes/footer.php';
     exit;
@@ -27,7 +27,7 @@ $children = $db->getRows(
      WHERE s.parent_id = ? ORDER BY u.first_name", [currentAcademicYear(), currentAcademicYear(), $id]);
 
 dashboard_open('admin', $pa['first_name'] . ' ' . $pa['last_name'],
-    '<a href="parents.php?action=edit&id=' . $id . '" class="btn btn-primary"><i class="fas fa-edit"></i> Edit</a><a href="parents.php" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Back</a>');
+    '<a href="parents?action=edit&id=' . $id . '" class="btn btn-primary"><i class="fas fa-edit"></i> Edit</a><a href="parents" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Back</a>');
 ?>
 <div class="card"><div class="card-header"><h3>Contact details</h3></div><div class="card-body"><div class="detail-grid">
     <?php foreach (['Username' => $pa['username'], 'Email' => $pa['email'], 'Phone' => $pa['phone'], 'Occupation' => $pa['occupation'],
@@ -41,7 +41,7 @@ dashboard_open('admin', $pa['first_name'] . ' ' . $pa['last_name'],
     <?php foreach ($children as $c): ?><tr>
         <td><?php echo e($c['first_name'] . ' ' . $c['last_name']); ?></td><td><?php echo e($c['admission_number']); ?></td>
         <td><?php echo e(trim($c['class_name'] . ' ' . $c['section'])); ?></td><td><?php echo e(formatCurrency(max(0, $c['balance']))); ?></td>
-        <td><a class="btn btn-sm btn-outline" href="view-student.php?id=<?php echo (int)$c['id']; ?>">View</a></td></tr>
+        <td><a class="btn btn-sm btn-outline" href="view-student?id=<?php echo (int)$c['id']; ?>">View</a></td></tr>
     <?php endforeach; ?></tbody></table></div>
 <?php else: ?><p class="text-muted">No children linked to this parent yet.</p><?php endif; ?>
 </div></div>

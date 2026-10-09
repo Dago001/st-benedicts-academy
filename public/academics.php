@@ -17,7 +17,7 @@ $metaTags = [
     'og:title' => 'Academics - ST. BENEDICT\'S EARLY YEARS BRITISH ACADEMY',
     'og:description' => 'Explore our British Early Years curriculum and learning approach.',
     'og:image' => BASE_URL . '/assets/images/og-image.jpg',
-    'og:url' => BASE_URL . '/public/academics.php',
+    'og:url' => BASE_URL . '/public/academics',
     'twitter:card' => 'summary_large_image'
 ];
 
@@ -565,7 +565,7 @@ if ($db) {
     <div class="container">
         <h1>Academics</h1>
         <div class="breadcrumb">
-            <a href="<?php echo BASE_URL; ?>/index.php">Home</a> / Academics
+            <a href="<?php echo BASE_URL; ?>/">Home</a> / Academics
         </div>
     </div>
 </section>

@@ -14,7 +14,7 @@ $extraCSS = ['admin.css', 'dashboard.css'];
 include __DIR__ . '/../includes/header.php';
 if (!$st) {
     dashboard_open('admin', 'Student not found');
-    echo '<a class="btn btn-secondary" href="fees.php">Back to fees</a>';
+    echo '<a class="btn btn-secondary" href="fees">Back to fees</a>';
     dashboard_close();
     include __DIR__ . '/../includes/footer.php';
     exit;
@@ -25,7 +25,7 @@ $expected = array_sum(array_column($fees, 'amount'));
 $paid = array_sum(array_map(function ($p) { return $p['status'] === 'completed' ? $p['amount'] : 0; }, $payments));
 $years = academicYearList();
 
-dashboard_open('admin', 'Fees: ' . $st['first_name'] . ' ' . $st['last_name'], '<a href="fees.php" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Back</a>');
+dashboard_open('admin', 'Fees: ' . $st['first_name'] . ' ' . $st['last_name'], '<a href="fees" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Back</a>');
 ?>
 <form method="GET" class="card"><div class="card-body form-inline">
     <input type="hidden" name="student_id" value="<?php echo $sid; ?>">
@@ -46,7 +46,7 @@ dashboard_open('admin', 'Fees: ' . $st['first_name'] . ' ' . $st['last_name'], '
 <div class="card"><div class="card-header"><h3>Payments</h3></div><div class="card-body">
 <?php if ($payments): ?><div class="table-responsive"><table class="table"><thead><tr><th>Date</th><th>Receipt</th><th>Term</th><th>Method</th><th>Amount</th><th>Status</th></tr></thead><tbody>
 <?php foreach ($payments as $p): ?><tr><td><?php echo e(formatDate($p['payment_date'], 'd M Y')); ?></td>
-    <td><a href="print-receipt.php?id=<?php echo (int)$p['id']; ?>" target="_blank" rel="noopener"><?php echo e($p['receipt_number']); ?></a></td>
+    <td><a href="print-receipt?id=<?php echo (int)$p['id']; ?>" target="_blank" rel="noopener"><?php echo e($p['receipt_number']); ?></a></td>
     <td><?php echo e($p['term']); ?></td><td><?php echo e(ucwords(str_replace('_', ' ', $p['payment_method']))); ?></td>
     <td><?php echo e(formatCurrency($p['amount'])); ?></td><td><?php echo e(ucfirst($p['status'])); ?></td></tr><?php endforeach; ?>
 </tbody></table></div><?php else: ?><p class="text-muted">No payments recorded.</p><?php endif; ?></div></div>

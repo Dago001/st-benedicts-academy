@@ -87,7 +87,7 @@ function checkCapacity(e) {
 function loadClassRoster() {
     const classId = document.getElementById('classId').value;
 
-    fetch(BASE_URL + '/api/get-class-roster.php?class_id=' + classId)
+    fetch(BASE_URL + '/api/get-class-roster?class_id=' + classId)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -110,7 +110,7 @@ function displayClassRoster(roster) {
             <td>${escapeHtml(student.gender)}</td>
             <td>${escapeHtml(student.parent_name || 'Not Assigned')}</td>
             <td>
-                <a href="../students/view.php?id=${escapeHtml(student.id)}" class="btn-icon">
+                <a href="../students/view?id=${escapeHtml(student.id)}" class="btn-icon">
                     <i class="fas fa-eye"></i>
                 </a>
             </td>
@@ -128,7 +128,7 @@ function displayClassRoster(roster) {
 
 // Generate seating arrangement
 function generateSeating(classId) {
-    fetch(BASE_URL + '/api/generate-seating.php?class_id=' + classId)
+    fetch(BASE_URL + '/api/generate-seating?class_id=' + classId)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -223,12 +223,12 @@ function printSeating() {
 
 // Export class list
 function exportClassList(classId, format) {
-    window.location.href = `export.php?type=class&id=${classId}&format=${format}`;
+    window.location.href = `export?type=class&id=${classId}&format=${format}`;
 }
 
 // View class statistics
 function viewClassStats(classId) {
-    fetch(BASE_URL + '/api/get-class-stats.php?class_id=' + classId)
+    fetch(BASE_URL + '/api/get-class-stats?class_id=' + classId)
         .then(response => response.json())
         .then(data => {
             if (data.success) {

@@ -66,7 +66,7 @@
         bubble('user', { text: text }); input.value = '';
         var t = typing();
         var started = Date.now();
-        fetch((window.BASE_URL || '') + '/api/chatbot.php', {
+        fetch((window.BASE_URL || '') + '/api/chatbot', {
             method: 'POST', credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': window.CSRF_TOKEN || '' },
             body: JSON.stringify({ message: text })

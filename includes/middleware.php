@@ -12,12 +12,12 @@ class Middleware {
                 strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
                 // AJAX request
                 http_response_code(401);
-                echo json_encode(['error' => 'Unauthorized', 'redirect' => BASE_URL . '/login.php']);
+                echo json_encode(['error' => 'Unauthorized', 'redirect' => BASE_URL . '/login']);
                 exit;
             } else {
                 // Normal request
                 $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'];
-                header('Location: ' . BASE_URL . '/login.php');
+                header('Location: ' . BASE_URL . '/login');
                 exit;
             }
         }

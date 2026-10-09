@@ -52,7 +52,7 @@ $pageTitle = 'Timetable';
 $extraCSS = ['admin.css', 'dashboard.css', 'timetable.css'];
 include __DIR__ . '/../includes/header.php';
 $classes = $db->getRows('SELECT id, class_name, section FROM classes WHERE is_active = 1 ORDER BY class_name, section');
-dashboard_open('admin', 'Timetable' . ($class ? ': ' . trim($class['class_name'] . ' ' . $class['section']) : ''), '<a href="classes.php" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Classes</a>');
+dashboard_open('admin', 'Timetable' . ($class ? ': ' . trim($class['class_name'] . ' ' . $class['section']) : ''), '<a href="classes" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Classes</a>');
 render_alert($message ?: $flashMsg, $message ? $messageType : $flashType);
 ?>
 <form method="GET" class="card"><div class="card-body form-inline">

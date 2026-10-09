@@ -73,8 +73,8 @@ render_alert($message, $messageType);
 ?>
 <div class="card"><div class="card-body form-inline">
     <strong>Show:</strong>
-    <a class="btn btn-sm <?php echo $filter === '' ? 'btn-primary' : 'btn-outline'; ?>" href="applications.php">All</a>
-    <?php foreach ($statuses as $s): ?><a class="btn btn-sm <?php echo $filter === $s ? 'btn-primary' : 'btn-outline'; ?>" href="applications.php?status=<?php echo e($s); ?>"><?php echo e(ucfirst($s)); ?></a><?php endforeach; ?>
+    <a class="btn btn-sm <?php echo $filter === '' ? 'btn-primary' : 'btn-outline'; ?>" href="applications">All</a>
+    <?php foreach ($statuses as $s): ?><a class="btn btn-sm <?php echo $filter === $s ? 'btn-primary' : 'btn-outline'; ?>" href="applications?status=<?php echo e($s); ?>"><?php echo e(ucfirst($s)); ?></a><?php endforeach; ?>
 </div></div>
 <?php
 $sections = [['Online applications', 'app', $apps], ['Admission enquiries', 'enq', $enquiries]];

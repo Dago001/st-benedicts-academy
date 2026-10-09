@@ -353,7 +353,7 @@ $performanceData = $db->getRows(
                     <button type="submit" class="btn btn-primary">View Results</button>
 
                     <?php if (!empty($results)): ?>
-                    <a href="report-card.php?term=<?php echo urlencode($selectedTerm); ?>&year=<?php echo urlencode($selectedYear); ?>" target="_blank" rel="noopener"
+                    <a href="report-card?term=<?php echo urlencode($selectedTerm); ?>&year=<?php echo urlencode($selectedYear); ?>" target="_blank" rel="noopener"
                        class="btn btn-accent">
                         <i class="fas fa-download"></i> Download Report
                     </a>

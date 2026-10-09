@@ -303,7 +303,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $messageType === 'success') {
-    flash_redirect($message, 'success', BASE_URL . '/admin/fees.php');
+    flash_redirect($message, 'success', BASE_URL . '/admin/fees');
 }
 
 // Get fee structure for editing
@@ -561,7 +561,7 @@ function getPaymentStatus($paid, $total) {
                 <button class="btn btn-success" onclick="showRecordPaymentModal()">
                     <i class="fas fa-money-bill-wave"></i> Record Payment
                 </button>
-                <a href="export.php?type=fees" class="btn btn-outline">
+                <a href="export?type=fees" class="btn btn-outline">
                     <i class="fas fa-download"></i> Export
                 </a>
             </div>
@@ -819,7 +819,7 @@ function getPaymentStatus($paid, $total) {
                                         <td><?php echo htmlspecialchars($payment['recorded_by_name'] ?? 'System'); ?></td>
                                         <td>
                                             <div class="action-buttons">
-                                                <a href="print-receipt.php?id=<?php echo e($payment['id']); ?>" class="btn-icon" target="_blank" title="Print Receipt">
+                                                <a href="print-receipt?id=<?php echo e($payment['id']); ?>" class="btn-icon" target="_blank" title="Print Receipt">
                                                     <i class="fas fa-print"></i>
                                                 </a>
                                                 <?php if ($payment['status'] === 'pending'): ?>
@@ -896,7 +896,7 @@ function getPaymentStatus($paid, $total) {
                                             <button class="btn btn-sm btn-primary" onclick="recordPayment(<?php echo e($item['id']); ?>)">
                                                 <i class="fas fa-money-bill"></i> Record Payment
                                             </button>
-                                            <a href="student-fees.php?student_id=<?php echo e($item['id']); ?>" class="btn btn-sm btn-outline" title="View Details">
+                                            <a href="student-fees?student_id=<?php echo e($item['id']); ?>" class="btn btn-sm btn-outline" title="View Details">
                                                 <i class="fas fa-eye"></i>
                                             </a>
                                         </td>

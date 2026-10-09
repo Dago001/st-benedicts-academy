@@ -91,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_assignment']))
                         [$assignmentId, $student['id'], $submissionText, $attachmentPath, $late ? 'late' : 'submitted']
                     );
                     Security::logAudit('SUBMITTED_ASSIGNMENT', 'homework_submissions', $newId);
-                    flash_redirect($late ? 'Assignment submitted (marked late)' : 'Assignment submitted successfully', 'success', BASE_URL . '/student/assignments.php');
+                    flash_redirect($late ? 'Assignment submitted (marked late)' : 'Assignment submitted successfully', 'success', BASE_URL . '/student/assignments');
                 } catch (Exception $e) {
                     if ($attachmentPath) { @unlink($uploadDir . $attachmentPath); }
                     $message = 'Error submitting assignment. Please try again.';
@@ -774,7 +774,7 @@ $submissions = $db->getRows(
 
                     <div class="form-group col-md-2">
                         <label>&nbsp;</label>
-                        <a href="assignments.php" class="btn btn-secondary" style="display: block; text-align: center; padding: 8px; background: #6c757d; color: white; text-decoration: none; border-radius: 4px;">
+                        <a href="assignments" class="btn btn-secondary" style="display: block; text-align: center; padding: 8px; background: #6c757d; color: white; text-decoration: none; border-radius: 4px;">
                             <i class="fas fa-redo"></i> Reset
                         </a>
                     </div>

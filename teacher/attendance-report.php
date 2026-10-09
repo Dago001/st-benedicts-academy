@@ -36,7 +36,7 @@ if (isset($_GET['csv']) && $rows) {
 $pageTitle = 'Attendance Report';
 $extraCSS = ['dashboard.css'];
 include __DIR__ . '/../includes/header.php';
-dashboard_open('teacher', 'Attendance Report', '<a href="attendance.php" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Back</a>');
+dashboard_open('teacher', 'Attendance Report', '<a href="attendance" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Back</a>');
 ?>
 <form method="GET" class="card"><div class="card-body form-row">
     <div class="form-group"><label for="class_id">Class</label><select id="class_id" name="class_id" class="form-control">

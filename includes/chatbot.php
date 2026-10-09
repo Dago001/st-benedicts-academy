@@ -133,7 +133,7 @@ class SchoolBot
         if (!$top || $topScore < 3) {
             return ['intent' => null, 'matched' => false] + self::r(
                 ["I'm sorry, I don't have a reliable answer to that. I'd rather not guess, so please contact the school office and they will help you directly."],
-                [self::link('Contact the school', '/public/contact.php'), ['label' => 'Call ' . SCHOOL_PHONE, 'url' => 'tel:' . SCHOOL_PHONE]],
+                [self::link('Contact the school', '/public/contact'), ['label' => 'Call ' . SCHOOL_PHONE, 'url' => 'tel:' . SCHOOL_PHONE]],
                 ['Admission requirements', 'School fees', 'Our programmes', 'Contact details']
             );
         }
@@ -168,14 +168,14 @@ class SchoolBot
             case 'requirements':
                 return self::r(
                     ['To apply you will need:'],
-                    [self::link('Start the online application', '/public/apply.php'), self::link('Admission page', '/public/admissions.php')],
+                    [self::link('Start the online application', '/public/apply'), self::link('Admission page', '/public/admissions')],
                     ['How to apply', 'School fees', 'Age requirements']
                 ) + ['list' => ['Birth certificate (required)', 'Passport photographs (required)', 'Immunisation record (optional)', 'Previous school report, if your child has attended school (optional)', 'A completed application form and the non-refundable application fee'],
                      'note' => 'Documents can be uploaded online as PDF, JPG or PNG (max 5MB each). Please ask the office for the current application fee amount.'];
 
             case 'admission':
                 return self::r(['Admission is simple:'],
-                    [self::link('Apply online', '/public/apply.php'), self::link('Admission details', '/public/admissions.php')],
+                    [self::link('Apply online', '/public/apply'), self::link('Admission details', '/public/admissions')],
                     ['Admission requirements', 'School fees', 'Schedule a visit'])
                     + ['list' => ['Submit the online application', 'Pay the application fee', 'Schedule an assessment or visit', 'Child assessment (for Year 1-2)', 'Receive the admission decision', 'Complete acceptance and enrolment'],
                        'note' => 'After applying, our admissions team contacts you within 3-5 working days. You can check progress any time: send me your application number and the email you used.'];
@@ -203,17 +203,17 @@ class SchoolBot
             case 'curriculum':
                 return self::r(['We follow the British Early Years Foundation Stage curriculum, with Christian values woven throughout. Children learn through play and discovery: child-initiated play, adult-guided activities and regular outdoor learning.',
                     'Progress is tracked through observation, learning journeys (digital portfolios) and termly assessments. Parents receive a detailed report each term and are invited to discuss progress with teachers.'],
-                    [self::link('Academics', '/public/academics.php')], ['Our programmes', 'Parent portal help']);
+                    [self::link('Academics', '/public/academics')], ['Our programmes', 'Parent portal help']);
 
             case 'contact':
                 return self::r(['You can reach the school office here:'],
-                    [['label' => 'Call ' . SCHOOL_PHONE, 'url' => 'tel:' . SCHOOL_PHONE], ['label' => 'Email us', 'url' => 'mailto:' . SCHOOL_EMAIL], self::link('Contact form', '/public/contact.php')],
+                    [['label' => 'Call ' . SCHOOL_PHONE, 'url' => 'tel:' . SCHOOL_PHONE], ['label' => 'Email us', 'url' => 'mailto:' . SCHOOL_EMAIL], self::link('Contact form', '/public/contact')],
                     ['Opening hours', 'Where is the school?'])
                     + ['list' => ['Phone: ' . SCHOOL_PHONE, 'Email: ' . SCHOOL_EMAIL, 'Address: ' . SCHOOL_ADDRESS]];
 
             case 'location':
                 return self::r(['We are located at ' . SCHOOL_ADDRESS . '.'],
-                    [['label' => 'Open in Maps', 'url' => 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode(SCHOOL_ADDRESS)], self::link('Contact page', '/public/contact.php')],
+                    [['label' => 'Open in Maps', 'url' => 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode(SCHOOL_ADDRESS)], self::link('Contact page', '/public/contact')],
                     ['Opening hours', 'Schedule a visit']);
 
             case 'hours':
@@ -225,61 +225,61 @@ class SchoolBot
 
             case 'visit':
                 return self::r(['We would love to show you around. Please contact the office to book a visit or an assessment, and mention the class you are interested in.'],
-                    [self::link('Request a visit', '/public/contact.php'), ['label' => 'Call ' . SCHOOL_PHONE, 'url' => 'tel:' . SCHOOL_PHONE]], ['Opening hours', 'Where is the school?']);
+                    [self::link('Request a visit', '/public/contact'), ['label' => 'Call ' . SCHOOL_PHONE, 'url' => 'tel:' . SCHOOL_PHONE]], ['Opening hours', 'Where is the school?']);
 
             case 'portal':
                 return self::r(['Parents, students and teachers sign in to the portal with the email address and password given by the school. There you can see results, attendance, fees, assignments and messages.',
                     'If you do not have login details yet, please contact the school office.'],
-                    [self::link('Go to login', '/login.php'), self::link('Contact the office', '/public/contact.php')], ['Forgot password', 'Contact details']);
+                    [self::link('Go to login', '/login'), self::link('Contact the office', '/public/contact')], ['Forgot password', 'Contact details']);
 
             case 'password':
                 return self::r(['You can reset your password yourself: choose "Forgot password" on the login page and follow the emailed link (valid for one hour). After 5 wrong attempts an account is locked for 15 minutes.',
                     'If you are still unable to sign in, the school office can help.'],
-                    [self::link('Reset password', '/forgot-password.php'), self::link('Contact the office', '/public/contact.php')], ['Parent portal help']);
+                    [self::link('Reset password', '/forgot-password'), self::link('Contact the office', '/public/contact')], ['Parent portal help']);
 
             case 'facilities':
-                return self::r(['Our facilities include:'], [self::link('About us', '/public/about.php')], ['Transport', 'Child safety'])
+                return self::r(['Our facilities include:'], [self::link('About us', '/public/about')], ['Transport', 'Child safety'])
                     + ['list' => ['Modern, air-conditioned classrooms', 'A computer lab with child-friendly educational software', 'An indoor play area', 'A secure outdoor playground', 'A school clinic with a qualified nurse on duty']];
 
             case 'transport':
                 return self::r(['We run safe, monitored school buses with trained drivers and attendants. For routes, pick-up points and charges, please ask the school office, as I do not have those details.'],
-                    [self::link('Contact the office', '/public/contact.php')], ['School fees', 'Contact details']);
+                    [self::link('Contact the office', '/public/contact')], ['School fees', 'Contact details']);
 
             case 'safety':
                 return self::r(['Child safety is a priority: a secure outdoor play area with safety surfaces, monitored school transport, and a school clinic with a qualified nurse on duty. Please tell the school about any allergies or medical needs when you apply.'],
-                    [self::link('About us', '/public/about.php')], ['Facilities', 'Transport']);
+                    [self::link('About us', '/public/about')], ['Facilities', 'Transport']);
 
             case 'faith':
                 return self::r(['We are a faith-based school guided by the Benedictine values of prayer, work and community. Our motto is "' . SCHOOL_MOTTO . '" (With Christ as our guide, together we grow in wisdom and virtue). Christian values are integrated into daily learning.'],
-                    [self::link('About us', '/public/about.php')], ['Curriculum', 'How to apply']);
+                    [self::link('About us', '/public/about')], ['Curriculum', 'How to apply']);
 
             case 'about':
                 return self::r([SCHOOL_NAME . ' was founded in 2010 in Enugu. It began as a small nursery and now teaches children from Nursery to Year 2 using the British Early Years curriculum, grounded in faith and academic excellence.'],
-                    [self::link('Our story', '/public/about.php'), self::link('Academics', '/public/academics.php')], ['Our programmes', 'Facilities', 'How to apply']);
+                    [self::link('Our story', '/public/about'), self::link('Academics', '/public/academics')], ['Our programmes', 'Facilities', 'How to apply']);
 
             case 'news':
                 $rows = $db->getRows("SELECT id, title, type, event_date, created_at FROM news_events WHERE is_published = 1 ORDER BY (type = 'event' AND event_date >= CURDATE()) DESC, COALESCE(event_date, created_at) DESC LIMIT 4");
                 if (!$rows) {
-                    return self::r(['There are no news items published right now. Please check back soon.'], [self::link('News & events', '/public/news.php')]);
+                    return self::r(['There are no news items published right now. Please check back soon.'], [self::link('News & events', '/public/news')]);
                 }
                 $list = [];
                 foreach ($rows as $r) {
                     $d = $r['type'] === 'event' && $r['event_date'] ? date('j M Y', strtotime($r['event_date'])) : date('j M Y', strtotime($r['created_at']));
                     $list[] = ucfirst($r['type']) . ' (' . $d . '): ' . $r['title'];
                 }
-                return self::r(['Here is the latest from the school:'], [self::link('All news & events', '/public/news.php')], ['School fees', 'Schedule a visit']) + ['list' => $list];
+                return self::r(['Here is the latest from the school:'], [self::link('All news & events', '/public/news')], ['School fees', 'Schedule a visit']) + ['list' => $list];
 
             case 'term':
                 return self::r(['I do not have the term dates published here, and I would not want to give you the wrong ones. The office can confirm the current calendar, resumption dates and holidays.'],
-                    [self::link('Contact the office', '/public/contact.php'), ['label' => 'Call ' . SCHOOL_PHONE, 'url' => 'tel:' . SCHOOL_PHONE]], ['Opening hours']);
+                    [self::link('Contact the office', '/public/contact'), ['label' => 'Call ' . SCHOOL_PHONE, 'url' => 'tel:' . SCHOOL_PHONE]], ['Opening hours']);
 
             case 'uniform':
                 return self::r(['Details about uniforms, books, meals and any discounts or scholarships are not published online, so I cannot answer accurately. Please ask the school office.'],
-                    [self::link('Contact the office', '/public/contact.php'), ['label' => 'Call ' . SCHOOL_PHONE, 'url' => 'tel:' . SCHOOL_PHONE]], ['School fees']);
+                    [self::link('Contact the office', '/public/contact'), ['label' => 'Call ' . SCHOOL_PHONE, 'url' => 'tel:' . SCHOOL_PHONE]], ['School fees']);
 
             case 'human':
                 return self::r(['Of course. The school office will be glad to help you personally:'],
-                    [['label' => 'Call ' . SCHOOL_PHONE, 'url' => 'tel:' . SCHOOL_PHONE], ['label' => 'Email us', 'url' => 'mailto:' . SCHOOL_EMAIL], self::link('Contact form', '/public/contact.php')], ['Opening hours']);
+                    [['label' => 'Call ' . SCHOOL_PHONE, 'url' => 'tel:' . SCHOOL_PHONE], ['label' => 'Email us', 'url' => 'mailto:' . SCHOOL_EMAIL], self::link('Contact form', '/public/contact')], ['Opening hours']);
         }
         return self::r(['How can I help?'], [], ['School fees', 'How to apply']);
     }
@@ -296,7 +296,7 @@ class SchoolBot
         if ($filter) { $sql .= ' AND c.class_name LIKE ?'; $params[] = $filter . '%'; }
         $rows = $db->getRows($sql . ' ORDER BY c.class_name, c.section, f.term, f.fee_type', $params);
 
-        $links = [self::link('Admissions & fees', '/public/admissions.php'), self::link('Contact the bursar', '/public/contact.php')];
+        $links = [self::link('Admissions & fees', '/public/admissions'), self::link('Contact the bursar', '/public/contact')];
         $suggest = ['How to apply', 'Admission requirements', 'Contact details'];
         if (!$rows) {
             return self::r([($filter ? "I don't have a published fee schedule for $filter " : "I don't have a published fee schedule ") . "for the $year session. Please contact the school office for the current fees. The application fee amount is also confirmed by the office."], $links, $suggest);
@@ -324,14 +324,14 @@ class SchoolBot
         if (preg_match('/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/', $message, $m)) $email = mb_strtolower($m[0]);
         if (!$num || !$email) {
             return self::r(['I can check your application status. Please send both your application number (like APP-2026-1234) and the email address you applied with, in one message. This keeps your details private.'],
-                [self::link('Apply online', '/public/apply.php')], ['How to apply']) + ['matched' => true];
+                [self::link('Apply online', '/public/apply')], ['How to apply']) + ['matched' => true];
         }
         $db = db();
         $row = $db->getRow('SELECT status, created_at AS at FROM applications WHERE application_number = ? AND LOWER(parent_email) = ?', [$num, $email])
             ?: $db->getRow('SELECT status, submitted_at AS at FROM admissions WHERE application_number = ? AND LOWER(parent_email) = ?', [$num, $email]);
         if (!$row) {
             return self::r(["I couldn't find an application matching that number and email. Please check both and try again, or contact the admissions office."],
-                [self::link('Contact the office', '/public/contact.php')], ['Contact details']) + ['matched' => true];
+                [self::link('Contact the office', '/public/contact')], ['Contact details']) + ['matched' => true];
         }
         $text = ['pending' => 'received and waiting to be reviewed', 'reviewing' => 'being reviewed by the admissions team', 'accepted' => 'ACCEPTED. Congratulations! The office will contact you with enrolment instructions', 'rejected' => 'not successful this time. Please contact the admissions office to discuss next steps'];
         return self::r(["Your application $num (submitted " . date('j M Y', strtotime($row['at'])) . ') is ' . ($text[$row['status']] ?? $row['status']) . '.'],

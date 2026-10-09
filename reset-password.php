@@ -28,7 +28,7 @@ if ($row && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $db->query('UPDATE users SET password_hash = ?, login_attempts = 0, locked_until = NULL WHERE id = ?', [Security::hashPassword($pw), $row['user_id']]);
         $db->query('UPDATE password_resets SET used_at = NOW() WHERE user_id = ? AND used_at IS NULL', [$row['user_id']]);
         $db->commit();
-        header('Location: ' . BASE_URL . '/login.php?reset=1');
+        header('Location: ' . BASE_URL . '/login?reset=1');
         exit;
     }
 }
@@ -36,7 +36,7 @@ auth_page_start('Reset Password'); ?>
 <h1>Reset password</h1>
 <?php if (!$row): ?>
     <div class="alert alert-error">This reset link is invalid or has expired.</div>
-    <div class="links"><a href="<?php echo BASE_URL; ?>/forgot-password.php">Request a new link</a></div>
+    <div class="links"><a href="<?php echo BASE_URL; ?>/forgot-password">Request a new link</a></div>
 <?php else: ?>
     <?php if ($error): ?><div class="alert alert-error"><?php echo e($error); ?></div><?php endif; ?>
     <form method="POST">

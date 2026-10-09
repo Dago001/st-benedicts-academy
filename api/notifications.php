@@ -57,7 +57,7 @@ $receiver = $db->getRow('SELECT email, first_name FROM users WHERE id = ?', [$re
 if ($receiver) {
     sendEmail($receiver['email'], 'New Message from ' . SCHOOL_NAME,
         '<h3>You have a new message</h3><p>Dear ' . e($receiver['first_name']) . ',</p><p>You have received a new message from '
-        . e($_SESSION['user_name']) . '.</p><p><a href="' . e(BASE_URL) . '/login.php">Log in to read it</a></p>');
+        . e($_SESSION['user_name']) . '.</p><p><a href="' . e(BASE_URL) . '/login">Log in to read it</a></p>');
 }
 Security::logAudit('SENT_MESSAGE', 'messages', $id);
 api_ok(['message' => 'Message sent successfully']);

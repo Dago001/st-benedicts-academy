@@ -122,7 +122,7 @@ if ($monthlySummary && $monthlySummary['school_days'] > 0) {
         <div class="dashboard-header">
             <h1>Attendance Management</h1>
             <div class="header-actions">
-                <a href="mark-attendance.php" class="btn btn-primary">
+                <a href="mark-attendance" class="btn btn-primary">
                     <i class="fas fa-plus"></i> Mark Attendance
                 </a>
             </div>
@@ -178,7 +178,7 @@ if ($monthlySummary && $monthlySummary['school_days'] > 0) {
 
                     <div class="form-group col-md-2">
                         <label>&nbsp;</label>
-                        <a href="attendance.php" class="btn btn-outline form-control">
+                        <a href="attendance" class="btn btn-outline form-control">
                             <i class="fas fa-redo"></i> Reset
                         </a>
                     </div>
@@ -298,7 +298,7 @@ if ($monthlySummary && $monthlySummary['school_days'] > 0) {
         <div class="card">
             <div class="card-header">
                 <h3><i class="fas fa-school"></i> Class-wise Attendance for <?php echo date('d M, Y', strtotime($date)); ?></h3>
-                <a href="mark-attendance.php?date=<?php echo e($date); ?>" class="btn btn-sm btn-primary">
+                <a href="mark-attendance?date=<?php echo e($date); ?>" class="btn btn-sm btn-primary">
                     <i class="fas fa-edit"></i> Mark Attendance
                 </a>
             </div>
@@ -347,12 +347,12 @@ if ($monthlySummary && $monthlySummary['school_days'] > 0) {
                                     ?>
                                 </td>
                                 <td>
-                                    <a href="attendance-detail.php?class_id=<?php echo e($class['id']); ?>&date=<?php echo urlencode($date); ?>"
+                                    <a href="attendance-detail?class_id=<?php echo e($class['id']); ?>&date=<?php echo urlencode($date); ?>"
                                        class="btn btn-sm btn-outline">
                                         <i class="fas fa-eye"></i> View
                                     </a>
                                     <?php if ($class['marked'] == 0): ?>
-                                    <a href="mark-attendance.php?class=<?php echo e($class['id']); ?>&date=<?php echo urlencode($date); ?>"
+                                    <a href="mark-attendance?class=<?php echo e($class['id']); ?>&date=<?php echo urlencode($date); ?>"
                                        class="btn btn-sm btn-primary">
                                         <i class="fas fa-edit"></i> Mark
                                     </a>
@@ -366,7 +366,7 @@ if ($monthlySummary && $monthlySummary['school_days'] > 0) {
                 <?php else: ?>
                 <div class="alert alert-info">
                     <i class="fas fa-info-circle"></i>
-                    No classes found. Please <a href="classes.php?action=add">create a class</a> first.
+                    No classes found. Please <a href="classes?action=add">create a class</a> first.
                 </div>
                 <?php endif; ?>
             </div>
@@ -379,19 +379,19 @@ if ($monthlySummary && $monthlySummary['school_days'] > 0) {
             </div>
             <div class="card-body">
                 <div class="export-options">
-                    <a href="print-attendance.php?month=<?php echo urlencode($month); ?>&date=<?php echo urlencode($date); ?>"
+                    <a href="print-attendance?month=<?php echo urlencode($month); ?>&date=<?php echo urlencode($date); ?>"
                        class="btn btn-outline" target="_blank" rel="noopener">
                         <i class="fas fa-file-pdf"></i> Save as PDF
                     </a>
-                    <a href="export.php?type=attendance&month=<?php echo urlencode($month); ?>&date=<?php echo urlencode($date); ?>"
+                    <a href="export?type=attendance&month=<?php echo urlencode($month); ?>&date=<?php echo urlencode($date); ?>"
                        class="btn btn-outline">
                         <i class="fas fa-file-excel"></i> Export as Excel
                     </a>
-                    <a href="export.php?type=attendance&month=<?php echo urlencode($month); ?>&date=<?php echo urlencode($date); ?>"
+                    <a href="export?type=attendance&month=<?php echo urlencode($month); ?>&date=<?php echo urlencode($date); ?>"
                        class="btn btn-outline">
                         <i class="fas fa-file-csv"></i> Export as CSV
                     </a>
-                    <a href="print-attendance.php?month=<?php echo urlencode($month); ?>&date=<?php echo urlencode($date); ?>"
+                    <a href="print-attendance?month=<?php echo urlencode($month); ?>&date=<?php echo urlencode($date); ?>"
                        class="btn btn-outline" target="_blank">
                         <i class="fas fa-print"></i> Print Report
                     </a>

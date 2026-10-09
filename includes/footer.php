@@ -18,20 +18,20 @@
                     <div class="footer-links">
                         <h4>Quick Links</h4>
                         <ul>
-                            <li><a href="<?php echo BASE_URL; ?>/public/about.php">About Us</a></li>
-                            <li><a href="<?php echo BASE_URL; ?>/public/admissions.php">Admissions</a></li>
-                            <li><a href="<?php echo BASE_URL; ?>/public/academics.php">Academics</a></li>
-                            <li><a href="<?php echo BASE_URL; ?>/public/contact.php">Contact</a></li>
+                            <li><a href="<?php echo BASE_URL; ?>/public/about">About Us</a></li>
+                            <li><a href="<?php echo BASE_URL; ?>/public/admissions">Admissions</a></li>
+                            <li><a href="<?php echo BASE_URL; ?>/public/academics">Academics</a></li>
+                            <li><a href="<?php echo BASE_URL; ?>/public/contact">Contact</a></li>
                         </ul>
                     </div>
 
                     <div class="footer-links">
                         <h4>For Parents</h4>
                         <ul>
-                            <li><a href="<?php echo BASE_URL; ?>/login.php">Parent Portal</a></li>
-                            <li><a href="<?php echo BASE_URL; ?>/public/apply.php">Apply Online</a></li>
-                            <li><a href="<?php echo BASE_URL; ?>/public/news.php">News &amp; Events</a></li>
-                            <li><a href="<?php echo BASE_URL; ?>/public/gallery.php">Gallery</a></li>
+                            <li><a href="<?php echo BASE_URL; ?>/login">Parent Portal</a></li>
+                            <li><a href="<?php echo BASE_URL; ?>/public/apply">Apply Online</a></li>
+                            <li><a href="<?php echo BASE_URL; ?>/public/news">News &amp; Events</a></li>
+                            <li><a href="<?php echo BASE_URL; ?>/public/gallery">Gallery</a></li>
                         </ul>
                     </div>
 
@@ -40,7 +40,7 @@
                         <div class="social-icons">
                             <a href="tel:<?php echo e(SCHOOL_PHONE); ?>" aria-label="Call us"><i class="fas fa-phone"></i></a>
                             <a href="mailto:<?php echo e(SCHOOL_EMAIL); ?>" aria-label="Email us"><i class="fas fa-envelope"></i></a>
-                            <a href="<?php echo BASE_URL; ?>/public/contact.php" aria-label="Contact page"><i class="fas fa-map-marker-alt"></i></a>
+                            <a href="<?php echo BASE_URL; ?>/public/contact" aria-label="Contact page"><i class="fas fa-map-marker-alt"></i></a>
                         </div>
                     </div>
                 </div>

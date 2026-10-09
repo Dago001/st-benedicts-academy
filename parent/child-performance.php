@@ -23,6 +23,12 @@ $parent = $db->getRow(
     [$userId]
 );
 
+if (!$parent) {
+    echo '<div class="container" style="padding:24px"><div class="alert alert-error">Your parent profile is incomplete. Please contact the school office.</div></div>';
+    include __DIR__ . '/../includes/footer.php';
+    exit;
+}
+
 // Get children of this parent
 $children = $db->getRows(
     "SELECT s.*, u.first_name, u.last_name, u.email, u.profile_image,
@@ -261,7 +267,7 @@ if ($selectedChildId) {
             <div class="card-header">
                 <h3>Academic Results - <?php echo $selectedTerm . ' ' . $selectedYear; ?></h3>
                 <div class="card-tools">
-                    <a href="download-report.php?child=<?php echo e($selectedChildId); ?>&term=<?php echo e($selectedTerm); ?>&year=<?php echo e($selectedYear); ?>"
+                    <a href="download-report?child=<?php echo e($selectedChildId); ?>&term=<?php echo e($selectedTerm); ?>&year=<?php echo e($selectedYear); ?>"
                        class="btn btn-sm btn-primary">
                         <i class="fas fa-download"></i> Download Report
                     </a>
