@@ -8,13 +8,13 @@ document.addEventListener('DOMContentLoaded', function() {
     if (classForm) {
         validateClassForm(classForm);
     }
-    
+
     // Handle capacity warnings
     const capacityInput = document.getElementById('capacity');
     if (capacityInput) {
         capacityInput.addEventListener('input', checkCapacity);
     }
-    
+
     // Initialize class roster
     const rosterView = document.getElementById('classRoster');
     if (rosterView) {
@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', function() {
 function validateClassForm(form) {
     form.addEventListener('submit', function(e) {
         let isValid = true;
-        
+
         // Validate class name
         const className = document.getElementById('class_name');
         if (className && className.value) {
@@ -35,7 +35,7 @@ function validateClassForm(form) {
                 isValid = false;
             }
         }
-        
+
         // Validate academic year format
         const academicYear = document.getElementById('academic_year');
         if (academicYear && academicYear.value) {
@@ -51,7 +51,7 @@ function validateClassForm(form) {
                 }
             }
         }
-        
+
         // Validate capacity
         const capacity = document.getElementById('capacity');
         if (capacity && capacity.value) {
@@ -61,7 +61,7 @@ function validateClassForm(form) {
                 isValid = false;
             }
         }
-        
+
         if (!isValid) {
             e.preventDefault();
         }
@@ -72,7 +72,7 @@ function validateClassForm(form) {
 function checkCapacity(e) {
     const capacity = parseInt(e.target.value);
     const warning = document.getElementById('capacityWarning');
-    
+
     if (warning) {
         if (capacity > 50) {
             warning.style.display = 'block';
@@ -86,7 +86,7 @@ function checkCapacity(e) {
 // Load class roster
 function loadClassRoster() {
     const classId = document.getElementById('classId').value;
-    
+
     fetch(BASE_URL + '/api/get-class-roster.php?class_id=' + classId)
         .then(response => response.json())
         .then(data => {
@@ -100,29 +100,29 @@ function loadClassRoster() {
 function displayClassRoster(roster) {
     const container = document.getElementById('classRoster');
     if (!container) return;
-    
+
     let html = '<table class="data-table"><thead><tr><th>Admission No.</th><th>Name</th><th>Gender</th><th>Parent</th><th>Actions</th></tr></thead><tbody>';
-    
+
     roster.forEach(student => {
         html += `<tr>
-            <td>${student.admission_number}</td>
-            <td>${student.first_name} ${student.last_name}</td>
-            <td>${student.gender}</td>
-            <td>${student.parent_name || 'Not Assigned'}</td>
+            <td>${escapeHtml(student.admission_number)}</td>
+            <td>${escapeHtml(student.first_name)} ${escapeHtml(student.last_name)}</td>
+            <td>${escapeHtml(student.gender)}</td>
+            <td>${escapeHtml(student.parent_name || 'Not Assigned')}</td>
             <td>
-                <a href="../students/view.php?id=${student.id}" class="btn-icon">
+                <a href="../students/view.php?id=${escapeHtml(student.id)}" class="btn-icon">
                     <i class="fas fa-eye"></i>
                 </a>
             </td>
         </tr>`;
     });
-    
+
     html += '</tbody></table>';
-    
+
     if (roster.length === 0) {
         html = '<p class="no-data">No students in this class yet.</p>';
     }
-    
+
     container.innerHTML = html;
 }
 
@@ -142,23 +142,23 @@ function displaySeatingArrangement(seating) {
     const modal = document.createElement('div');
     modal.className = 'modal';
     modal.id = 'seatingModal';
-    
+
     let seatingHtml = '<div class="seating-grid">';
-    
+
     seating.forEach(row => {
         seatingHtml += '<div class="seating-row">';
         row.forEach(student => {
             seatingHtml += `
                 <div class="seating-card ${student ? 'occupied' : 'empty'}">
-                    ${student ? `<strong>${student.name}</strong><br><small>${student.admission}</small>` : 'Empty'}
+                    ${student ? `<strong>${escapeHtml(student.name)}</strong><br><small>${escapeHtml(student.admission)}</small>` : 'Empty'}
                 </div>
             `;
         });
         seatingHtml += '</div>';
     });
-    
+
     seatingHtml += '</div>';
-    
+
     modal.innerHTML = `
         <div class="modal-content modal-lg">
             <div class="modal-header">
@@ -174,7 +174,7 @@ function displaySeatingArrangement(seating) {
             </div>
         </div>
     `;
-    
+
     document.body.appendChild(modal);
     modal.style.display = 'block';
 }
@@ -183,7 +183,7 @@ function displaySeatingArrangement(seating) {
 function printSeating() {
     const modal = document.getElementById('seatingModal');
     const content = modal.querySelector('.modal-body').innerHTML;
-    
+
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`
         <html>
@@ -194,15 +194,15 @@ function printSeating() {
                 h1 { color: #002855; }
                 .seating-grid { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
                 .seating-row { display: flex; gap: 10px; justify-content: center; }
-                .seating-card { 
-                    width: 100px; 
-                    height: 100px; 
-                    border: 2px solid #002855; 
-                    border-radius: 8px; 
-                    display: flex; 
-                    flex-direction: column; 
-                    align-items: center; 
-                    justify-content: center; 
+                .seating-card {
+                    width: 100px;
+                    height: 100px;
+                    border: 2px solid #002855;
+                    border-radius: 8px;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
                     text-align: center;
                     padding: 5px;
                 }
@@ -242,7 +242,7 @@ function displayClassStats(stats) {
     const modal = document.createElement('div');
     modal.className = 'modal';
     modal.id = 'statsModal';
-    
+
     modal.innerHTML = `
         <div class="modal-content">
             <div class="modal-header">
@@ -276,7 +276,7 @@ function displayClassStats(stats) {
                         <span class="value">${stats.average_performance}%</span>
                     </div>
                 </div>
-                
+
                 <canvas id="genderChart" width="300" height="300"></canvas>
             </div>
             <div class="modal-footer">
@@ -284,10 +284,10 @@ function displayClassStats(stats) {
             </div>
         </div>
     `;
-    
+
     document.body.appendChild(modal);
     modal.style.display = 'block';
-    
+
     // Create gender distribution chart
     setTimeout(() => {
         const ctx = document.getElementById('genderChart').getContext('2d');

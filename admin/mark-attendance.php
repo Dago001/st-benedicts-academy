@@ -1,40 +1,24 @@
 <?php
 // admin/mark-attendance.php - Mark Student Attendance
 require_once __DIR__ . '/../config/config.php';
-require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/security.php';
 
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Require admin role
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
-    header('Location: ' . BASE_URL . '/login.php');
-    exit;
-}
+Security::requireRole('admin');
 
 $pageTitle = 'Mark Attendance';
 $extraCSS = ['attendance.css'];
 $extraJS = ['attendance.js'];
 
-// Check if header exists
-$headerPath = __DIR__ . '/../includes/header.php';
-if (!file_exists($headerPath)) {
-    die("Error: Header file not found at: $headerPath");
-}
-include $headerPath;
+include __DIR__ . '/../includes/header.php';
 
 // Get database instance
 $db = Database::getInstance();
 
-$message = '';
-$messageType = '';
+[$message, $messageType] = flash_get();
 
 // Get parameters
 $selectedClass = isset($_GET['class_id']) ? (int)$_GET['class_id'] : 0;
-$selectedDate = isset($_GET['date']) ? $_GET['date'] : date('Y-m-d');
+$selectedDate = valid_date($_GET['date'] ?? '') ?? date('Y-m-d');
 
 // Validate date
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $selectedDate)) {
@@ -50,7 +34,7 @@ if ($selectedDate > date('Y-m-d')) {
 
 // Get all active classes
 $classes = $db->getRows(
-    "SELECT c.*, 
+    "SELECT c.*,
             CONCAT(u.first_name, ' ', u.last_name) as teacher_name
      FROM classes c
      LEFT JOIN teachers t ON c.teacher_id = t.id
@@ -66,64 +50,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $messageType = 'error';
     } else {
         $classId = (int)($_POST['class_id'] ?? 0);
-        $attendanceDate = $_POST['attendance_date'] ?? date('Y-m-d');
-        $attendance = $_POST['attendance'] ?? [];
-        $remarks = $_POST['remarks'] ?? [];
-        
-        if (!$classId) {
+        $attendanceDate = valid_date($_POST['attendance_date'] ?? '') ?? date('Y-m-d');
+        $attendance = is_array($_POST['attendance'] ?? null) ? $_POST['attendance'] : [];
+        $remarks = is_array($_POST['remarks'] ?? null) ? $_POST['remarks'] : [];
+
+        if (!$classId || !$db->getRow('SELECT id FROM classes WHERE id = ?', [$classId])) {
             $message = 'Please select a class';
+            $messageType = 'error';
+        } elseif ($attendanceDate > date('Y-m-d')) {
+            $message = 'Cannot mark attendance for future dates';
             $messageType = 'error';
         } elseif (empty($attendance)) {
             $message = 'No attendance data submitted';
             $messageType = 'error';
         } else {
             try {
-                $db->beginTransaction();
-                
-                // Delete existing attendance for this class and date (if any)
-                $db->query(
-                    "DELETE FROM attendance WHERE class_id = ? AND date = ?",
-                    [$classId, $attendanceDate]
-                );
-                
-                // Insert new attendance records
-                $insertCount = 0;
-                foreach ($attendance as $studentId => $status) {
-                    if (!empty($status)) {
-                        $remark = isset($remarks[$studentId]) ? $remarks[$studentId] : '';
-                        
-                        $db->insert(
-                            "INSERT INTO attendance (student_id, class_id, date, status, remarks, marked_by) 
-                             VALUES (?, ?, ?, ?, ?, ?)",
-                            [
-                                (int)$studentId,
-                                $classId,
-                                $attendanceDate,
-                                $status,
-                                $remark,
-                                $_SESSION['user_id']
-                            ]
-                        );
-                        $insertCount++;
-                    }
-                }
-                
-                $db->commit();
-                
-                Security::logAudit('MARKED_ATTENDANCE', 'attendance', null, 
-                                  ['class' => $classId, 'date' => $attendanceDate, 'count' => $insertCount]);
-                
-                $message = "Attendance marked successfully for $insertCount students";
+                $insertCount = save_attendance($classId, $attendanceDate, $attendance, $remarks, $_SESSION['user_id']);
+                Security::logAudit('MARKED_ATTENDANCE', 'attendance', $classId,
+                                  null, ['date' => $attendanceDate, 'count' => $insertCount]);
+                $message = "Attendance saved for $insertCount students";
                 $messageType = 'success';
-                
             } catch (Exception $e) {
-                $db->rollback();
-                $message = 'Error: ' . $e->getMessage();
-                $messageType = 'error';
                 error_log("Attendance marking error: " . $e->getMessage());
+                $message = 'Error saving attendance. Please try again.';
+                $messageType = 'error';
             }
         }
     }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $messageType === 'success') {
+    flash_redirect($message, 'success', BASE_URL . '/admin/mark-attendance.php?' . http_build_query(['class_id' => $classId, 'date' => $attendanceDate]));
 }
 
 // Get students for selected class
@@ -134,7 +91,7 @@ $classInfo = null;
 if ($selectedClass) {
     // Get class info
     $classInfo = $db->getRow(
-        "SELECT c.*, 
+        "SELECT c.*,
                 CONCAT(u.first_name, ' ', u.last_name) as teacher_name
          FROM classes c
          LEFT JOIN teachers t ON c.teacher_id = t.id
@@ -142,10 +99,10 @@ if ($selectedClass) {
          WHERE c.id = ?",
         [$selectedClass]
     );
-    
+
     // Get students in this class
     $students = $db->getRows(
-        "SELECT s.id, s.admission_number, 
+        "SELECT s.id, s.admission_number,
                 u.first_name, u.last_name, u.profile_image
          FROM students s
          JOIN users u ON s.user_id = u.id
@@ -153,15 +110,15 @@ if ($selectedClass) {
          ORDER BY u.first_name, u.last_name",
         [$selectedClass]
     );
-    
+
     // Check if attendance already marked for this date
     $existingAttendance = $db->getRows(
-        "SELECT student_id, status, remarks 
-         FROM attendance 
+        "SELECT student_id, status, remarks
+         FROM attendance
          WHERE class_id = ? AND date = ?",
         [$selectedClass, $selectedDate]
     );
-    
+
     // Convert to associative array for easy lookup
     $attendanceMap = [];
     foreach ($existingAttendance as $a) {
@@ -174,42 +131,21 @@ if ($selectedClass) {
 
 // Get today's stats
 $todayStats = $db->getRow(
-    "SELECT 
+    "SELECT
         COUNT(DISTINCT student_id) as total_marked,
         SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present,
         SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent,
         SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END) as late,
         SUM(CASE WHEN status = 'excused' THEN 1 ELSE 0 END) as excused
-     FROM attendance 
+     FROM attendance
      WHERE date = ?",
     [$selectedDate]
 );
 ?>
 
 <div class="dashboard-container">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <h3>Admin Panel</h3>
-        </div>
-        <nav class="sidebar-nav">
-            <ul>
-                <li><a href="dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
-                <li><a href="students.php"><i class="fas fa-user-graduate"></i> Students</a></li>
-                <li><a href="teachers.php"><i class="fas fa-chalkboard-teacher"></i> Teachers</a></li>
-                <li><a href="classes.php"><i class="fas fa-school"></i> Classes</a></li>
-                <li><a href="subjects.php"><i class="fas fa-book"></i> Subjects</a></li>
-                <li class="active"><a href="attendance.php"><i class="fas fa-calendar-check"></i> Attendance</a></li>
-                <li><a href="fees.php"><i class="fas fa-money-bill"></i> Fees</a></li>
-                <li><a href="results.php"><i class="fas fa-chart-line"></i> Results</a></li>
-                <li><a href="announcements.php"><i class="fas fa-bullhorn"></i> Announcements</a></li>
-                <li><a href="gallery.php"><i class="fas fa-images"></i> Gallery</a></li>
-                <li><a href="reports.php"><i class="fas fa-file-alt"></i> Reports</a></li>
-                <li><a href="audit-logs.php"><i class="fas fa-history"></i> Audit Logs</a></li>
-            </ul>
-        </nav>
-    </aside>
-    
+    <?php render_sidebar('admin'); ?>
+
     <main class="dashboard-main">
         <div class="dashboard-header">
             <h1>Mark Attendance</h1>
@@ -219,15 +155,15 @@ $todayStats = $db->getRow(
                 </a>
             </div>
         </div>
-        
+
         <?php if ($message): ?>
-        <div class="alert alert-<?php echo $messageType; ?> alert-dismissible">
+        <div class="alert alert-<?php echo e($messageType); ?> alert-dismissible">
             <i class="fas <?php echo $messageType === 'success' ? 'fa-check-circle' : ($messageType === 'warning' ? 'fa-exclamation-triangle' : 'fa-exclamation-circle'); ?>"></i>
             <?php echo htmlspecialchars($message); ?>
             <button type="button" class="close" onclick="this.parentElement.remove()">&times;</button>
         </div>
         <?php endif; ?>
-        
+
         <!-- Class Selection Form -->
         <div class="card">
             <div class="card-header">
@@ -240,21 +176,21 @@ $todayStats = $db->getRow(
                         <select id="class_id" name="class_id" class="form-control" required>
                             <option value="">-- Select Class --</option>
                             <?php foreach ($classes as $class): ?>
-                            <option value="<?php echo $class['id']; ?>" <?php echo $selectedClass == $class['id'] ? 'selected' : ''; ?>>
+                            <option value="<?php echo e($class['id']); ?>" <?php echo $selectedClass == $class['id'] ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($class['class_name'] . ' ' . $class['section']); ?>
                                 <?php if ($class['teacher_name']): ?>- <?php echo htmlspecialchars($class['teacher_name']); ?><?php endif; ?>
                             </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    
+
                     <div class="form-group col-md-4">
                         <label for="date">Date *</label>
-                        <input type="date" id="date" name="date" class="form-control" 
-                               value="<?php echo htmlspecialchars($selectedDate); ?>" 
+                        <input type="date" id="date" name="date" class="form-control"
+                               value="<?php echo htmlspecialchars($selectedDate); ?>"
                                max="<?php echo date('Y-m-d'); ?>" required>
                     </div>
-                    
+
                     <div class="form-group col-md-3">
                         <label>&nbsp;</label>
                         <button type="submit" class="btn btn-primary form-control">
@@ -264,14 +200,14 @@ $todayStats = $db->getRow(
                 </form>
             </div>
         </div>
-        
+
         <?php if ($selectedClass && !empty($students)): ?>
-        
+
         <!-- Class Info -->
         <div class="class-info-card">
             <div class="class-info-header">
                 <h2>
-                    <i class="fas fa-users"></i> 
+                    <i class="fas fa-users"></i>
                     <?php echo htmlspecialchars($classInfo['class_name'] . ' ' . $classInfo['section']); ?>
                 </h2>
                 <div class="class-meta">
@@ -281,7 +217,7 @@ $todayStats = $db->getRow(
                 </div>
             </div>
         </div>
-        
+
         <!-- Quick Actions -->
         <div class="quick-actions-bar">
             <button type="button" class="btn btn-sm btn-success" onclick="setAllStatus('present')">
@@ -300,7 +236,7 @@ $todayStats = $db->getRow(
                 <i class="fas fa-undo"></i> Clear All
             </button>
         </div>
-        
+
         <!-- Attendance Form -->
         <div class="card">
             <div class="card-header">
@@ -314,9 +250,9 @@ $todayStats = $db->getRow(
             <div class="card-body">
                 <form method="POST" id="attendanceForm">
                     <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
-                    <input type="hidden" name="class_id" value="<?php echo $selectedClass; ?>">
-                    <input type="hidden" name="attendance_date" value="<?php echo $selectedDate; ?>">
-                    
+                    <input type="hidden" name="class_id" value="<?php echo e($selectedClass); ?>">
+                    <input type="hidden" name="attendance_date" value="<?php echo e($selectedDate); ?>">
+
                     <div class="table-responsive">
                         <table class="data-table" id="attendanceTable">
                             <thead>
@@ -330,7 +266,7 @@ $todayStats = $db->getRow(
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php foreach ($students as $index => $student): 
+                                <?php foreach ($students as $index => $student):
                                     $existing = $attendanceMap[$student['id']] ?? null;
                                     $selectedStatus = $existing ? $existing['status'] : '';
                                     $remarkText = $existing ? $existing['remarks'] : '';
@@ -339,7 +275,7 @@ $todayStats = $db->getRow(
                                     <td><?php echo $index + 1; ?></td>
                                     <td>
                                         <?php if (!empty($student['profile_image'])): ?>
-                                        <img src="<?php echo BASE_URL; ?>/uploads/students/<?php echo $student['profile_image']; ?>" 
+                                        <img src="<?php echo BASE_URL; ?>/uploads/students/<?php echo e($student['profile_image']); ?>"
                                              alt="Profile" class="student-thumbnail">
                                         <?php else: ?>
                                         <div class="avatar-placeholder">
@@ -350,7 +286,7 @@ $todayStats = $db->getRow(
                                     <td><strong><?php echo htmlspecialchars($student['admission_number']); ?></strong></td>
                                     <td><?php echo htmlspecialchars($student['first_name'] . ' ' . $student['last_name']); ?></td>
                                     <td>
-                                        <select name="attendance[<?php echo $student['id']; ?>]" class="form-control status-select" required>
+                                        <select name="attendance[<?php echo e($student['id']); ?>]" class="form-control status-select" required>
                                             <option value="">-- Select --</option>
                                             <option value="present" <?php echo $selectedStatus === 'present' ? 'selected' : ''; ?> data-color="success">Present</option>
                                             <option value="absent" <?php echo $selectedStatus === 'absent' ? 'selected' : ''; ?> data-color="danger">Absent</option>
@@ -359,8 +295,8 @@ $todayStats = $db->getRow(
                                         </select>
                                     </td>
                                     <td>
-                                        <input type="text" name="remarks[<?php echo $student['id']; ?>]" 
-                                               class="form-control" value="<?php echo htmlspecialchars($remarkText); ?>" 
+                                        <input type="text" name="remarks[<?php echo e($student['id']); ?>]"
+                                               class="form-control" value="<?php echo htmlspecialchars($remarkText); ?>"
                                                placeholder="Optional remarks">
                                     </td>
                                 </tr>
@@ -368,7 +304,7 @@ $todayStats = $db->getRow(
                             </tbody>
                         </table>
                     </div>
-                    
+
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary btn-lg">
                             <i class="fas fa-save"></i> Save Attendance
@@ -380,7 +316,7 @@ $todayStats = $db->getRow(
                 </form>
             </div>
         </div>
-        
+
         <?php elseif ($selectedClass): ?>
         <!-- No Students Found -->
         <div class="alert alert-warning">
@@ -389,7 +325,7 @@ $todayStats = $db->getRow(
             <p>There are no active students in this class. Please <a href="students.php?action=add">add students</a> first.</p>
         </div>
         <?php endif; ?>
-        
+
         <!-- Today's Summary (if any attendance marked) -->
         <?php if ($todayStats && $todayStats['total_marked'] > 0): ?>
         <div class="summary-card">
@@ -397,23 +333,23 @@ $todayStats = $db->getRow(
             <div class="summary-stats">
                 <div class="summary-item">
                     <span class="label">Present:</span>
-                    <span class="value present"><?php echo $todayStats['present']; ?></span>
+                    <span class="value present"><?php echo e($todayStats['present']); ?></span>
                 </div>
                 <div class="summary-item">
                     <span class="label">Absent:</span>
-                    <span class="value absent"><?php echo $todayStats['absent']; ?></span>
+                    <span class="value absent"><?php echo e($todayStats['absent']); ?></span>
                 </div>
                 <div class="summary-item">
                     <span class="label">Late:</span>
-                    <span class="value late"><?php echo $todayStats['late']; ?></span>
+                    <span class="value late"><?php echo e($todayStats['late']); ?></span>
                 </div>
                 <div class="summary-item">
                     <span class="label">Excused:</span>
-                    <span class="value excused"><?php echo $todayStats['excused']; ?></span>
+                    <span class="value excused"><?php echo e($todayStats['excused']); ?></span>
                 </div>
                 <div class="summary-item">
                     <span class="label">Total:</span>
-                    <span class="value total"><?php echo $todayStats['total_marked']; ?></span>
+                    <span class="value total"><?php echo e($todayStats['total_marked']); ?></span>
                 </div>
             </div>
         </div>
@@ -614,19 +550,19 @@ $todayStats = $db->getRow(
         flex-direction: column;
         gap: 10px;
     }
-    
+
     .quick-actions-bar {
         justify-content: center;
     }
-    
+
     .form-actions {
         flex-direction: column;
     }
-    
+
     .form-actions .btn {
         width: 100%;
     }
-    
+
     .summary-stats {
         grid-template-columns: repeat(2, 1fr);
     }
@@ -679,7 +615,7 @@ document.addEventListener('DOMContentLoaded', function() {
     selects.forEach(select => {
         // Initial highlight
         highlightSelect(select);
-        
+
         // Add change event
         select.addEventListener('change', function() {
             highlightSelect(this);

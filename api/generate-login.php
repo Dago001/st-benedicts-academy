@@ -1,74 +1,22 @@
 <?php
-// api/generate-login.php
-header('Content-Type: application/json');
-require_once '../config/config.php';
-require_once '../config/database.php';
-require_once '../config/security.php';
+// api/generate-login.php - admin resets a student's password and gets the new one once
+require_once __DIR__ . '/../includes/api.php';
 
-Security::requireRole('admin');
+$input = api_init(['POST'], 'admin');
+$studentId = api_int($input['student_id'] ?? null);
+if (!$studentId) api_error('Student ID required');
 
-$response = ['success' => false];
+$db = db();
+$student = $db->getRow('SELECT s.user_id, u.username FROM students s JOIN users u ON s.user_id = u.id WHERE s.id = ?', [$studentId]);
+if (!$student) api_error('Student not found', 404);
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $input = json_decode(file_get_contents('php://input'), true);
-    
-    if (!Security::verifyCSRFToken($input['csrf_token'] ?? '')) {
-        $response['message'] = 'Invalid security token';
-        echo json_encode($response);
-        exit;
-    }
-    
-    $studentId = Security::sanitize($input['student_id'] ?? '');
-    
-    if (!$studentId) {
-        $response['message'] = 'Student ID required';
-        echo json_encode($response);
-        exit;
-    }
-    
-    $db = db();
-    
-    // Get student info
-    $student = $db->getRow(
-        "SELECT s.*, u.username, u.email 
-         FROM students s 
-         JOIN users u ON s.user_id = u.id 
-         WHERE s.id = ?",
-        [$studentId]
-    );
-    
-    if (!$student) {
-        $response['message'] = 'Student not found';
-        echo json_encode($response);
-        exit;
-    }
-    
-    // Generate new password
-    $password = generateRandomString(8);
-    $passwordHash = Security::hashPassword($password);
-    
-    // Update user password
-    $db->query(
-        "UPDATE users SET password_hash = ? WHERE id = ?",
-        [$passwordHash, $student['user_id']]
-    );
-    
-    Security::logAudit('GENERATED_LOGIN', 'users', $student['user_id']);
-    
-    $response['success'] = true;
-    $response['username'] = $student['username'];
-    $response['password'] = $password;
-}
+// Letters and digits, with at least one of each
+do {
+    $password = generateRandomString(10);
+} while (!preg_match('/[A-Za-z]/', $password) || !preg_match('/\d/', $password));
 
-echo json_encode($response);
+$db->query('UPDATE users SET password_hash = ?, login_attempts = 0, locked_until = NULL WHERE id = ?', [Security::hashPassword($password), $student['user_id']]);
+Security::logAudit('GENERATED_LOGIN', 'users', $student['user_id']);
 
-function generateRandomString($length = 8) {
-    $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    $charactersLength = strlen($characters);
-    $randomString = '';
-    for ($i = 0; $i < $length; $i++) {
-        $randomString .= $characters[random_int(0, $charactersLength - 1)];
-    }
-    return $randomString;
-}
-?>
+header('Cache-Control: no-store');
+api_ok(['username' => $student['username'], 'password' => $password]);

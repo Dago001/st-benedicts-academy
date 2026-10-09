@@ -1,7 +1,6 @@
 <?php
 // admin/announcements.php - Manage Announcements
 require_once __DIR__ . '/../config/config.php';
-require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/security.php';
 
 // Define UPLOAD_PATH if not already defined (fallback)
@@ -9,27 +8,13 @@ if (!defined('UPLOAD_PATH')) {
     define('UPLOAD_PATH', __DIR__ . '/../uploads/');
 }
 
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Require admin role
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
-    header('Location: ' . BASE_URL . '/login.php');
-    exit;
-}
+Security::requireRole('admin');
 
 $pageTitle = 'Manage Announcements';
 $extraCSS = ['admin.css', 'dashboard.css'];
 $extraJS = ['announcements.js'];
 
-// Check if header exists
-$headerPath = __DIR__ . '/../includes/header.php';
-if (!file_exists($headerPath)) {
-    die("Error: Header file not found at: $headerPath");
-}
-include $headerPath;
+include __DIR__ . '/../includes/header.php';
 
 // Get database instance
 try {
@@ -38,294 +23,165 @@ try {
     die("Database connection error: " . $e->getMessage());
 }
 
-// Create upload directory if it doesn't exist
+// Upload directory (web-served, but PHP execution is disabled in uploads/.htaccess)
 $uploadDir = UPLOAD_PATH . 'announcements/';
-if (!file_exists($uploadDir)) {
-    if (!mkdir($uploadDir, 0777, true)) {
-        error_log("Failed to create upload directory: " . $uploadDir);
-    }
+if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
+    error_log("Failed to create upload directory: " . $uploadDir);
 }
 
-// Check if directory is writable
-if (!is_writable($uploadDir)) {
-    error_log("Upload directory is not writable: " . $uploadDir);
-    // Try to fix permissions
-    chmod($uploadDir, 0777);
-}
+[$message, $messageType] = flash_get();
 
-$message = '';
-$messageType = '';
-
-// Check for success/updated messages from redirects FIRST (before any other operations)
-if (isset($_GET['success'])) {
-    $message = 'Announcement added successfully';
-    $messageType = 'success';
-}
-
-if (isset($_GET['updated'])) {
-    $message = 'Announcement updated successfully';
-    $messageType = 'success';
-}
-
-if (isset($_GET['deleted'])) {
-    $message = 'Announcement deleted successfully';
-    $messageType = 'success';
-}
-
-// Handle actions
 $action = isset($_GET['action']) ? $_GET['action'] : 'list';
-$id = isset($_GET['id']) ? (int)$_GET['id'] : null;
+if (!in_array($action, ['list', 'add', 'edit'], true)) $action = 'list';
+$id = isset($_POST['id']) ? (int)$_POST['id'] : (isset($_GET['id']) ? (int)$_GET['id'] : null);
+
+/** Delete an attachment file that belongs to the announcements folder. */
+$removeAttachment = function ($name) use ($uploadDir) {
+    if ($name && basename($name) === $name && is_file($uploadDir . $name)) {
+        @unlink($uploadDir . $name);
+    }
+};
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Debug - log POST data
-    error_log("POST Data: " . print_r($_POST, true));
-    error_log("FILES Data: " . print_r($_FILES, true));
-    
     if (!Security::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
         $message = 'Invalid security token. Please refresh the page and try again.';
         $messageType = 'error';
-        error_log("CSRF token validation failed");
     } else {
         $postAction = $_POST['action'] ?? '';
-        
+
         switch ($postAction) {
             case 'add':
             case 'edit':
-                // Validate required fields
+                // Content is plain text: it is escaped (and line breaks kept) on output
                 $title = Security::sanitize($_POST['title'] ?? '');
-                $content = $_POST['content'] ?? ''; // Don't sanitize HTML content
-                $audience = Security::sanitize($_POST['audience'] ?? 'all');
-                $priority = Security::sanitize($_POST['priority'] ?? 'normal');
-                $expiresAt = !empty($_POST['expires_at']) ? Security::sanitize($_POST['expires_at']) : null;
+                $content = trim(str_replace("\0", '', (string)($_POST['content'] ?? '')));
+                $audience = $_POST['audience'] ?? 'all';
+                $priority = $_POST['priority'] ?? 'normal';
+                $expiresAt = valid_datetime($_POST['expires_at'] ?? '');
                 $isPublished = isset($_POST['is_published']) ? 1 : 0;
-                
-                if (empty($title)) {
-                    $message = 'Please enter a title';
+
+                if ($title === '' || mb_strlen($title) > 200) {
+                    $message = 'Please enter a title (max 200 characters)';
                     $messageType = 'error';
                     break;
                 }
-                
-                if (empty($content)) {
-                    $message = 'Please enter content';
+                if ($content === '' || mb_strlen($content) > 20000) {
+                    $message = 'Please enter content (max 20,000 characters)';
                     $messageType = 'error';
                     break;
                 }
-                
+                if (!in_array($audience, ['all', 'students', 'teachers', 'parents', 'admins'], true)
+                    || !in_array($priority, ['low', 'normal', 'high', 'urgent'], true)) {
+                    $message = 'Invalid audience or priority';
+                    $messageType = 'error';
+                    break;
+                }
+                if (!empty($_POST['expires_at']) && !$expiresAt) {
+                    $message = 'Invalid expiry date';
+                    $messageType = 'error';
+                    break;
+                }
+
                 // Handle file attachment
                 $attachmentPath = null;
-                if (isset($_FILES['attachment']) && $_FILES['attachment']['error'] === UPLOAD_ERR_OK) {
-                    // Validate file upload
+                if (isset($_FILES['attachment']) && $_FILES['attachment']['error'] !== UPLOAD_ERR_NO_FILE) {
                     $upload = Security::validateFileUpload($_FILES['attachment']);
-                    if ($upload['valid']) {
-                        // Generate secure filename
-                        $fileName = Security::generateSecureFilename($_FILES['attachment']['name']);
-                        $fullPath = $uploadDir . $fileName;
-                        
-                        error_log("Attempting to upload file to: " . $fullPath);
-                        
-                        if (move_uploaded_file($_FILES['attachment']['tmp_name'], $fullPath)) {
-                            $attachmentPath = $fileName;
-                            error_log("File uploaded successfully: " . $fileName);
-                            
-                            // Set proper permissions
-                            chmod($fullPath, 0644);
-                        } else {
-                            $error = error_get_last();
-                            error_log("Failed to move uploaded file: " . ($error['message'] ?? 'Unknown error'));
-                            $message = 'Failed to upload file. Please check directory permissions.';
-                            $messageType = 'error';
-                            break;
-                        }
-                    } else {
-                        $message = 'Invalid file: ' . implode(', ', $upload['errors']);
+                    if (!$upload['valid']) {
+                        $message = 'Invalid file: ' . $upload['message'];
                         $messageType = 'error';
                         break;
                     }
+                    $fileName = Security::generateSecureFilename($_FILES['attachment']['name']);
+                    if (!move_uploaded_file($_FILES['attachment']['tmp_name'], $uploadDir . $fileName)) {
+                        $message = 'Failed to upload file. Please check directory permissions.';
+                        $messageType = 'error';
+                        break;
+                    }
+                    @chmod($uploadDir . $fileName, 0644);
+                    $attachmentPath = $fileName;
                 }
-                
+
                 try {
                     if ($postAction === 'add') {
-                        error_log("Inserting new announcement");
-                        
-                        $sql = "INSERT INTO announcements (title, content, audience, priority, attachment, expires_at, is_published, created_by, created_at) 
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())";
-                        
-                        $params = [
-                            $title,
-                            $content,
-                            $audience,
-                            $priority,
-                            $attachmentPath,
-                            $expiresAt,
-                            $isPublished,
-                            $_SESSION['user_id']
-                        ];
-                        
-                        error_log("SQL: " . $sql);
-                        error_log("Params: " . print_r($params, true));
-                        
-                        $result = $db->insert($sql, $params);
-                        
-                        if (!$result) {
-                            throw new Exception("Failed to insert announcement");
-                        }
-                        
-                        Security::logAudit('ADDED_ANNOUNCEMENT', 'announcements');
-                        
-                        // Redirect to list page with success message - use JavaScript redirect to maintain session
-                        echo '<script>window.location.href = "announcements.php?success=1";</script>';
-                        exit;
-                        
+                        $newId = $db->insert(
+                            "INSERT INTO announcements (title, content, audience, priority, attachment, expires_at, is_published, created_by)
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                            [$title, $content, $audience, $priority, $attachmentPath, $expiresAt, $isPublished, $_SESSION['user_id']]
+                        );
+                        Security::logAudit('ADDED_ANNOUNCEMENT', 'announcements', $newId);
+                        $message = 'Announcement added successfully';
                     } else {
-                        if (!$id) {
-                            throw new Exception("Invalid announcement ID");
+                        $current = $id ? $db->getRow("SELECT attachment FROM announcements WHERE id = ?", [$id]) : null;
+                        if (!$current) {
+                            throw new Exception("Announcement not found");
                         }
-                        
-                        error_log("Updating announcement ID: " . $id);
-                        
-                        // Get current attachment before update
-                        $current = $db->getRow("SELECT attachment FROM announcements WHERE id = ?", [$id]);
-                        
-                        $sql = "UPDATE announcements SET 
-                                title = ?, 
-                                content = ?, 
-                                audience = ?, 
-                                priority = ?, 
-                                expires_at = ?, 
-                                is_published = ?";
-                        $params = [
-                            $title,
-                            $content,
-                            $audience,
-                            $priority,
-                            $expiresAt,
-                            $isPublished
-                        ];
-                        
+                        $sql = "UPDATE announcements SET title = ?, content = ?, audience = ?, priority = ?, expires_at = ?, is_published = ?";
+                        $params = [$title, $content, $audience, $priority, $expiresAt, $isPublished];
                         if ($attachmentPath) {
                             $sql .= ", attachment = ?";
                             $params[] = $attachmentPath;
-                            
-                            // Delete old attachment if exists
-                            if ($current && $current['attachment']) {
-                                $oldFile = $uploadDir . $current['attachment'];
-                                if (file_exists($oldFile)) {
-                                    unlink($oldFile);
-                                    error_log("Deleted old attachment: " . $oldFile);
-                                }
-                            }
                         }
-                        
-                        $sql .= " WHERE id = ?";
-                        $params[] = $id;
-                        
-                        error_log("SQL: " . $sql);
-                        error_log("Params: " . print_r($params, true));
-                        
-                        $result = $db->query($sql, $params);
-                        
-                        if (!$result) {
-                            throw new Exception("Failed to update announcement");
+                        $db->query($sql . " WHERE id = ?", array_merge($params, [$id]));
+                        if ($attachmentPath) {
+                            $removeAttachment($current['attachment']);
                         }
-                        
                         Security::logAudit('UPDATED_ANNOUNCEMENT', 'announcements', $id);
-                        
-                        // Redirect to list page with success message
-                        echo '<script>window.location.href = "announcements.php?updated=1";</script>';
-                        exit;
+                        $message = 'Announcement updated successfully';
                     }
-                    
+                    $messageType = 'success';
                 } catch (Exception $e) {
+                    $removeAttachment($attachmentPath);
                     $message = 'Error: ' . $e->getMessage();
                     $messageType = 'error';
-                    error_log("Announcement error: " . $e->getMessage());
-                    error_log("Stack trace: " . $e->getTraceAsString());
                 }
                 break;
-                
+
             case 'delete':
                 try {
-                    if (!$id) {
-                        throw new Exception("Invalid announcement ID");
+                    $announcement = $id ? $db->getRow("SELECT attachment FROM announcements WHERE id = ?", [$id]) : null;
+                    if (!$announcement) {
+                        throw new Exception("Announcement not found");
                     }
-                    
-                    // Get attachment path before deleting
-                    $announcement = $db->getRow("SELECT attachment FROM announcements WHERE id = ?", [$id]);
-                    
-                    // Delete the announcement
-                    $result = $db->query("DELETE FROM announcements WHERE id = ?", [$id]);
-                    
-                    if (!$result) {
-                        throw new Exception("Failed to delete announcement");
-                    }
-                    
-                    // Delete attachment file if exists
-                    if ($announcement && $announcement['attachment']) {
-                        $filePath = $uploadDir . $announcement['attachment'];
-                        if (file_exists($filePath)) {
-                            unlink($filePath);
-                            error_log("Deleted attachment: " . $filePath);
-                        }
-                    }
-                    
+                    $db->query("DELETE FROM announcements WHERE id = ?", [$id]);
+                    $removeAttachment($announcement['attachment']);
                     Security::logAudit('DELETED_ANNOUNCEMENT', 'announcements', $id);
-                    
-                    // Redirect to list page with success message
-                    echo '<script>window.location.href = "announcements.php?deleted=1";</script>';
-                    exit;
-                    
+                    $message = 'Announcement deleted successfully';
+                    $messageType = 'success';
                 } catch (Exception $e) {
                     $message = 'Error: ' . $e->getMessage();
                     $messageType = 'error';
                 }
                 break;
-                
+
             case 'bulk_delete':
-                $ids = $_POST['ids'] ?? '';
-                if (!empty($ids)) {
-                    // Sanitize IDs
-                    $ids = array_map('intval', explode(',', $ids));
-                    $placeholders = implode(',', array_fill(0, count($ids), '?'));
-                    
-                    try {
-                        // Get all attachments before deleting
-                        $announcements = $db->getRows(
-                            "SELECT attachment FROM announcements WHERE id IN ($placeholders)",
-                            $ids
-                        );
-                        
-                        // Delete the announcements
-                        $result = $db->query("DELETE FROM announcements WHERE id IN ($placeholders)", $ids);
-                        
-                        if (!$result) {
-                            throw new Exception("Failed to delete announcements");
-                        }
-                        
-                        // Delete attachment files
-                        foreach ($announcements as $ann) {
-                            if ($ann['attachment']) {
-                                $filePath = $uploadDir . $ann['attachment'];
-                                if (file_exists($filePath)) {
-                                    unlink($filePath);
-                                }
-                            }
-                        }
-                        
-                        Security::logAudit('BULK_DELETED_ANNOUNCEMENTS', 'announcements');
-                        
-                        // Redirect to list page with success message
-                        echo '<script>window.location.href = "announcements.php?deleted=1";</script>';
-                        exit;
-                        
-                    } catch (Exception $e) {
-                        $message = 'Error: ' . $e->getMessage();
-                        $messageType = 'error';
+                $ids = array_values(array_filter(array_map('intval', explode(',', (string)($_POST['ids'] ?? '')))));
+                if (!$ids) {
+                    $message = 'No announcements selected';
+                    $messageType = 'error';
+                    break;
+                }
+                $placeholders = implode(',', array_fill(0, count($ids), '?'));
+                try {
+                    $rows = $db->getRows("SELECT attachment FROM announcements WHERE id IN ($placeholders)", $ids);
+                    $db->query("DELETE FROM announcements WHERE id IN ($placeholders)", $ids);
+                    foreach ($rows as $row) {
+                        $removeAttachment($row['attachment']);
                     }
+                    Security::logAudit('BULK_DELETED_ANNOUNCEMENTS', 'announcements');
+                    $message = count($ids) . ' announcement(s) deleted';
+                    $messageType = 'success';
+                } catch (Exception $e) {
+                    $message = 'Error: ' . $e->getMessage();
+                    $messageType = 'error';
                 }
                 break;
         }
     }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $messageType === 'success') {
+    flash_redirect($message, 'success', BASE_URL . '/admin/announcements.php');
 }
 
 // Get announcement for editing
@@ -346,7 +202,7 @@ if ($action === 'add' && isset($_GET['duplicate'])) {
 }
 
 // Get announcements list with pagination
-$page = isset($_GET['p']) ? (int)$_GET['p'] : 1;
+$page = page_param('p');
 $limit = 20;
 $offset = ($page - 1) * $limit;
 
@@ -354,7 +210,7 @@ $totalAnnouncements = $db->getRow("SELECT COUNT(*) as count FROM announcements")
 $totalPages = $totalAnnouncements > 0 ? ceil($totalAnnouncements / $limit) : 1;
 
 $announcements = $db->getRows(
-    "SELECT a.*, u.first_name, u.last_name 
+    "SELECT a.*, u.first_name, u.last_name
      FROM announcements a
      JOIN users u ON a.created_by = u.id
      ORDER BY a.created_at DESC
@@ -769,11 +625,11 @@ $announcements = $db->getRows(
         flex-direction: column;
         gap: 10px;
     }
-    
+
     .action-buttons {
         justify-content: center;
     }
-    
+
     .bulk-delete-bar {
         width: 90%;
         flex-direction: column;
@@ -785,29 +641,8 @@ $announcements = $db->getRows(
 </style>
 
 <div class="dashboard-container">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <h3>Admin Panel</h3>
-        </div>
-        <nav class="sidebar-nav">
-            <ul>
-                <li><a href="dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
-                <li><a href="students.php"><i class="fas fa-user-graduate"></i> Students</a></li>
-                <li><a href="teachers.php"><i class="fas fa-chalkboard-teacher"></i> Teachers</a></li>
-                <li><a href="classes.php"><i class="fas fa-school"></i> Classes</a></li>
-                <li><a href="subjects.php"><i class="fas fa-book"></i> Subjects</a></li>
-                <li><a href="attendance.php"><i class="fas fa-calendar-check"></i> Attendance</a></li>
-                <li><a href="fees.php"><i class="fas fa-money-bill"></i> Fees</a></li>
-                <li><a href="results.php"><i class="fas fa-chart-line"></i> Results</a></li>
-                <li class="active"><a href="announcements.php"><i class="fas fa-bullhorn"></i> Announcements</a></li>
-                <li><a href="gallery.php"><i class="fas fa-images"></i> Gallery</a></li>
-                <li><a href="reports.php"><i class="fas fa-file-alt"></i> Reports</a></li>
-                <li><a href="audit-logs.php"><i class="fas fa-history"></i> Audit Logs</a></li>
-            </ul>
-        </nav>
-    </aside>
-    
+    <?php render_sidebar('admin'); ?>
+
     <main class="dashboard-main">
         <div class="dashboard-header">
             <h1>Manage Announcements</h1>
@@ -826,15 +661,15 @@ $announcements = $db->getRows(
                 <?php endif; ?>
             </div>
         </div>
-        
+
         <?php if ($message): ?>
-        <div class="alert alert-<?php echo $messageType; ?> alert-dismissible">
+        <div class="alert alert-<?php echo e($messageType); ?> alert-dismissible">
             <i class="fas <?php echo $messageType === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'; ?>"></i>
             <?php echo htmlspecialchars($message); ?>
             <button type="button" class="close" onclick="this.parentElement.remove()">&times;</button>
         </div>
         <?php endif; ?>
-        
+
         <?php if ($action === 'add' || $action === 'edit'): ?>
         <!-- Announcement Form -->
         <div class="card">
@@ -844,18 +679,18 @@ $announcements = $db->getRows(
             <div class="card-body">
                 <form method="POST" enctype="multipart/form-data" class="announcement-form" id="announcementForm">
                     <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
-                    <input type="hidden" name="action" value="<?php echo $action; ?>">
+                    <input type="hidden" name="action" value="<?php echo e($action); ?>">
                     <?php if ($action === 'edit'): ?>
-                    <input type="hidden" name="id" value="<?php echo $id; ?>">
+                    <input type="hidden" name="id" value="<?php echo e($id); ?>">
                     <?php endif; ?>
-                    
+
                     <div class="form-group">
                         <label for="title">Title *</label>
-                        <input type="text" id="title" name="title" class="form-control" 
-                               value="<?php echo htmlspecialchars($announcement['title'] ?? ''); ?>" 
+                        <input type="text" id="title" name="title" class="form-control"
+                               value="<?php echo htmlspecialchars($announcement['title'] ?? ''); ?>"
                                placeholder="Enter announcement title" required>
                     </div>
-                    
+
                     <div class="form-row">
                         <div class="form-group">
                             <label for="audience">Audience *</label>
@@ -867,7 +702,7 @@ $announcements = $db->getRows(
                                 <option value="admins" <?php echo (isset($announcement['audience']) && $announcement['audience'] === 'admins') ? 'selected' : ''; ?>>Admins Only</option>
                             </select>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="priority">Priority</label>
                             <select id="priority" name="priority" class="form-control">
@@ -877,43 +712,43 @@ $announcements = $db->getRows(
                                 <option value="urgent" <?php echo (isset($announcement['priority']) && $announcement['priority'] === 'urgent') ? 'selected' : ''; ?>>Urgent</option>
                             </select>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="expires_at">Expiry Date</label>
-                            <input type="date" id="expires_at" name="expires_at" class="form-control" 
+                            <input type="date" id="expires_at" name="expires_at" class="form-control"
                                    value="<?php echo isset($announcement['expires_at']) ? htmlspecialchars($announcement['expires_at']) : ''; ?>"
                                    min="<?php echo date('Y-m-d'); ?>">
                             <small class="form-text text-muted">Leave blank for no expiry</small>
                         </div>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="content">Content *</label>
                         <textarea id="content" name="content" class="form-control rich-editor" rows="10" required><?php echo htmlspecialchars($announcement['content'] ?? ''); ?></textarea>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="attachment">Attachment (Optional)</label>
                         <input type="file" id="attachment" name="attachment" class="form-control">
                         <small class="form-text text-muted">Allowed: PDF, DOC, DOCX, JPG, PNG (Max: 5MB)</small>
                         <?php if ($action === 'edit' && !empty($announcement['attachment'])): ?>
                         <div class="current-attachment">
-                            <i class="fas fa-paperclip"></i> 
+                            <i class="fas fa-paperclip"></i>
                             <a href="<?php echo BASE_URL; ?>/uploads/announcements/<?php echo urlencode($announcement['attachment']); ?>" target="_blank">
                                 View Current Attachment
                             </a>
                         </div>
                         <?php endif; ?>
                     </div>
-                    
+
                     <div class="form-group">
                         <label class="checkbox-label">
-                            <input type="checkbox" name="is_published" value="1" 
+                            <input type="checkbox" name="is_published" value="1"
                                    <?php echo (!isset($announcement['is_published']) || $announcement['is_published']) ? 'checked' : ''; ?>>
                             Publish immediately
                         </label>
                     </div>
-                    
+
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save"></i> <?php echo $action === 'add' ? 'Publish Announcement' : 'Update Announcement'; ?>
@@ -925,7 +760,7 @@ $announcements = $db->getRows(
                 </form>
             </div>
         </div>
-        
+
         <script>
         // Initialize CKEditor
         CKEDITOR.replace('content', {
@@ -947,28 +782,28 @@ $announcements = $db->getRows(
                 { name: 'about', items: ['About'] }
             ]
         });
-        
+
         // Form validation
         document.getElementById('announcementForm')?.addEventListener('submit', function(e) {
             const title = document.getElementById('title').value.trim();
             const content = CKEDITOR.instances.content.getData().trim();
-            
+
             if (!title) {
                 e.preventDefault();
                 alert('Please enter a title');
                 return false;
             }
-            
+
             if (!content) {
                 e.preventDefault();
                 alert('Please enter content');
                 return false;
             }
-            
+
             return true;
         });
         </script>
-        
+
         <?php else: ?>
         <!-- Announcements List -->
         <div class="card">
@@ -997,8 +832,8 @@ $announcements = $db->getRows(
                         </thead>
                         <tbody>
                             <?php foreach ($announcements as $item): ?>
-                            <tr class="priority-<?php echo $item['priority']; ?>">
-                                <td><input type="checkbox" class="select-item" value="<?php echo $item['id']; ?>"></td>
+                            <tr class="priority-<?php echo e($item['priority']); ?>">
+                                <td><input type="checkbox" class="select-item" value="<?php echo e($item['id']); ?>"></td>
                                 <td>
                                     <strong><?php echo htmlspecialchars($item['title']); ?></strong>
                                     <?php if (!empty($item['attachment'])): ?>
@@ -1006,13 +841,13 @@ $announcements = $db->getRows(
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <span class="badge audience-<?php echo $item['audience']; ?>">
-                                        <?php echo ucfirst($item['audience']); ?>
+                                    <span class="badge audience-<?php echo e($item['audience']); ?>">
+                                        <?php echo e(ucfirst($item['audience'])); ?>
                                     </span>
                                 </td>
                                 <td>
-                                    <span class="badge priority-<?php echo $item['priority']; ?>">
-                                        <?php echo ucfirst($item['priority']); ?>
+                                    <span class="badge priority-<?php echo e($item['priority']); ?>">
+                                        <?php echo e(ucfirst($item['priority'])); ?>
                                     </span>
                                 </td>
                                 <td><?php echo htmlspecialchars($item['first_name'] . ' ' . $item['last_name']); ?></td>
@@ -1037,17 +872,17 @@ $announcements = $db->getRows(
                                 </td>
                                 <td>
                                     <div class="action-buttons">
-                                        <a href="?action=edit&id=<?php echo $item['id']; ?>" class="btn-icon" title="Edit">
+                                        <a href="?action=edit&id=<?php echo e($item['id']); ?>" class="btn-icon" title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <a href="#" onclick="previewAnnouncement(<?php echo $item['id']; ?>)" class="btn-icon" title="Preview">
+                                        <a href="#" onclick="previewAnnouncement(<?php echo e($item['id']); ?>)" class="btn-icon" title="Preview">
                                             <i class="fas fa-eye"></i>
                                         </a>
-                                        <a href="?action=add&duplicate=<?php echo $item['id']; ?>" class="btn-icon" title="Duplicate">
+                                        <a href="?action=add&duplicate=<?php echo e($item['id']); ?>" class="btn-icon" title="Duplicate">
                                             <i class="fas fa-copy"></i>
                                         </a>
-                                        <button type="button" class="btn-icon text-danger" 
-                                                onclick="confirmDelete(<?php echo $item['id']; ?>, '<?php echo htmlspecialchars(addslashes($item['title'])); ?>')"
+                                        <button type="button" class="btn-icon text-danger"
+                                                onclick="confirmDelete(<?php echo e($item['id']); ?>, '<?php echo htmlspecialchars(addslashes($item['title'])); ?>')"
                                                 title="Delete">
                                             <i class="fas fa-trash"></i>
                                         </button>
@@ -1058,7 +893,7 @@ $announcements = $db->getRows(
                         </tbody>
                     </table>
                 </div>
-                
+
                 <!-- Bulk Delete Bar -->
                 <div id="bulkDeleteBar" class="bulk-delete-bar" style="display: none;">
                     <span><span id="selectedCount">0</span> item(s) selected</span>
@@ -1069,7 +904,7 @@ $announcements = $db->getRows(
                         <i class="fas fa-times"></i> Clear
                     </button>
                 </div>
-                
+
                 <!-- Pagination -->
                 <?php if ($totalPages > 1): ?>
                 <div class="pagination">
@@ -1078,13 +913,13 @@ $announcements = $db->getRows(
                         <i class="fas fa-chevron-left"></i> Previous
                     </a>
                     <?php endif; ?>
-                    
+
                     <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                    <a href="?p=<?php echo $i; ?>" class="page-link <?php echo $i == $page ? 'active' : ''; ?>">
-                        <?php echo $i; ?>
+                    <a href="?p=<?php echo e($i); ?>" class="page-link <?php echo $i == $page ? 'active' : ''; ?>">
+                        <?php echo e($i); ?>
                     </a>
                     <?php endfor; ?>
-                    
+
                     <?php if ($page < $totalPages): ?>
                     <a href="?p=<?php echo $page + 1; ?>" class="page-link">
                         Next <i class="fas fa-chevron-right"></i>
@@ -1092,7 +927,7 @@ $announcements = $db->getRows(
                     <?php endif; ?>
                 </div>
                 <?php endif; ?>
-                
+
                 <?php else: ?>
                 <div class="alert alert-info">
                     <i class="fas fa-info-circle"></i>
@@ -1159,13 +994,13 @@ document.getElementById('searchInput')?.addEventListener('keyup', function() {
     const searchTerm = this.value.toLowerCase();
     const table = document.getElementById('announcementsTable');
     if (!table) return;
-    
+
     const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-    
+
     for (let row of rows) {
         const title = row.cells[1]?.textContent.toLowerCase() || '';
         const audience = row.cells[2]?.textContent.toLowerCase() || '';
-        
+
         if (title.includes(searchTerm) || audience.includes(searchTerm)) {
             row.style.display = '';
         } else {
@@ -1201,7 +1036,7 @@ document.querySelectorAll('.select-item').forEach(cb => {
             selectedItems = selectedItems.filter(id => id !== this.value);
         }
         updateBulkDeleteBar();
-        
+
         // Update select all checkbox
         const allCheckboxes = document.querySelectorAll('.select-item');
         const allChecked = Array.from(allCheckboxes).every(cb => cb.checked);
@@ -1212,7 +1047,7 @@ document.querySelectorAll('.select-item').forEach(cb => {
 function updateBulkDeleteBar() {
     const bar = document.getElementById('bulkDeleteBar');
     const countSpan = document.getElementById('selectedCount');
-    
+
     if (selectedItems.length > 0) {
         countSpan.textContent = selectedItems.length;
         bar.style.display = 'flex';
@@ -1233,7 +1068,7 @@ function clearSelection() {
 function toggleBulkDelete() {
     const checkboxes = document.querySelectorAll('.select-item');
     const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-    
+
     checkboxes.forEach(cb => {
         cb.checked = !allChecked;
         if (cb.checked) {
@@ -1250,7 +1085,7 @@ function toggleBulkDelete() {
 
 function bulkDelete() {
     if (selectedItems.length === 0) return;
-    
+
     if (confirm(`Are you sure you want to delete ${selectedItems.length} announcement(s)?`)) {
         document.getElementById('bulkIds').value = selectedItems.join(',');
         document.getElementById('bulkDeleteForm').submit();
@@ -1262,9 +1097,9 @@ function previewAnnouncement(id) {
     // For now, show a simple preview
     const row = event.target.closest('tr');
     const title = row?.cells[1]?.textContent || 'Announcement';
-    
+
     document.getElementById('previewContent').innerHTML = `
-        <h2>${title}</h2>
+        <h2>${escapeHtml(title)}</h2>
         <hr>
         <p class="text-muted"><i class="fas fa-info-circle"></i> Preview functionality would load the full announcement content here.</p>
         <p>In production, this would fetch the content via AJAX from the server.</p>
@@ -1294,7 +1129,7 @@ function exportAnnouncements() {
 window.onclick = function(event) {
     const previewModal = document.getElementById('previewModal');
     const deleteModal = document.getElementById('deleteModal');
-    
+
     if (event.target === previewModal) {
         previewModal.style.display = 'none';
     }

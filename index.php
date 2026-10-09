@@ -25,9 +25,9 @@ $db = db();
 // Fetch quick stats with error handling
 try {
     $stats = [
-        'students' => $db->getRow("SELECT COUNT(*) as count FROM students WHERE deleted_at IS NULL")['count'] ?? 320,
-        'teachers' => $db->getRow("SELECT COUNT(*) as count FROM teachers")['count'] ?? 28,
-        'classes' => $db->getRow("SELECT COUNT(*) as count FROM classes WHERE is_active = 1")['count'] ?? 12,
+        'students' => $db->getRow("SELECT COUNT(*) as count FROM students s JOIN users u ON s.user_id = u.id WHERE u.deleted_at IS NULL")['count'] ?? 0,
+        'teachers' => $db->getRow("SELECT COUNT(*) as count FROM teachers t JOIN users u ON t.user_id = u.id WHERE u.deleted_at IS NULL AND u.is_active = 1")['count'] ?? 0,
+        'classes' => $db->getRow("SELECT COUNT(*) as count FROM classes WHERE is_active = 1")['count'] ?? 0,
         'years' => 14
     ];
 
@@ -1148,30 +1148,30 @@ try {
         .hero-title {
             font-size: 2.5rem;
         }
-        
+
         .welcome-grid {
             grid-template-columns: 1fr;
             gap: var(--spacing-lg);
         }
-        
+
         .welcome-content {
             padding-right: 0;
         }
-        
+
         .stats-grid,
         .stats-container {
             grid-template-columns: repeat(2, 1fr);
         }
-        
+
         .experience-badge {
             width: 100px;
             height: 100px;
         }
-        
+
         .experience-badge .years {
             font-size: 1.5rem;
         }
-        
+
         .mvg-container {
             min-height: 450px;
         }
@@ -1181,76 +1181,76 @@ try {
         .hero-section {
             min-height: 80vh;
         }
-        
+
         .hero-title {
             font-size: 2rem;
         }
-        
+
         .hero-buttons {
             flex-direction: column;
             align-items: stretch;
         }
-        
+
         .hero-buttons .btn {
             width: 100%;
         }
-        
+
         .slider-controls {
             bottom: 120px;
         }
-        
+
         .slider-prev,
         .slider-next {
             width: 40px;
             height: 40px;
         }
-        
+
         .features-list {
             grid-template-columns: 1fr;
         }
-        
+
         .programs-grid {
             grid-template-columns: 1fr;
         }
-        
+
         .news-grid {
             grid-template-columns: 1fr;
         }
-        
+
         .floating-card {
             display: none;
         }
-        
+
         .experience-badge {
             width: 80px;
             height: 80px;
             bottom: 15px;
             right: 15px;
         }
-        
+
         .chatbot-container {
             width: 300px;
             right: 0;
         }
-        
+
         .chatbot-button {
             width: 60px;
             height: 60px;
             font-size: 24px;
         }
-        
+
         .mvg-container {
             min-height: 500px;
         }
-        
+
         .mvg-slide {
             padding: var(--spacing-lg);
         }
-        
+
         .mvg-slide h2 {
             font-size: 1.8rem;
         }
-        
+
         .mvg-slide p {
             font-size: 1rem;
         }
@@ -1260,69 +1260,69 @@ try {
         .hero-title {
             font-size: 1.8rem;
         }
-        
+
         .section-title {
             font-size: 1.8rem;
         }
-        
+
         .stats-grid,
         .stats-container {
             grid-template-columns: 1fr;
         }
-        
+
         .slider-controls {
             bottom: 100px;
             gap: var(--spacing-sm);
         }
-        
+
         .slider-prev,
         .slider-next {
             width: 35px;
             height: 35px;
         }
-        
+
         .dot {
             width: 8px;
             height: 8px;
         }
-        
+
         .experience-badge {
             width: 60px;
             height: 60px;
         }
-        
+
         .experience-badge .years {
             font-size: 1.2rem;
         }
-        
+
         .experience-badge .text {
             font-size: 0.6rem;
         }
-        
+
         .cta-buttons {
             flex-direction: column;
         }
-        
+
         .cta-buttons .btn {
             width: 100%;
         }
-        
+
         .quick-replies {
             justify-content: center;
         }
-        
+
         .mvg-container {
             min-height: 550px;
         }
-        
+
         .mvg-slide h2 {
             font-size: 1.5rem;
         }
-        
+
         .mvg-controls {
             gap: var(--spacing-md);
         }
-        
+
         .mvg-prev,
         .mvg-next {
             width: 40px;
@@ -1353,7 +1353,7 @@ try {
                 </div>
             </div>
         </div>
-        
+
         <!-- Slide 2 -->
         <div class="hero-slide" style="background-image: linear-gradient(135deg, rgba(196,30,58,0.85) 0%, rgba(255,215,0,0.85) 100%), url('<?php echo BASE_URL; ?>/assets/images/hero-bg-2.jpg');">
             <div class="container">
@@ -1372,7 +1372,7 @@ try {
                 </div>
             </div>
         </div>
-        
+
         <!-- Slide 3 -->
         <div class="hero-slide" style="background-image: linear-gradient(135deg, rgba(255,215,0,0.85) 0%, rgba(0,40,85,0.85) 100%), url('<?php echo BASE_URL; ?>/assets/images/hero-bg-3.jpg');">
             <div class="container">
@@ -1392,7 +1392,7 @@ try {
             </div>
         </div>
     </div>
-    
+
     <!-- Slider Controls -->
     <div class="slider-controls">
         <button class="slider-prev"><i class="fas fa-chevron-left"></i></button>
@@ -1403,7 +1403,7 @@ try {
         </div>
         <button class="slider-next"><i class="fas fa-chevron-right"></i></button>
     </div>
-    
+
     <!-- Hero Stats -->
     <div class="hero-stats">
         <div class="container">
@@ -1411,28 +1411,28 @@ try {
                 <div class="stat-item">
                     <div class="stat-icon"><i class="fas fa-users"></i></div>
                     <div class="stat-content">
-                        <span class="stat-number"><?php echo $stats['students']; ?>+</span>
+                        <span class="stat-number"><?php echo e($stats['students']); ?>+</span>
                         <span class="stat-label">Happy Students</span>
                     </div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-icon"><i class="fas fa-chalkboard-teacher"></i></div>
                     <div class="stat-content">
-                        <span class="stat-number"><?php echo $stats['teachers']; ?></span>
+                        <span class="stat-number"><?php echo e($stats['teachers']); ?></span>
                         <span class="stat-label">Expert Teachers</span>
                     </div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-icon"><i class="fas fa-school"></i></div>
                     <div class="stat-content">
-                        <span class="stat-number"><?php echo $stats['classes']; ?></span>
+                        <span class="stat-number"><?php echo e($stats['classes']); ?></span>
                         <span class="stat-label">Classes</span>
                     </div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-icon"><i class="fas fa-trophy"></i></div>
                     <div class="stat-content">
-                        <span class="stat-number"><?php echo $stats['years']; ?></span>
+                        <span class="stat-number"><?php echo e($stats['years']); ?></span>
                         <span class="stat-label">Years of Excellence</span>
                     </div>
                 </div>
@@ -1449,7 +1449,7 @@ try {
                 <span class="section-tag">Welcome to St. Benedict's</span>
                 <h2 class="section-title">Nurturing <span class="text-highlight">Young Minds</span> with Faith & Excellence</h2>
                 <p class="welcome-text">At St. Benedict's Early Years British Academy, we believe that every child is a unique gift from God. Our approach combines the best of the British Early Years Foundation Stage curriculum with strong Christian values, creating an environment where children can flourish academically, socially, and spiritually.</p>
-                
+
                 <div class="features-list">
                     <div class="feature-item">
                         <div class="feature-icon"><i class="fas fa-check-circle"></i></div>
@@ -1480,19 +1480,19 @@ try {
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="welcome-cta">
                     <a href="<?php echo BASE_URL; ?>/public/about.php" class="btn btn-primary">
                         Discover More About Us <i class="fas fa-arrow-right"></i>
                     </a>
                 </div>
             </div>
-            
+
             <div class="welcome-image">
                 <div class="image-wrapper">
                     <img src="<?php echo BASE_URL; ?>/assets/images/welcome-image.jpg" alt="Students learning at St. Benedict's" onerror="this.onerror=null; this.src='<?php echo BASE_URL; ?>/assets/images/placeholder.jpg';">
                     <div class="experience-badge">
-                        <span class="years"><?php echo $stats['years']; ?>+</span>
+                        <span class="years"><?php echo e($stats['years']); ?>+</span>
                         <span class="text">Years of Excellence</span>
                     </div>
                 </div>
@@ -1507,22 +1507,22 @@ try {
         <div class="stats-container">
             <div class="stat-box">
                 <i class="fas fa-users"></i>
-                <div class="number"><?php echo $stats['students']; ?>+</div>
+                <div class="number"><?php echo e($stats['students']); ?>+</div>
                 <div class="label">Students</div>
             </div>
             <div class="stat-box">
                 <i class="fas fa-chalkboard-teacher"></i>
-                <div class="number"><?php echo $stats['teachers']; ?></div>
+                <div class="number"><?php echo e($stats['teachers']); ?></div>
                 <div class="label">Teachers</div>
             </div>
             <div class="stat-box">
                 <i class="fas fa-school"></i>
-                <div class="number"><?php echo $stats['classes']; ?></div>
+                <div class="number"><?php echo e($stats['classes']); ?></div>
                 <div class="label">Classes</div>
             </div>
             <div class="stat-box">
                 <i class="fas fa-trophy"></i>
-                <div class="number"><?php echo $stats['years']; ?></div>
+                <div class="number"><?php echo e($stats['years']); ?></div>
                 <div class="label">Years</div>
             </div>
         </div>
@@ -1541,7 +1541,7 @@ try {
                 <h2>Our Mission</h2>
                 <p>Through Christ's guidance, we build strong minds and kind hearts for the future. As a family of God rooted in love and faith, we cherish every child as God's gift. We learn, play, and grow together in joy, peace, and love.</p>
             </div>
-            
+
             <!-- Vision Slide -->
             <div class="mvg-slide" id="slide-vision">
                 <div class="mvg-icon">
@@ -1550,7 +1550,7 @@ try {
                 <h2>Our Vision</h2>
                 <p>To nurture children who shine with wisdom, faith, and character, ready to shape a brighter, God-centred future.</p>
             </div>
-            
+
             <!-- Goal Slide -->
             <div class="mvg-slide" id="slide-goal">
                 <div class="mvg-icon">
@@ -1560,7 +1560,7 @@ try {
                 <p>To provide every child with a happy, safe, and faith-filled foundation for life, learning, and purpose.</p>
             </div>
         </div>
-        
+
         <!-- MVG Controls -->
         <div class="mvg-controls">
             <button class="mvg-prev" id="mvgPrev"><i class="fas fa-chevron-left"></i></button>
@@ -1579,7 +1579,7 @@ try {
     <div class="container">
         <h2 class="section-title text-center">Our Programs</h2>
         <p class="section-subtitle text-center">Age-appropriate learning pathways designed to nurture every child's potential</p>
-        
+
         <div class="programs-grid">
             <div class="program-card">
                 <div class="program-icon">
@@ -1590,7 +1590,7 @@ try {
                 <p class="program-desc">Introduction to structured play, social interaction, and early communication skills.</p>
                 <a href="<?php echo BASE_URL; ?>/public/academics.php" class="btn-link">Learn More <i class="fas fa-arrow-right"></i></a>
             </div>
-            
+
             <div class="program-card">
                 <div class="program-icon">
                     <i class="fas fa-child"></i>
@@ -1600,7 +1600,7 @@ try {
                 <p class="program-desc">Preparation for formal learning with focus on early literacy, numeracy, and social skills.</p>
                 <a href="<?php echo BASE_URL; ?>/public/academics.php" class="btn-link">Learn More <i class="fas fa-arrow-right"></i></a>
             </div>
-            
+
             <div class="program-card">
                 <div class="program-icon">
                     <i class="fas fa-user-graduate"></i>
@@ -1610,7 +1610,7 @@ try {
                 <p class="program-desc">Building solid foundations in core subjects following the British curriculum.</p>
                 <a href="<?php echo BASE_URL; ?>/public/academics.php" class="btn-link">Learn More <i class="fas fa-arrow-right"></i></a>
             </div>
-            
+
             <div class="program-card">
                 <div class="program-icon">
                     <i class="fas fa-music"></i>
@@ -1629,14 +1629,14 @@ try {
     <div class="container">
         <h2 class="section-title text-center">Latest News & Events</h2>
         <p class="section-subtitle text-center">Keep up with the exciting activities at our school</p>
-        
+
         <div class="news-grid">
             <?php if (!empty($news)): ?>
                 <?php foreach ($news as $item): ?>
                 <div class="news-card">
                     <div class="news-image">
                         <?php if (!empty($item['image_path']) && file_exists(__DIR__ . '/../uploads/news/' . $item['image_path'])): ?>
-                        <img src="<?php echo BASE_URL; ?>/uploads/news/<?php echo $item['image_path']; ?>" alt="<?php echo htmlspecialchars($item['title']); ?>" onerror="this.onerror=null; this.src='<?php echo BASE_URL; ?>/assets/images/news-placeholder.jpg';">
+                        <img src="<?php echo BASE_URL; ?>/uploads/news/<?php echo e($item['image_path']); ?>" alt="<?php echo htmlspecialchars($item['title']); ?>" onerror="this.onerror=null; this.src='<?php echo BASE_URL; ?>/assets/images/news-placeholder.jpg';">
                         <?php else: ?>
                         <img src="<?php echo BASE_URL; ?>/assets/images/news-placeholder.jpg" alt="News">
                         <?php endif; ?>
@@ -1646,11 +1646,11 @@ try {
                         </div>
                     </div>
                     <div class="news-content">
-                        <h3><a href="<?php echo BASE_URL; ?>/public/news-detail.php?id=<?php echo $item['id']; ?>"><?php echo htmlspecialchars($item['title']); ?></a></h3>
-                        <p><?php echo substr(htmlspecialchars($item['content']), 0, 120); ?>...</p>
+                        <h3><a href="<?php echo BASE_URL; ?>/public/news-detail.php?id=<?php echo e($item['id']); ?>"><?php echo htmlspecialchars($item['title']); ?></a></h3>
+                        <p><?php echo htmlspecialchars(mb_substr($item['content'], 0, 120)); ?>...</p>
                         <div class="news-meta">
                             <span class="news-author"><i class="far fa-user"></i> Admin</span>
-                            <a href="<?php echo BASE_URL; ?>/public/news-detail.php?id=<?php echo $item['id']; ?>" class="read-more">Read More <i class="fas fa-arrow-right"></i></a>
+                            <a href="<?php echo BASE_URL; ?>/public/news-detail.php?id=<?php echo e($item['id']); ?>" class="read-more">Read More <i class="fas fa-arrow-right"></i></a>
                         </div>
                     </div>
                 </div>
@@ -1710,7 +1710,7 @@ try {
                 </div>
             <?php endif; ?>
         </div>
-        
+
         <div class="text-center mt-4">
             <a href="<?php echo BASE_URL; ?>/public/news.php" class="btn btn-primary">View All News</a>
         </div>
@@ -1741,7 +1741,7 @@ try {
         <i class="fas fa-comment-dots"></i>
         <span class="chatbot-notification">1</span>
     </div>
-    
+
     <div class="chatbot-container" id="chatbotContainer">
         <div class="chatbot-header">
             <div class="chatbot-title">
@@ -1752,7 +1752,7 @@ try {
                 <i class="fas fa-times"></i>
             </button>
         </div>
-        
+
         <div class="chatbot-messages" id="chatbotMessages">
             <div class="message bot-message">
                 <div class="message-avatar">
@@ -1763,19 +1763,19 @@ try {
                 </div>
             </div>
         </div>
-        
+
         <div class="quick-replies">
             <button class="quick-reply">Admission Requirements</button>
             <button class="quick-reply">School Fees</button>
             <button class="quick-reply">Our Programs</button>
             <button class="quick-reply">Contact Info</button>
         </div>
-        
+
         <div class="chatbot-input">
             <input type="text" id="chatbotInput" placeholder="Type your message here...">
             <button id="chatbotSend"><i class="fas fa-paper-plane"></i></button>
         </div>
-        
+
         <div class="chatbot-footer">
             <span>Powered by St. Benedict's Academy</span>
         </div>
@@ -1800,26 +1800,26 @@ document.addEventListener('DOMContentLoaded', function() {
     const mvgNext = document.getElementById('mvgNext');
     let mvgCurrentSlide = 0;
     let mvgInterval = setInterval(mvgNextSlide, 5000);
-    
+
     function mvgShowSlide(index) {
         mvgSlides.forEach(slide => slide.classList.remove('active'));
         mvgDots.forEach(dot => dot.classList.remove('active'));
-        
+
         mvgSlides[index].classList.add('active');
         mvgDots[index].classList.add('active');
         mvgCurrentSlide = index;
     }
-    
+
     function mvgNextSlide() {
         let next = (mvgCurrentSlide + 1) % mvgSlides.length;
         mvgShowSlide(next);
     }
-    
+
     function mvgPrevSlide() {
         let prev = (mvgCurrentSlide - 1 + mvgSlides.length) % mvgSlides.length;
         mvgShowSlide(prev);
     }
-    
+
     if (mvgPrev) {
         mvgPrev.addEventListener('click', function() {
             clearInterval(mvgInterval);
@@ -1827,7 +1827,7 @@ document.addEventListener('DOMContentLoaded', function() {
             mvgInterval = setInterval(mvgNextSlide, 5000);
         });
     }
-    
+
     if (mvgNext) {
         mvgNext.addEventListener('click', function() {
             clearInterval(mvgInterval);
@@ -1835,7 +1835,7 @@ document.addEventListener('DOMContentLoaded', function() {
             mvgInterval = setInterval(mvgNextSlide, 5000);
         });
     }
-    
+
     mvgDots.forEach((dot, index) => {
         dot.addEventListener('click', function() {
             clearInterval(mvgInterval);
@@ -1849,31 +1849,31 @@ document.addEventListener('DOMContentLoaded', function() {
     const dots = document.querySelectorAll('.dot');
     const prevBtn = document.querySelector('.slider-prev');
     const nextBtn = document.querySelector('.slider-next');
-    
+
     if (!slides.length) return;
-    
+
     let currentSlide = 0;
     let slideInterval = setInterval(nextSlide, 5000);
-    
+
     function showSlide(index) {
         slides.forEach(slide => slide.classList.remove('active'));
         dots.forEach(dot => dot.classList.remove('active'));
-        
+
         slides[index].classList.add('active');
         dots[index].classList.add('active');
         currentSlide = index;
     }
-    
+
     function nextSlide() {
         let next = (currentSlide + 1) % slides.length;
         showSlide(next);
     }
-    
+
     function prevSlide() {
         let prev = (currentSlide - 1 + slides.length) % slides.length;
         showSlide(prev);
     }
-    
+
     if (prevBtn) {
         prevBtn.addEventListener('click', function() {
             clearInterval(slideInterval);
@@ -1881,7 +1881,7 @@ document.addEventListener('DOMContentLoaded', function() {
             slideInterval = setInterval(nextSlide, 5000);
         });
     }
-    
+
     if (nextBtn) {
         nextBtn.addEventListener('click', function() {
             clearInterval(slideInterval);
@@ -1889,7 +1889,7 @@ document.addEventListener('DOMContentLoaded', function() {
             slideInterval = setInterval(nextSlide, 5000);
         });
     }
-    
+
     dots.forEach((dot, index) => {
         dot.addEventListener('click', function() {
             clearInterval(slideInterval);
@@ -1906,7 +1906,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const chatbotSend = document.getElementById('chatbotSend');
     const chatbotMessages = document.getElementById('chatbotMessages');
     const quickReplies = document.querySelectorAll('.quick-reply');
-    
+
     // Toggle chatbot
     if (chatbotButton) {
         chatbotButton.addEventListener('click', function() {
@@ -1918,58 +1918,58 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
+
     if (chatbotClose) {
         chatbotClose.addEventListener('click', function() {
             chatbotContainer.classList.remove('active');
             chatbotButton.style.display = 'flex';
         });
     }
-    
+
     // Send message
     function sendMessage() {
         if (!chatbotInput) return;
         const message = chatbotInput.value.trim();
         if (message === '') return;
-        
+
         addMessage(message, 'user');
         chatbotInput.value = '';
-        
+
         setTimeout(() => {
             addMessage('Thank you for your message. Our team will get back to you soon!', 'bot');
         }, 1000);
     }
-    
+
     if (chatbotSend) {
         chatbotSend.addEventListener('click', sendMessage);
     }
-    
+
     if (chatbotInput) {
         chatbotInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') sendMessage();
         });
     }
-    
+
     function addMessage(text, sender) {
         if (!chatbotMessages) return;
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${sender}-message`;
-        
+
         const avatar = document.createElement('div');
         avatar.className = 'message-avatar';
         avatar.innerHTML = sender === 'bot' ? '<i class="fas fa-robot"></i>' : '<i class="fas fa-user"></i>';
-        
+
         const content = document.createElement('div');
         content.className = 'message-content';
-        content.innerHTML = `<p>${text}</p>`;
-        
+        content.innerHTML = `<p>${escapeHtml(text)}</p>`;
+
         messageDiv.appendChild(avatar);
         messageDiv.appendChild(content);
         chatbotMessages.appendChild(messageDiv);
-        
+
         chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
     }
-    
+
     // Quick replies
     if (quickReplies.length > 0) {
         quickReplies.forEach(button => {

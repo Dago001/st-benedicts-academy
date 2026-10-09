@@ -4,13 +4,13 @@
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize charts if they exist
     initializeCharts();
-    
+
     // Setup sidebar toggle for mobile
     setupSidebarToggle();
-    
+
     // Load recent activities
     loadRecentActivities();
-    
+
     // Setup notification refresh
     setInterval(refreshNotifications, 60000); // Every minute
 });
@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', function() {
 function setupSidebarToggle() {
     const sidebarToggle = document.querySelector('.sidebar-toggle');
     const sidebar = document.querySelector('.sidebar');
-    
+
     if (sidebarToggle && sidebar) {
         sidebarToggle.addEventListener('click', function() {
             sidebar.classList.toggle('collapsed');
@@ -60,14 +60,14 @@ function initializeCharts() {
                 }
             });
     }
-    
+
     // Performance chart
     const performanceCanvas = document.getElementById('performanceChart');
     if (performanceCanvas && typeof Chart !== 'undefined') {
         // Initialize with data from data attribute
         const subjects = JSON.parse(performanceCanvas.dataset.subjects || '[]');
         const scores = JSON.parse(performanceCanvas.dataset.scores || '[]');
-        
+
         new Chart(performanceCanvas, {
             type: 'bar',
             data: {
@@ -100,7 +100,7 @@ function getCurrentClassId() {
 function loadRecentActivities() {
     const activitiesContainer = document.querySelector('.recent-activities-list');
     if (!activitiesContainer) return;
-    
+
     fetch(BASE_URL + '/api/activities.php?action=recent')
         .then(response => response.json())
         .then(data => {
@@ -117,10 +117,10 @@ function loadRecentActivities() {
 function createActivityItem(activity) {
     const div = document.createElement('div');
     div.className = 'activity-item';
-    
+
     let icon = 'fa-info-circle';
     let color = '#002855';
-    
+
     switch(activity.action) {
         case 'LOGIN':
             icon = 'fa-sign-in-alt';
@@ -139,17 +139,17 @@ function createActivityItem(activity) {
             color = '#002855';
             break;
     }
-    
+
     div.innerHTML = `
         <div class="activity-icon" style="color: ${color}">
             <i class="fas ${icon}"></i>
         </div>
         <div class="activity-details">
-            <p class="activity-text">${activity.description}</p>
-            <small class="activity-time">${activity.time_ago}</small>
+            <p class="activity-text">${escapeHtml(activity.description)}</p>
+            <small class="activity-time">${escapeHtml(activity.time_ago)}</small>
         </div>
     `;
-    
+
     return div;
 }
 
@@ -188,7 +188,7 @@ function enhanceDataTables() {
         exportBtn.className = 'btn btn-small btn-outline';
         exportBtn.innerHTML = '<i class="fas fa-download"></i> Export';
         exportBtn.onclick = () => exportTableToCSV(table.id);
-        
+
         const header = table.closest('.card')?.querySelector('.card-header');
         if (header) {
             header.appendChild(exportBtn);
@@ -199,10 +199,10 @@ function enhanceDataTables() {
 function exportTableToCSV(tableId) {
     const table = document.getElementById(tableId);
     if (!table) return;
-    
+
     const rows = table.querySelectorAll('tr');
     const csv = [];
-    
+
     rows.forEach(row => {
         const cols = row.querySelectorAll('td, th');
         const rowData = Array.from(cols).map(col => {
@@ -211,7 +211,7 @@ function exportTableToCSV(tableId) {
         });
         csv.push(rowData.join(','));
     });
-    
+
     const csvContent = csv.join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);

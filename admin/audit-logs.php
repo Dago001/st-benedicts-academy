@@ -1,7 +1,6 @@
 <?php
 // admin/audit-logs.php - Audit Logs Viewer
 require_once '../config/config.php';
-require_once '../config/database.php';
 require_once '../config/security.php';
 
 Security::requireRole('admin');
@@ -10,23 +9,35 @@ $pageTitle = 'Audit Logs';
 $extraCSS = ['admin.css', 'dashboard.css'];
 $extraJS = ['audit-logs.js'];
 
-include '../includes/header.php';
+include __DIR__ . '/../includes/header.php';
 
 $db = db();
+[$message, $messageType] = flash_get();
+
+// Clear logs older than 90 days (POST + CSRF)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'clear_old') {
+    if (!Security::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
+        flash_redirect('Invalid security token', 'error');
+    }
+    $db->query("DELETE FROM audit_logs WHERE created_at < DATE_SUB(NOW(), INTERVAL 90 DAY)");
+    $deleted = $db->rowCount();
+    Security::logAudit('CLEARED_AUDIT_LOGS', 'audit_logs', null, null, ['deleted' => $deleted]);
+    flash_redirect("$deleted log entries older than 90 days were deleted", 'success');
+}
 
 // Pagination
-$page = $_GET['p'] ?? 1;
+$page = page_param('p');
 $limit = 50;
 $offset = ($page - 1) * $limit;
 
 // Filters
-$userId = $_GET['user_id'] ?? '';
-$action = $_GET['action'] ?? '';
-$dateFrom = $_GET['date_from'] ?? '';
-$dateTo = $_GET['date_to'] ?? '';
+$userId = (int)($_GET['user_id'] ?? 0) ?: '';
+$action = Security::sanitize($_GET['action'] ?? '');
+$dateFrom = valid_date($_GET['date_from'] ?? '') ?? '';
+$dateTo = valid_date($_GET['date_to'] ?? '') ?? '';
 
 // Build query
-$query = "SELECT a.*, u.username, u.first_name, u.last_name, u.role 
+$query = "SELECT a.*, u.username, u.first_name, u.last_name, u.role
           FROM audit_logs a
           LEFT JOIN users u ON a.user_id = u.id
           WHERE 1=1";
@@ -68,7 +79,7 @@ $params[] = $offset;
 
 // Get total count for pagination
 $totalLogs = $db->getRow($countQuery, $countParams)['count'];
-$totalPages = ceil($totalLogs / $limit);
+$totalPages = max(1, (int)ceil($totalLogs / $limit));
 
 // Get logs
 $logs = $db->getRows($query, $params);
@@ -78,7 +89,7 @@ $actions = $db->getRows("SELECT DISTINCT action FROM audit_logs ORDER BY action"
 
 // Get users for filter
 $users = $db->getRows(
-    "SELECT DISTINCT u.id, u.username, u.first_name, u.last_name 
+    "SELECT DISTINCT u.id, u.username, u.first_name, u.last_name
      FROM audit_logs a
      JOIN users u ON a.user_id = u.id
      ORDER BY u.first_name"
@@ -86,28 +97,8 @@ $users = $db->getRows(
 ?>
 
 <div class="dashboard-container">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <h3>Admin Panel</h3>
-        </div>
-        <nav class="sidebar-nav">
-            <ul>
-                <li><a href="dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
-                <li><a href="students.php"><i class="fas fa-user-graduate"></i> Students</a></li>
-                <li><a href="teachers.php"><i class="fas fa-chalkboard-teacher"></i> Teachers</a></li>
-                <li><a href="classes.php"><i class="fas fa-school"></i> Classes</a></li>
-                <li><a href="attendance.php"><i class="fas fa-calendar-check"></i> Attendance</a></li>
-                <li><a href="fees.php"><i class="fas fa-money-bill"></i> Fees</a></li>
-                <li><a href="results.php"><i class="fas fa-chart-line"></i> Results</a></li>
-                <li><a href="announcements.php"><i class="fas fa-bullhorn"></i> Announcements</a></li>
-                <li><a href="gallery.php"><i class="fas fa-images"></i> Gallery</a></li>
-                <li><a href="reports.php"><i class="fas fa-file-alt"></i> Reports</a></li>
-                <li class="active"><a href="audit-logs.php"><i class="fas fa-history"></i> Audit Logs</a></li>
-            </ul>
-        </nav>
-    </aside>
-    
+    <?php render_sidebar('admin'); ?>
+
     <main class="dashboard-main">
         <div class="dashboard-header">
             <h1>Audit Logs</h1>
@@ -120,7 +111,7 @@ $users = $db->getRows(
                 </button>
             </div>
         </div>
-        
+
         <!-- Filter Form -->
         <div class="card">
             <div class="card-header">
@@ -133,35 +124,35 @@ $users = $db->getRows(
                         <select id="user_id" name="user_id" class="form-control">
                             <option value="">All Users</option>
                             <?php foreach ($users as $user): ?>
-                            <option value="<?php echo $user['id']; ?>" <?php echo $userId == $user['id'] ? 'selected' : ''; ?>>
+                            <option value="<?php echo e($user['id']); ?>" <?php echo $userId == $user['id'] ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($user['first_name'] . ' ' . $user['last_name'] . ' (' . $user['username'] . ')'); ?>
                             </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    
+
                     <div class="form-group col-md-3">
                         <label for="action">Action</label>
                         <select id="action" name="action" class="form-control">
                             <option value="">All Actions</option>
                             <?php foreach ($actions as $act): ?>
-                            <option value="<?php echo $act['action']; ?>" <?php echo $action == $act['action'] ? 'selected' : ''; ?>>
+                            <option value="<?php echo e($act['action']); ?>" <?php echo $action == $act['action'] ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($act['action']); ?>
                             </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    
+
                     <div class="form-group col-md-2">
                         <label for="date_from">From</label>
-                        <input type="date" id="date_from" name="date_from" class="form-control" value="<?php echo $dateFrom; ?>">
+                        <input type="date" id="date_from" name="date_from" class="form-control" value="<?php echo e($dateFrom); ?>">
                     </div>
-                    
+
                     <div class="form-group col-md-2">
                         <label for="date_to">To</label>
-                        <input type="date" id="date_to" name="date_to" class="form-control" value="<?php echo $dateTo; ?>">
+                        <input type="date" id="date_to" name="date_to" class="form-control" value="<?php echo e($dateTo); ?>">
                     </div>
-                    
+
                     <div class="form-group col-md-2">
                         <label>&nbsp;</label>
                         <button type="submit" class="btn btn-primary form-control">Filter</button>
@@ -169,12 +160,12 @@ $users = $db->getRows(
                 </form>
             </div>
         </div>
-        
+
         <!-- Logs Table -->
         <div class="card">
             <div class="card-header">
                 <h3>Audit Trail</h3>
-                <span>Total Records: <?php echo $totalLogs; ?></span>
+                <span>Total Records: <?php echo e($totalLogs); ?></span>
             </div>
             <div class="card-body">
                 <div class="table-responsive">
@@ -209,13 +200,13 @@ $users = $db->getRows(
                                 <td><?php echo $log['record_id'] ?? '-'; ?></td>
                                 <td><?php echo $log['ip_address'] ?? '-'; ?></td>
                                 <td>
-                                    <button class="btn btn-sm btn-info" onclick="viewDetails(<?php echo $log['id']; ?>)">
+                                    <button class="btn btn-sm btn-info" onclick="viewDetails(<?php echo e($log['id']); ?>)">
                                         <i class="fas fa-eye"></i> View
                                     </button>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
-                            
+
                             <?php if (empty($logs)): ?>
                             <tr>
                                 <td colspan="8" class="text-center">No audit logs found</td>
@@ -224,25 +215,25 @@ $users = $db->getRows(
                         </tbody>
                     </table>
                 </div>
-                
+
                 <!-- Pagination -->
                 <?php if ($totalPages > 1): ?>
                 <div class="pagination">
                     <?php if ($page > 1): ?>
-                    <a href="?p=<?php echo $page - 1; ?>&user_id=<?php echo $userId; ?>&action=<?php echo $action; ?>&date_from=<?php echo $dateFrom; ?>&date_to=<?php echo $dateTo; ?>" class="page-link">
+                    <a href="?p=<?php echo $page - 1; ?>&user_id=<?php echo e($userId); ?>&action=<?php echo e($action); ?>&date_from=<?php echo e($dateFrom); ?>&date_to=<?php echo e($dateTo); ?>" class="page-link">
                         <i class="fas fa-chevron-left"></i> Previous
                     </a>
                     <?php endif; ?>
-                    
+
                     <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                    <a href="?p=<?php echo $i; ?>&user_id=<?php echo $userId; ?>&action=<?php echo $action; ?>&date_from=<?php echo $dateFrom; ?>&date_to=<?php echo $dateTo; ?>" 
+                    <a href="?p=<?php echo e($i); ?>&user_id=<?php echo e($userId); ?>&action=<?php echo e($action); ?>&date_from=<?php echo e($dateFrom); ?>&date_to=<?php echo e($dateTo); ?>"
                        class="page-link <?php echo $i == $page ? 'active' : ''; ?>">
-                        <?php echo $i; ?>
+                        <?php echo e($i); ?>
                     </a>
                     <?php endfor; ?>
-                    
+
                     <?php if ($page < $totalPages): ?>
-                    <a href="?p=<?php echo $page + 1; ?>&user_id=<?php echo $userId; ?>&action=<?php echo $action; ?>&date_from=<?php echo $dateFrom; ?>&date_to=<?php echo $dateTo; ?>" class="page-link">
+                    <a href="?p=<?php echo $page + 1; ?>&user_id=<?php echo e($userId); ?>&action=<?php echo e($action); ?>&date_from=<?php echo e($dateFrom); ?>&date_to=<?php echo e($dateTo); ?>" class="page-link">
                         Next <i class="fas fa-chevron-right"></i>
                     </a>
                     <?php endif; ?>
@@ -269,30 +260,34 @@ $users = $db->getRows(
     </div>
 </div>
 
+<form method="POST" id="clearLogsForm" style="display:none">
+    <?php echo csrf_field(); ?>
+    <input type="hidden" name="action" value="clear_old">
+</form>
 <script>
 function viewDetails(logId) {
-    fetch(`../api/get-audit-log.php?id=${logId}`)
+    fetch(`${BASE_URL}/api/get-audit-log.php?id=${encodeURIComponent(logId)}`, {credentials: 'same-origin'})
         .then(response => response.json())
         .then(data => {
             if (data.success) {
                 let html = '<table class="table table-bordered">';
                 html += '<tr><th>Field</th><th>Value</th></tr>';
-                html += `<tr><td>ID</td><td>${data.log.id}</td></tr>`;
-                html += `<tr><td>Date/Time</td><td>${data.log.created_at}</td></tr>`;
-                html += `<tr><td>User</td><td>${data.log.user_name || 'System'}</td></tr>`;
-                html += `<tr><td>Action</td><td>${data.log.action}</td></tr>`;
-                html += `<tr><td>Table</td><td>${data.log.table_affected || '-'}</td></tr>`;
-                html += `<tr><td>Record ID</td><td>${data.log.record_id || '-'}</td></tr>`;
-                html += `<tr><td>IP Address</td><td>${data.log.ip_address || '-'}</td></tr>`;
-                html += `<tr><td>User Agent</td><td>${data.log.user_agent || '-'}</td></tr>`;
-                
+                html += `<tr><td>ID</td><td>${escapeHtml(data.log.id)}</td></tr>`;
+                html += `<tr><td>Date/Time</td><td>${escapeHtml(data.log.created_at)}</td></tr>`;
+                html += `<tr><td>User</td><td>${escapeHtml(data.log.user_name || 'System')}</td></tr>`;
+                html += `<tr><td>Action</td><td>${escapeHtml(data.log.action)}</td></tr>`;
+                html += `<tr><td>Table</td><td>${escapeHtml(data.log.table_affected || '-')}</td></tr>`;
+                html += `<tr><td>Record ID</td><td>${escapeHtml(data.log.record_id || '-')}</td></tr>`;
+                html += `<tr><td>IP Address</td><td>${escapeHtml(data.log.ip_address || '-')}</td></tr>`;
+                html += `<tr><td>User Agent</td><td>${escapeHtml(data.log.user_agent || '-')}</td></tr>`;
+
                 if (data.log.old_values) {
-                    html += `<tr><td colspan="2"><strong>Old Values:</strong><br><pre>${JSON.stringify(JSON.parse(data.log.old_values), null, 2)}</pre></td></tr>`;
+                    html += `<tr><td colspan="2"><strong>Old Values:</strong><br><pre>${escapeHtml(JSON.stringify(JSON.parse(data.log.old_values), null, 2))}</pre></td></tr>`;
                 }
                 if (data.log.new_values) {
-                    html += `<tr><td colspan="2"><strong>New Values:</strong><br><pre>${JSON.stringify(JSON.parse(data.log.new_values), null, 2)}</pre></td></tr>`;
+                    html += `<tr><td colspan="2"><strong>New Values:</strong><br><pre>${escapeHtml(JSON.stringify(JSON.parse(data.log.new_values), null, 2))}</pre></td></tr>`;
                 }
-                
+
                 html += '</table>';
                 document.getElementById('detailsContent').innerHTML = html;
                 document.getElementById('detailsModal').style.display = 'block';
@@ -306,12 +301,12 @@ function closeModal() {
 
 function exportLogs() {
     const params = new URLSearchParams(window.location.search);
-    window.location.href = 'export-logs.php?' + params.toString();
+    window.location.href = BASE_URL + '/admin/export-logs.php?' + params.toString();
 }
 
 function clearLogs() {
     if (confirm('Are you sure you want to clear logs older than 90 days? This action cannot be undone.')) {
-        window.location.href = 'clear-logs.php';
+        document.getElementById('clearLogsForm').submit();
     }
 }
 

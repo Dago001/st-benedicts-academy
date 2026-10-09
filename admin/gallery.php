@@ -1,7 +1,6 @@
 <?php
 // admin/gallery.php - Gallery Management
 require_once '../config/config.php';
-require_once '../config/database.php';
 require_once '../config/security.php';
 
 Security::requireRole('admin');
@@ -10,15 +9,24 @@ $pageTitle = 'Gallery Management';
 $extraCSS = ['admin.css', 'dashboard.css'];
 $extraJS = ['gallery.js', 'dropzone.js'];
 
-include '../includes/header.php';
+include __DIR__ . '/../includes/header.php';
 
 $db = db();
-$message = '';
-$messageType = '';
+[$message, $messageType] = flash_get();
 
-// Handle actions
 $action = $_GET['action'] ?? 'list';
-$id = $_GET['id'] ?? null;
+$id = isset($_POST['id']) ? (int)$_POST['id'] : (isset($_GET['id']) ? (int)$_GET['id'] : null);
+$galleryDir = UPLOAD_PATH . 'gallery/';
+if (!is_dir($galleryDir)) {
+    @mkdir($galleryDir, 0755, true);
+}
+
+/** Remove a gallery file by bare file name only (never a path). */
+$removeFile = function ($name) use ($galleryDir) {
+    if ($name && basename($name) === $name && is_file($galleryDir . $name)) {
+        @unlink($galleryDir . $name);
+    }
+};
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -26,63 +34,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $message = 'Invalid security token';
         $messageType = 'error';
     } else {
-        switch ($_POST['action']) {
+        $postAction = $_POST['action'] ?? '';
+        $title = Security::sanitize($_POST['title'] ?? '');
+        $description = Security::sanitize($_POST['description'] ?? '');
+        $category = Security::sanitize($_POST['category'] ?? 'general') ?: 'general';
+        $is_published = isset($_POST['is_published']) ? 1 : 0;
+
+        if (in_array($postAction, ['upload', 'update'], true) && ($title === '' || mb_strlen($title) > 200 || mb_strlen($category) > 50)) {
+            $message = 'Please enter a title (max 200 characters) and a short category';
+            $messageType = 'error';
+            $postAction = '';
+        }
+
+        switch ($postAction) {
             case 'upload':
-                $title = Security::sanitize($_POST['title'] ?? '');
-                $description = Security::sanitize($_POST['description'] ?? '');
-                $category = Security::sanitize($_POST['category'] ?? 'general');
-                $is_published = isset($_POST['is_published']) ? 1 : 0;
-                
-                // Handle file upload
-                if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
-                    $upload = Security::validateFileUpload($_FILES['image']);
-                    
-                    if ($upload['valid']) {
-                        // Generate filename
-                        $extension = $upload['extension'];
-                        $filename = 'gallery_' . time() . '_' . bin2hex(random_bytes(8)) . '.' . $extension;
-                        $uploadPath = UPLOAD_PATH . 'gallery/' . $filename;
-                        
-                        // Create thumbnail
-                        $thumbnail = 'thumb_' . $filename;
-                        $thumbPath = UPLOAD_PATH . 'gallery/' . $thumbnail;
-                        
-                        // Move uploaded file
-                        if (move_uploaded_file($_FILES['image']['tmp_name'], $uploadPath)) {
-                            // Create thumbnail (simplified - you may want to use GD library)
-                            copy($uploadPath, $thumbPath);
-                            
-                            // Save to database
-                            $db->insert(
-                                "INSERT INTO gallery (title, description, image_path, thumbnail_path, category, is_published, uploaded_by) 
-                                 VALUES (?, ?, ?, ?, ?, ?, ?)",
-                                [$title, $description, $filename, $thumbnail, $category, $is_published, $_SESSION['user_id']]
-                            );
-                            
-                            Security::logAudit('UPLOADED_IMAGE', 'gallery');
-                            $message = 'Image uploaded successfully';
-                            $messageType = 'success';
-                        } else {
-                            $message = 'Failed to upload image';
-                            $messageType = 'error';
-                        }
-                    } else {
-                        $message = 'Invalid file: ' . implode(', ', $upload['errors']);
-                        $messageType = 'error';
-                    }
-                } else {
+                if (!isset($_FILES['image']) || $_FILES['image']['error'] === UPLOAD_ERR_NO_FILE) {
                     $message = 'No image uploaded';
+                    $messageType = 'error';
+                    break;
+                }
+                $upload = Security::validateFileUpload($_FILES['image'], ['jpg', 'jpeg', 'png', 'gif']);
+                if (!$upload['valid']) {
+                    $message = 'Invalid file: ' . $upload['message'];
+                    $messageType = 'error';
+                    break;
+                }
+                $filename = 'gallery_' . time() . '_' . bin2hex(random_bytes(8)) . '.' . $upload['extension'];
+                $thumbnail = 'thumb_' . $filename;
+                if (!move_uploaded_file($_FILES['image']['tmp_name'], $galleryDir . $filename)) {
+                    $message = 'Failed to upload image';
+                    $messageType = 'error';
+                    break;
+                }
+                @chmod($galleryDir . $filename, 0644);
+                Security::createThumbnail($galleryDir . $filename, $galleryDir . $thumbnail, 400);
+                try {
+                    $newId = $db->insert(
+                        "INSERT INTO gallery (title, description, image_path, thumbnail_path, category, is_published, uploaded_by)
+                         VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        [$title, $description, $filename, $thumbnail, $category, $is_published, $_SESSION['user_id']]
+                    );
+                    Security::logAudit('UPLOADED_IMAGE', 'gallery', $newId);
+                    $message = 'Image uploaded successfully';
+                    $messageType = 'success';
+                } catch (Exception $e) {
+                    $removeFile($filename);
+                    $removeFile($thumbnail);
+                    $message = 'Error saving image';
                     $messageType = 'error';
                 }
                 break;
-                
+
             case 'update':
-                $title = Security::sanitize($_POST['title'] ?? '');
-                $description = Security::sanitize($_POST['description'] ?? '');
-                $category = Security::sanitize($_POST['category'] ?? 'general');
-                $is_published = isset($_POST['is_published']) ? 1 : 0;
-                
                 try {
+                    if (!$id || !$db->getRow('SELECT id FROM gallery WHERE id = ?', [$id])) {
+                        throw new Exception('Image not found');
+                    }
                     $db->query(
                         "UPDATE gallery SET title = ?, description = ?, category = ?, is_published = ? WHERE id = ?",
                         [$title, $description, $category, $is_published, $id]
@@ -95,76 +102,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $messageType = 'error';
                 }
                 break;
-                
+
             case 'delete':
                 try {
-                    // Get image paths
-                    $image = $db->getRow("SELECT image_path, thumbnail_path FROM gallery WHERE id = ?", [$id]);
-                    
-                    if ($image) {
-                        // Delete files
-                        if (file_exists(UPLOAD_PATH . 'gallery/' . $image['image_path'])) {
-                            unlink(UPLOAD_PATH . 'gallery/' . $image['image_path']);
-                        }
-                        if (file_exists(UPLOAD_PATH . 'gallery/' . $image['thumbnail_path'])) {
-                            unlink(UPLOAD_PATH . 'gallery/' . $image['thumbnail_path']);
-                        }
-                        
-                        // Delete from database
-                        $db->query("DELETE FROM gallery WHERE id = ?", [$id]);
-                        Security::logAudit('DELETED_IMAGE', 'gallery', $id);
-                        $message = 'Image deleted successfully';
-                        $messageType = 'success';
+                    $image = $id ? $db->getRow("SELECT image_path, thumbnail_path FROM gallery WHERE id = ?", [$id]) : null;
+                    if (!$image) {
+                        throw new Exception('Image not found');
                     }
+                    $db->query("DELETE FROM gallery WHERE id = ?", [$id]);
+                    $removeFile($image['image_path']);
+                    $removeFile($image['thumbnail_path']);
+                    Security::logAudit('DELETED_IMAGE', 'gallery', $id);
+                    $message = 'Image deleted successfully';
+                    $messageType = 'success';
                 } catch (Exception $e) {
                     $message = 'Error: ' . $e->getMessage();
                     $messageType = 'error';
                 }
                 break;
-                
+
             case 'bulk_delete':
                 $ids = $_POST['ids'] ?? [];
-                if (!empty($ids)) {
-                    try {
-                        // Get all images
-                        $placeholders = implode(',', array_fill(0, count($ids), '?'));
-                        $images = $db->getRows("SELECT image_path, thumbnail_path FROM gallery WHERE id IN ($placeholders)", $ids);
-                        
-                        // Delete files
-                        foreach ($images as $img) {
-                            if (file_exists(UPLOAD_PATH . 'gallery/' . $img['image_path'])) {
-                                unlink(UPLOAD_PATH . 'gallery/' . $img['image_path']);
-                            }
-                            if (file_exists(UPLOAD_PATH . 'gallery/' . $img['thumbnail_path'])) {
-                                unlink(UPLOAD_PATH . 'gallery/' . $img['thumbnail_path']);
-                            }
-                        }
-                        
-                        // Delete from database
-                        $db->query("DELETE FROM gallery WHERE id IN ($placeholders)", $ids);
-                        Security::logAudit('BULK_DELETED_IMAGES', 'gallery');
-                        $message = 'Selected images deleted successfully';
-                        $messageType = 'success';
-                    } catch (Exception $e) {
-                        $message = 'Error: ' . $e->getMessage();
-                        $messageType = 'error';
+                if (!is_array($ids)) $ids = explode(',', (string)$ids);
+                $ids = array_values(array_filter(array_map('intval', $ids)));
+                if (!$ids) {
+                    $message = 'No images selected';
+                    $messageType = 'error';
+                    break;
+                }
+                try {
+                    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+                    $images = $db->getRows("SELECT image_path, thumbnail_path FROM gallery WHERE id IN ($placeholders)", $ids);
+                    $db->query("DELETE FROM gallery WHERE id IN ($placeholders)", $ids);
+                    foreach ($images as $img) {
+                        $removeFile($img['image_path']);
+                        $removeFile($img['thumbnail_path']);
                     }
+                    Security::logAudit('BULK_DELETED_IMAGES', 'gallery');
+                    $message = 'Selected images deleted successfully';
+                    $messageType = 'success';
+                } catch (Exception $e) {
+                    $message = 'Error: ' . $e->getMessage();
+                    $messageType = 'error';
                 }
                 break;
         }
     }
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $messageType === 'success') {
+    flash_redirect($message, 'success', BASE_URL . '/admin/gallery.php');
+}
+
 // Get gallery images with pagination
-$page = $_GET['p'] ?? 1;
+$page = page_param('p');
 $limit = 20;
 $offset = ($page - 1) * $limit;
 
 $totalImages = $db->getRow("SELECT COUNT(*) as count FROM gallery")['count'];
-$totalPages = ceil($totalImages / $limit);
+$totalPages = max(1, (int)ceil($totalImages / $limit));
 
 $images = $db->getRows(
-    "SELECT g.*, u.first_name, u.last_name 
+    "SELECT g.*, u.first_name, u.last_name
      FROM gallery g
      JOIN users u ON g.uploaded_by = u.id
      ORDER BY g.uploaded_at DESC
@@ -177,29 +176,8 @@ $categories = $db->getRows("SELECT DISTINCT category FROM gallery ORDER BY categ
 ?>
 
 <div class="dashboard-container">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <h3>Admin Panel</h3>
-        </div>
-        <nav class="sidebar-nav">
-            <ul>
-                <li><a href="dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
-                <li><a href="students.php"><i class="fas fa-user-graduate"></i> Students</a></li>
-                <li><a href="parents.php"><i class="fas fa-users"></i> Parents</a></li>
-                <li><a href="teachers.php"><i class="fas fa-chalkboard-teacher"></i> Teachers</a></li>
-                <li><a href="classes.php"><i class="fas fa-school"></i> Classes</a></li>
-                <li><a href="attendance.php"><i class="fas fa-calendar-check"></i> Attendance</a></li>
-                <li><a href="fees.php"><i class="fas fa-money-bill"></i> Fees</a></li>
-                <li><a href="results.php"><i class="fas fa-chart-line"></i> Results</a></li>
-                <li><a href="announcements.php"><i class="fas fa-bullhorn"></i> Announcements</a></li>
-                <li class="active"><a href="gallery.php"><i class="fas fa-images"></i> Gallery</a></li>
-                <li><a href="reports.php"><i class="fas fa-file-alt"></i> Reports</a></li>
-                <li><a href="audit-logs.php"><i class="fas fa-history"></i> Audit Logs</a></li>
-            </ul>
-        </nav>
-    </aside>
-    
+    <?php render_sidebar('admin'); ?>
+
     <main class="dashboard-main">
         <div class="dashboard-header">
             <h1>Gallery Management</h1>
@@ -212,15 +190,15 @@ $categories = $db->getRows("SELECT DISTINCT category FROM gallery ORDER BY categ
                 </button>
             </div>
         </div>
-        
+
         <?php if ($message): ?>
-        <div class="alert alert-<?php echo $messageType; ?> alert-dismissible">
+        <div class="alert alert-<?php echo e($messageType); ?> alert-dismissible">
             <i class="fas <?php echo $messageType === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'; ?>"></i>
-            <?php echo $message; ?>
+            <?php echo e($message); ?>
             <button type="button" class="close" onclick="this.parentElement.remove()">&times;</button>
         </div>
         <?php endif; ?>
-        
+
         <!-- Upload Modal -->
         <div id="uploadModal" class="modal">
             <div class="modal-content modal-lg">
@@ -232,17 +210,17 @@ $categories = $db->getRows("SELECT DISTINCT category FROM gallery ORDER BY categ
                     <div class="modal-body">
                         <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
                         <input type="hidden" name="action" value="upload">
-                        
+
                         <div class="form-group">
                             <label for="title">Title</label>
                             <input type="text" id="title" name="title" class="form-control" required>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="description">Description</label>
                             <textarea id="description" name="description" class="form-control" rows="3"></textarea>
                         </div>
-                        
+
                         <div class="form-row">
                             <div class="form-group col-md-6">
                                 <label for="category">Category</label>
@@ -255,7 +233,7 @@ $categories = $db->getRows("SELECT DISTINCT category FROM gallery ORDER BY categ
                                     <option value="facilities">Facilities</option>
                                 </select>
                             </div>
-                            
+
                             <div class="form-group col-md-6">
                                 <label class="checkbox-label">
                                     <input type="checkbox" name="is_published" value="1" checked>
@@ -263,14 +241,14 @@ $categories = $db->getRows("SELECT DISTINCT category FROM gallery ORDER BY categ
                                 </label>
                             </div>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="image">Select Image</label>
-                            <input type="file" id="image" name="image" class="form-control-file" 
+                            <input type="file" id="image" name="image" class="form-control-file"
                                    accept="image/*" required onchange="previewImage(this)">
                             <small class="form-text">Max file size: 5MB. Allowed: JPG, PNG, GIF</small>
                         </div>
-                        
+
                         <div id="imagePreview" class="image-preview" style="display: none;">
                             <img id="preview" src="#" alt="Preview">
                         </div>
@@ -282,7 +260,7 @@ $categories = $db->getRows("SELECT DISTINCT category FROM gallery ORDER BY categ
                 </form>
             </div>
         </div>
-        
+
         <!-- Gallery Grid -->
         <div class="card">
             <div class="card-header">
@@ -302,19 +280,19 @@ $categories = $db->getRows("SELECT DISTINCT category FROM gallery ORDER BY categ
                 <?php if (!empty($images)): ?>
                 <div class="gallery-grid">
                     <?php foreach ($images as $image): ?>
-                    <div class="gallery-item" data-category="<?php echo $image['category']; ?>">
+                    <div class="gallery-item" data-category="<?php echo e($image['category']); ?>">
                         <div class="gallery-image">
-                            <img src="<?php echo BASE_URL; ?>/uploads/gallery/<?php echo $image['thumbnail_path']; ?>" 
+                            <img src="<?php echo BASE_URL; ?>/uploads/gallery/<?php echo e($image['thumbnail_path']); ?>"
                                  alt="<?php echo htmlspecialchars($image['title']); ?>">
                             <div class="gallery-actions">
-                                <input type="checkbox" class="gallery-select" value="<?php echo $image['id']; ?>">
-                                <button class="btn-icon" onclick="editImage(<?php echo $image['id']; ?>)" title="Edit">
+                                <input type="checkbox" class="gallery-select" value="<?php echo e($image['id']); ?>">
+                                <button class="btn-icon" onclick="editImage(<?php echo e($image['id']); ?>)" title="Edit">
                                     <i class="fas fa-edit"></i>
                                 </button>
-                                <button class="btn-icon text-danger" onclick="deleteImage(<?php echo $image['id']; ?>)" title="Delete">
+                                <button class="btn-icon text-danger" onclick="deleteImage(<?php echo e($image['id']); ?>)" title="Delete">
                                     <i class="fas fa-trash"></i>
                                 </button>
-                                <a href="<?php echo BASE_URL; ?>/uploads/gallery/<?php echo $image['image_path']; ?>" 
+                                <a href="<?php echo BASE_URL; ?>/uploads/gallery/<?php echo e($image['image_path']); ?>"
                                    class="btn-icon" target="_blank" title="View Full Size">
                                     <i class="fas fa-external-link-alt"></i>
                                 </a>
@@ -327,14 +305,14 @@ $categories = $db->getRows("SELECT DISTINCT category FROM gallery ORDER BY categ
                                 <span class="badge badge-<?php echo $image['is_published'] ? 'success' : 'secondary'; ?>">
                                     <?php echo $image['is_published'] ? 'Published' : 'Draft'; ?>
                                 </span>
-                                <span class="badge badge-info"><?php echo ucfirst($image['category']); ?></span>
+                                <span class="badge badge-info"><?php echo e(ucfirst($image['category'])); ?></span>
                                 <small>Uploaded by <?php echo htmlspecialchars($image['first_name']); ?></small>
                             </div>
                         </div>
                     </div>
                     <?php endforeach; ?>
                 </div>
-                
+
                 <!-- Bulk Delete Bar -->
                 <div id="bulkDeleteBar" class="bulk-delete-bar" style="display: none;">
                     <span><span id="selectedCount">0</span> image(s) selected</span>
@@ -342,18 +320,18 @@ $categories = $db->getRows("SELECT DISTINCT category FROM gallery ORDER BY categ
                         <i class="fas fa-trash"></i> Delete Selected
                     </button>
                 </div>
-                
+
                 <!-- Pagination -->
                 <?php if ($totalPages > 1): ?>
                 <div class="pagination">
                     <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                    <a href="?p=<?php echo $i; ?>" class="page-link <?php echo $i == $page ? 'active' : ''; ?>">
-                        <?php echo $i; ?>
+                    <a href="?p=<?php echo e($i); ?>" class="page-link <?php echo $i == $page ? 'active' : ''; ?>">
+                        <?php echo e($i); ?>
                     </a>
                     <?php endfor; ?>
                 </div>
                 <?php endif; ?>
-                
+
                 <?php else: ?>
                 <div class="alert alert-info">
                     <i class="fas fa-info-circle"></i>
@@ -377,17 +355,17 @@ $categories = $db->getRows("SELECT DISTINCT category FROM gallery ORDER BY categ
                 <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
                 <input type="hidden" name="action" value="update">
                 <input type="hidden" name="id" id="edit_id">
-                
+
                 <div class="form-group">
                     <label for="edit_title">Title</label>
                     <input type="text" id="edit_title" name="title" class="form-control" required>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="edit_description">Description</label>
                     <textarea id="edit_description" name="description" class="form-control" rows="3"></textarea>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="edit_category">Category</label>
                     <select id="edit_category" name="category" class="form-control">
@@ -399,7 +377,7 @@ $categories = $db->getRows("SELECT DISTINCT category FROM gallery ORDER BY categ
                         <option value="facilities">Facilities</option>
                     </select>
                 </div>
-                
+
                 <div class="form-group">
                     <label class="checkbox-label">
                         <input type="checkbox" name="is_published" id="edit_published" value="1">
@@ -575,7 +553,7 @@ function closeModal(modalId) {
 function previewImage(input) {
     const preview = document.getElementById('imagePreview');
     const previewImg = document.getElementById('preview');
-    
+
     if (input.files && input.files[0]) {
         const reader = new FileReader();
         reader.onload = function(e) {
@@ -625,7 +603,7 @@ function updateBulkDeleteBar() {
     selectedImages = Array.from(document.querySelectorAll('.gallery-select:checked')).map(cb => cb.value);
     const bar = document.getElementById('bulkDeleteBar');
     const countSpan = document.getElementById('selectedCount');
-    
+
     if (selectedImages.length > 0) {
         countSpan.textContent = selectedImages.length;
         bar.style.display = 'flex';
@@ -643,7 +621,7 @@ function toggleBulkDelete() {
 
 function bulkDelete() {
     if (selectedImages.length === 0) return;
-    
+
     if (confirm(`Delete ${selectedImages.length} selected images?`)) {
         document.getElementById('bulkIds').value = selectedImages.join(',');
         document.getElementById('bulkDeleteForm').submit();
@@ -653,7 +631,7 @@ function bulkDelete() {
 function filterByCategory() {
     const category = document.getElementById('categoryFilter').value.toLowerCase();
     const items = document.querySelectorAll('.gallery-item');
-    
+
     items.forEach(item => {
         const itemCategory = item.dataset.category?.toLowerCase() || '';
         if (!category || itemCategory === category) {
@@ -668,7 +646,7 @@ function filterByCategory() {
 window.onclick = function(event) {
     const uploadModal = document.getElementById('uploadModal');
     const editModal = document.getElementById('editModal');
-    
+
     if (event.target === uploadModal) {
         uploadModal.style.display = 'none';
     }

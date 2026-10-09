@@ -1,36 +1,21 @@
 <?php
 // student/attendance.php - View My Attendance
 require_once __DIR__ . '/../config/config.php';
-require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/security.php';
 
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Require student role
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'student') {
-    header('Location: ' . BASE_URL . '/login.php');
-    exit;
-}
+Security::requireRole('student');
 
 $pageTitle = 'My Attendance';
 $extraCSS = ['dashboard.css'];
 $extraJS = ['charts.js'];
 
-// Check if header exists
-$headerPath = __DIR__ . '/../includes/header.php';
-if (!file_exists($headerPath)) {
-    die("Error: Header file not found at: $headerPath");
-}
-include $headerPath;
+include __DIR__ . '/../includes/header.php';
 
 // Get database instance
 try {
     $db = Database::getInstance();
 } catch (Exception $e) {
-    echo '<div class="alert alert-danger">Database connection error: ' . htmlspecialchars($e->getMessage()) . '</div>';
+    echo '<div class="alert alert-danger">Database connection error: ' . htmlspecialchars(DEBUG_MODE ? $e->getMessage() : 'Please try again later.') . '</div>';
     // Don't include footer - just exit
     exit;
 }
@@ -41,9 +26,9 @@ $userId = $_SESSION['user_id'];
 $student = $db->getRow(
     "SELECT s.*, u.first_name, u.last_name, u.email, u.profile_image,
             c.class_name, c.section
-     FROM students s 
-     JOIN users u ON s.user_id = u.id 
-     LEFT JOIN classes c ON s.class_id = c.id 
+     FROM students s
+     JOIN users u ON s.user_id = u.id
+     LEFT JOIN classes c ON s.class_id = c.id
      WHERE s.user_id = ?",
     [$userId]
 );
@@ -76,13 +61,13 @@ $attendanceRecords = $db->getRows(
 
 // Get attendance summary
 $summary = $db->getRow(
-    "SELECT 
+    "SELECT
         COALESCE(COUNT(*), 0) as total_days,
         COALESCE(SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END), 0) as present,
         COALESCE(SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END), 0) as absent,
         COALESCE(SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END), 0) as late,
         COALESCE(SUM(CASE WHEN status = 'excused' THEN 1 ELSE 0 END), 0) as excused
-     FROM attendance 
+     FROM attendance
      WHERE student_id = ? AND date BETWEEN ? AND ?",
     [$student['id'], $startDate, $endDate]
 );
@@ -100,13 +85,13 @@ if (!$summary) {
 
 // Get monthly statistics for chart (last 6 months)
 $monthlyStats = $db->getRows(
-    "SELECT 
+    "SELECT
         DATE_FORMAT(date, '%Y-%m') as month,
         COUNT(*) as total,
         COALESCE(SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END), 0) as present,
         COALESCE(SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END), 0) as absent,
         COALESCE(SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END), 0) as late
-     FROM attendance 
+     FROM attendance
      WHERE student_id = ? AND date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
      GROUP BY DATE_FORMAT(date, '%Y-%m')
      ORDER BY month",
@@ -114,8 +99,8 @@ $monthlyStats = $db->getRows(
 );
 
 // Calculate attendance rate
-$attendanceRate = $summary['total_days'] > 0 
-    ? round((($summary['present'] + $summary['late']) / $summary['total_days']) * 100, 1) 
+$attendanceRate = $summary['total_days'] > 0
+    ? round((($summary['present'] + $summary['late']) / $summary['total_days']) * 100, 1)
     : 0;
 
 // Get color class for attendance rate
@@ -491,29 +476,29 @@ for ($m = 1; $m <= 12; $m++) {
         flex-direction: column;
         text-align: center;
     }
-    
+
     .stats-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .dashboard-header {
         flex-direction: column;
         text-align: center;
     }
-    
+
     .form-row {
         flex-direction: column;
     }
-    
+
     .form-group {
         width: 100%;
     }
-    
+
     .circle-progress {
         width: 150px;
         height: 150px;
     }
-    
+
     .percentage {
         font-size: 2rem;
     }
@@ -521,24 +506,8 @@ for ($m = 1; $m <= 12; $m++) {
 </style>
 
 <div class="dashboard-container">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <h3>Student Panel</h3>
-        </div>
-        <nav class="sidebar-nav">
-            <ul>
-                <li><a href="dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
-                <li><a href="results.php"><i class="fas fa-chart-line"></i> My Results</a></li>
-                <li class="active"><a href="attendance.php"><i class="fas fa-calendar-check"></i> Attendance</a></li>
-                <li><a href="assignments.php"><i class="fas fa-tasks"></i> Assignments</a></li>
-                <li><a href="fees.php"><i class="fas fa-money-bill"></i> Fees</a></li>
-                <li><a href="messages.php"><i class="fas fa-envelope"></i> Messages</a></li>
-                <li><a href="profile.php"><i class="fas fa-user-cog"></i> Profile</a></li>
-            </ul>
-        </nav>
-    </aside>
-    
+    <?php render_sidebar('student'); ?>
+
     <main class="dashboard-main">
         <div class="dashboard-header">
             <h1>My Attendance</h1>
@@ -550,7 +519,7 @@ for ($m = 1; $m <= 12; $m++) {
                 </div>
             </div>
         </div>
-        
+
         <!-- Summary Cards -->
         <div class="stats-grid">
             <div class="stat-card">
@@ -558,52 +527,52 @@ for ($m = 1; $m <= 12; $m++) {
                     <i class="fas fa-calendar" style="color: #002855;"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php echo $summary['total_days']; ?></h3>
+                    <h3><?php echo e($summary['total_days']); ?></h3>
                     <p>Total School Days</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(40,167,69,0.1);">
                     <i class="fas fa-check-circle" style="color: #28a745;"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php echo $summary['present']; ?></h3>
+                    <h3><?php echo e($summary['present']); ?></h3>
                     <p>Present</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(255,193,7,0.1);">
                     <i class="fas fa-clock" style="color: #ffc107;"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php echo $summary['late']; ?></h3>
+                    <h3><?php echo e($summary['late']); ?></h3>
                     <p>Late</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(220,53,69,0.1);">
                     <i class="fas fa-times-circle" style="color: #dc3545;"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php echo $summary['absent']; ?></h3>
+                    <h3><?php echo e($summary['absent']); ?></h3>
                     <p>Absent</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(23,162,184,0.1);">
                     <i class="fas fa-percent" style="color: #17a2b8;"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php echo $attendanceRate; ?>%</h3>
+                    <h3><?php echo e($attendanceRate); ?>%</h3>
                     <p>Attendance Rate</p>
                 </div>
             </div>
         </div>
-        
+
         <!-- Attendance Rate Circle -->
         <div class="card">
             <div class="card-header">
@@ -614,55 +583,55 @@ for ($m = 1; $m <= 12; $m++) {
                     <div class="rate-circle">
                         <div class="circle-progress">
                             <span class="percentage">
-                                <?php echo $attendanceRate; ?>%
+                                <?php echo e($attendanceRate); ?>%
                                 <small>attendance</small>
                             </span>
                         </div>
                     </div>
                     <div class="rate-details">
                         <p>
-                            <i class="fas fa-info-circle"></i> 
-                            Your attendance rate for <strong><?php echo date('F Y', strtotime($startDate)); ?></strong> is 
-                            <strong class="<?php echo $rateColorClass; ?>"><?php echo $attendanceRate; ?>%</strong>
+                            <i class="fas fa-info-circle"></i>
+                            Your attendance rate for <strong><?php echo date('F Y', strtotime($startDate)); ?></strong> is
+                            <strong class="<?php echo e($rateColorClass); ?>"><?php echo e($attendanceRate); ?>%</strong>
                         </p>
-                        
+
                         <?php if ($attendanceRate >= 90): ?>
                         <p class="text-success">
-                            <i class="fas fa-star"></i> 
+                            <i class="fas fa-star"></i>
                             Excellent attendance! Keep up the great work!
                         </p>
                         <div class="progress" style="height: 10px; margin-top: 10px;">
-                            <div class="progress-bar bg-success" style="width: <?php echo $attendanceRate; ?>%;"></div>
+                            <div class="progress-bar bg-success" style="width: <?php echo e($attendanceRate); ?>%;"></div>
                         </div>
                         <?php elseif ($attendanceRate >= 75): ?>
                         <p class="text-info">
-                            <i class="fas fa-thumbs-up"></i> 
+                            <i class="fas fa-thumbs-up"></i>
                             Good attendance, but there's room for improvement.
                         </p>
                         <div class="progress" style="height: 10px; margin-top: 10px;">
-                            <div class="progress-bar bg-info" style="width: <?php echo $attendanceRate; ?>%;"></div>
+                            <div class="progress-bar bg-info" style="width: <?php echo e($attendanceRate); ?>%;"></div>
                         </div>
                         <?php else: ?>
                         <p class="text-danger">
-                            <i class="fas fa-exclamation-triangle"></i> 
+                            <i class="fas fa-exclamation-triangle"></i>
                             Your attendance needs improvement. Regular attendance is crucial for academic success.
                         </p>
                         <div class="progress" style="height: 10px; margin-top: 10px;">
-                            <div class="progress-bar bg-danger" style="width: <?php echo $attendanceRate; ?>%;"></div>
+                            <div class="progress-bar bg-danger" style="width: <?php echo e($attendanceRate); ?>%;"></div>
                         </div>
                         <?php endif; ?>
-                        
+
                         <div style="margin-top: 15px; display: flex; gap: 20px; flex-wrap: wrap;">
-                            <div><span class="badge badge-success">Present: <?php echo $summary['present']; ?></span></div>
-                            <div><span class="badge badge-warning">Late: <?php echo $summary['late']; ?></span></div>
-                            <div><span class="badge badge-danger">Absent: <?php echo $summary['absent']; ?></span></div>
-                            <div><span class="badge badge-info">Excused: <?php echo $summary['excused']; ?></span></div>
+                            <div><span class="badge badge-success">Present: <?php echo e($summary['present']); ?></span></div>
+                            <div><span class="badge badge-warning">Late: <?php echo e($summary['late']); ?></span></div>
+                            <div><span class="badge badge-danger">Absent: <?php echo e($summary['absent']); ?></span></div>
+                            <div><span class="badge badge-info">Excused: <?php echo e($summary['excused']); ?></span></div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        
+
         <!-- Month/Year Selector -->
         <div class="card">
             <div class="card-header">
@@ -674,25 +643,25 @@ for ($m = 1; $m <= 12; $m++) {
                         <label for="month">Month</label>
                         <select id="month" name="month" class="form-control" onchange="this.form.submit()">
                             <?php foreach ($availableMonths as $monthNum => $monthName): ?>
-                            <option value="<?php echo $monthNum; ?>" 
+                            <option value="<?php echo e($monthNum); ?>"
                                 <?php echo $month == $monthNum ? 'selected' : ''; ?>>
-                                <?php echo $monthName; ?>
+                                <?php echo e($monthName); ?>
                             </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="year">Year</label>
                         <select id="year" name="year" class="form-control" onchange="this.form.submit()">
                             <?php for ($y = date('Y'); $y >= date('Y') - 3; $y--): ?>
-                            <option value="<?php echo $y; ?>" <?php echo $year == $y ? 'selected' : ''; ?>>
-                                <?php echo $y; ?>
+                            <option value="<?php echo e($y); ?>" <?php echo $year == $y ? 'selected' : ''; ?>>
+                                <?php echo e($y); ?>
                             </option>
                             <?php endfor; ?>
                         </select>
                     </div>
-                    
+
                     <div class="form-group">
                         <label>&nbsp;</label>
                         <a href="attendance.php" class="btn btn-outline" style="padding: 8px 20px; display: inline-block; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; text-decoration: none; color: #333;">
@@ -702,7 +671,7 @@ for ($m = 1; $m <= 12; $m++) {
                 </form>
             </div>
         </div>
-        
+
         <!-- Daily Attendance Records -->
         <div class="card">
             <div class="card-header">
@@ -726,10 +695,10 @@ for ($m = 1; $m <= 12; $m++) {
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($attendanceRecords as $record): 
+                            <?php foreach ($attendanceRecords as $record):
                                 $statusClass = '';
                                 $statusIcon = '';
-                                
+
                                 switch($record['status']) {
                                     case 'present':
                                         $statusClass = 'badge-success';
@@ -754,9 +723,9 @@ for ($m = 1; $m <= 12; $m++) {
                                 <td><?php echo date('l', strtotime($record['date'])); ?></td>
                                 <td><?php echo htmlspecialchars($record['class_name']); ?></td>
                                 <td>
-                                    <span class="badge <?php echo $statusClass; ?>">
-                                        <i class="fas <?php echo $statusIcon; ?>"></i> 
-                                        <?php echo ucfirst($record['status']); ?>
+                                    <span class="badge <?php echo e($statusClass); ?>">
+                                        <i class="fas <?php echo e($statusIcon); ?>"></i>
+                                        <?php echo e(ucfirst($record['status'])); ?>
                                     </span>
                                 </td>
                                 <td><?php echo isset($record['created_at']) ? date('h:i A', strtotime($record['created_at'])) : '-'; ?></td>
@@ -774,7 +743,7 @@ for ($m = 1; $m <= 12; $m++) {
                 <?php endif; ?>
             </div>
         </div>
-        
+
         <!-- Attendance Trend Chart -->
         <?php if (!empty($monthlyStats) && count($monthlyStats) > 1): ?>
         <div class="card">
@@ -786,7 +755,7 @@ for ($m = 1; $m <= 12; $m++) {
             </div>
         </div>
         <?php endif; ?>
-        
+
         <!-- Monthly Summary Table -->
         <?php if (!empty($monthlyStats)): ?>
         <div class="card">
@@ -807,17 +776,17 @@ for ($m = 1; $m <= 12; $m++) {
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($monthlyStats as $stat): 
+                            <?php foreach ($monthlyStats as $stat):
                                 $monthRate = $stat['total'] > 0 ? round(($stat['present'] / $stat['total']) * 100, 1) : 0;
                                 $monthColor = $monthRate >= 90 ? 'text-success' : ($monthRate >= 75 ? 'text-info' : 'text-danger');
                             ?>
                             <tr>
                                 <td><strong><?php echo date('F Y', strtotime($stat['month'] . '-01')); ?></strong></td>
-                                <td class="text-success"><?php echo $stat['present']; ?></td>
-                                <td class="text-danger"><?php echo $stat['absent']; ?></td>
-                                <td class="text-warning"><?php echo $stat['late']; ?></td>
-                                <td><?php echo $stat['total']; ?></td>
-                                <td class="<?php echo $monthColor; ?> font-weight-bold"><?php echo $monthRate; ?>%</td>
+                                <td class="text-success"><?php echo e($stat['present']); ?></td>
+                                <td class="text-danger"><?php echo e($stat['absent']); ?></td>
+                                <td class="text-warning"><?php echo e($stat['late']); ?></td>
+                                <td><?php echo e($stat['total']); ?></td>
+                                <td class="<?php echo e($monthColor); ?> font-weight-bold"><?php echo e($monthRate); ?>%</td>
                             </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -829,8 +798,6 @@ for ($m = 1; $m <= 12; $m++) {
     </main>
 </div>
 
-<!-- Chart.js Script -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 <?php if (!empty($monthlyStats) && count($monthlyStats) > 1): ?>
 document.addEventListener('DOMContentLoaded', function() {
@@ -844,7 +811,7 @@ document.addEventListener('DOMContentLoaded', function() {
             datasets: [
                 {
                     label: 'Present',
-                    data: <?php echo json_encode(array_column($monthlyStats, 'present')); ?>,
+                    data: <?php echo json_encode(array_column($monthlyStats, 'present'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
                     borderColor: '#28a745',
                     backgroundColor: 'rgba(40, 167, 69, 0.1)',
                     tension: 0.4,
@@ -856,7 +823,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 {
                     label: 'Absent',
-                    data: <?php echo json_encode(array_column($monthlyStats, 'absent')); ?>,
+                    data: <?php echo json_encode(array_column($monthlyStats, 'absent'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
                     borderColor: '#dc3545',
                     backgroundColor: 'rgba(220, 53, 69, 0.1)',
                     tension: 0.4,
@@ -868,7 +835,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 {
                     label: 'Late',
-                    data: <?php echo json_encode(array_column($monthlyStats, 'late')); ?>,
+                    data: <?php echo json_encode(array_column($monthlyStats, 'late'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
                     borderColor: '#ffc107',
                     backgroundColor: 'rgba(255, 193, 7, 0.1)',
                     tension: 0.4,

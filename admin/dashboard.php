@@ -1,30 +1,15 @@
 <?php
 // admin/dashboard.php
 require_once dirname(__DIR__) . '/config/config.php';
-require_once dirname(__DIR__) . '/config/database.php';
 require_once dirname(__DIR__) . '/config/security.php';
 
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Require admin role
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
-    header('Location: ' . BASE_URL . '/login.php');
-    exit;
-}
+Security::requireRole('admin');
 
 $pageTitle = 'Admin Dashboard';
 $extraCSS = ['dashboard.css'];
 $extraJS = ['charts.js', 'dashboard.js'];
 
-// Check if header file exists before including
-$headerPath = dirname(__DIR__) . '/includes/header.php';
-if (!file_exists($headerPath)) {
-    die("Error: Header file not found at: $headerPath");
-}
-include $headerPath;
+include __DIR__ . '/../includes/header.php';
 
 // Get database instance - FIXED: Use Database::getInstance() instead of db()
 $db = Database::getInstance();
@@ -35,34 +20,34 @@ try {
     $totalStudents = $db->getRow("SELECT COUNT(*) as count FROM students s
                                    JOIN users u ON s.user_id = u.id
                                    WHERE u.is_active = 1")['count'] ?? 0;
-    
+
     // Total teachers (active only)
     $totalTeachers = $db->getRow("SELECT COUNT(*) as count FROM teachers t
                                    JOIN users u ON t.user_id = u.id
                                    WHERE u.is_active = 1")['count'] ?? 0;
-    
+
     // Total active classes
     $totalClasses = $db->getRow("SELECT COUNT(*) as count FROM classes WHERE is_active = 1")['count'] ?? 0;
-    
+
     // Pending admissions
     $pendingAdmissions = $db->getRow("SELECT COUNT(*) as count FROM admissions WHERE status = 'pending'")['count'] ?? 0;
-    
+
     // Pending fees (payments with pending status)
     $pendingFees = $db->getRow("SELECT COALESCE(SUM(amount), 0) as total FROM payments WHERE status = 'pending'")['total'] ?? 0;
-    
+
     // Total completed payments
     $totalPayments = $db->getRow("SELECT COALESCE(SUM(amount), 0) as total FROM payments WHERE status = 'completed'")['total'] ?? 0;
-    
+
     // Today's attendance (students present today)
     $todayAttendance = $db->getRow(
         "SELECT COUNT(DISTINCT student_id) as count FROM attendance WHERE date = CURDATE() AND status = 'present'"
     )['count'] ?? 0;
-    
+
     // Recent activities from audit logs
     $recentActivities = $db->getRows(
-        "SELECT a.*, u.first_name, u.last_name, u.role 
-         FROM audit_logs a 
-         LEFT JOIN users u ON a.user_id = u.id 
+        "SELECT a.*, u.first_name, u.last_name, u.role
+         FROM audit_logs a
+         LEFT JOIN users u ON a.user_id = u.id
          ORDER BY a.created_at DESC LIMIT 10"
     ) ?: [];
 
@@ -80,13 +65,13 @@ try {
 
     // Get attendance chart data for last 30 days
     $attendanceData = $db->getRows(
-        "SELECT 
+        "SELECT
             DATE_FORMAT(date, '%Y-%m-%d') as date,
             COUNT(DISTINCT student_id) as total_students,
             SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present,
             SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent,
             SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END) as late
-         FROM attendance 
+         FROM attendance
          WHERE date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
          GROUP BY date
          ORDER BY date"
@@ -94,11 +79,11 @@ try {
 
     // Get fee collection chart data for last 6 months
     $feeData = $db->getRows(
-        "SELECT 
+        "SELECT
             DATE_FORMAT(payment_date, '%Y-%m') as month,
             COUNT(*) as transaction_count,
             SUM(amount) as total
-         FROM payments 
+         FROM payments
          WHERE payment_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
            AND status = 'completed'
          GROUP BY DATE_FORMAT(payment_date, '%Y-%m')
@@ -107,7 +92,7 @@ try {
 
     // Get gender distribution
     $genderStats = $db->getRows(
-        "SELECT gender, COUNT(*) as count 
+        "SELECT gender, COUNT(*) as count
          FROM students s
          JOIN users u ON s.user_id = u.id
          WHERE u.is_active = 1 AND gender IS NOT NULL
@@ -153,11 +138,11 @@ if (!function_exists('formatCurrency')) {
 if (!function_exists('timeAgo')) {
     function timeAgo($datetime) {
         if (!$datetime) return 'N/A';
-        
+
         $time = strtotime($datetime);
         $now = time();
         $diff = $now - $time;
-        
+
         if ($diff < 60) {
             return $diff . ' seconds ago';
         } elseif ($diff < 3600) {
@@ -177,31 +162,8 @@ if (!function_exists('timeAgo')) {
 ?>
 
 <div class="dashboard-container">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <h3>Admin Panel</h3>
-        </div>
-        
-        <nav class="sidebar-nav"> 
-            <ul>
-                <li class="active"><a href="dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
-                <li><a href="students.php"><i class="fas fa-user-graduate"></i> Students</a></li>
-                <li><a href="parents.php"><i class="fas fa-users"></i> Parents</a></li>
-                <li><a href="teachers.php"><i class="fas fa-chalkboard-teacher"></i> Teachers</a></li>
-                <li><a href="classes.php"><i class="fas fa-school"></i> Classes</a></li>
-                <li><a href="subjects.php"><i class="fas fa-book"></i> Subjects</a></li>
-                <li><a href="attendance.php"><i class="fas fa-calendar-check"></i> Attendance</a></li>
-                <li><a href="fees.php"><i class="fas fa-money-bill"></i> Fees</a></li>
-                <li><a href="results.php"><i class="fas fa-chart-line"></i> Results</a></li>
-                <li><a href="announcements.php"><i class="fas fa-bullhorn"></i> Announcements</a></li>
-                <li><a href="gallery.php"><i class="fas fa-images"></i> Gallery</a></li>
-                <li><a href="reports.php"><i class="fas fa-file-alt"></i> Reports</a></li>
-                <li><a href="audit-logs.php"><i class="fas fa-history"></i> Audit Logs</a></li>
-            </ul>
-        </nav>
-    </aside>
-    
+    <?php render_sidebar('admin'); ?>
+
     <!-- Main Content -->
     <main class="dashboard-main">
         <div class="dashboard-header">
@@ -212,7 +174,7 @@ if (!function_exists('timeAgo')) {
                 <small>Administrator</small>
             </div>
         </div>
-        
+
         <!-- Stats Cards -->
         <div class="stats-grid">
             <div class="stat-card">
@@ -220,41 +182,41 @@ if (!function_exists('timeAgo')) {
                     <i class="fas fa-user-graduate" style="color: #002855;"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php echo $stats['total_students']; ?></h3>
+                    <h3><?php echo e($stats['total_students']); ?></h3>
                     <p>Total Students</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(196, 30, 58, 0.1);">
                     <i class="fas fa-chalkboard-teacher" style="color: #c41e3a;"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php echo $stats['total_teachers']; ?></h3>
+                    <h3><?php echo e($stats['total_teachers']); ?></h3>
                     <p>Total Teachers</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(255, 215, 0, 0.1);">
                     <i class="fas fa-school" style="color: #ffd700;"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php echo $stats['total_classes']; ?></h3>
+                    <h3><?php echo e($stats['total_classes']); ?></h3>
                     <p>Active Classes</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(0, 128, 0, 0.1);">
                     <i class="fas fa-clock" style="color: #008000;"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php echo $stats['pending_admissions']; ?></h3>
+                    <h3><?php echo e($stats['pending_admissions']); ?></h3>
                     <p>Pending Applications</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(255, 165, 0, 0.1);">
                     <i class="fas fa-money-bill-wave" style="color: #ffa500;"></i>
@@ -264,7 +226,7 @@ if (!function_exists('timeAgo')) {
                     <p>Pending Fees</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(0, 100, 0, 0.1);">
                     <i class="fas fa-check-circle" style="color: #006400;"></i>
@@ -275,7 +237,7 @@ if (!function_exists('timeAgo')) {
                 </div>
             </div>
         </div>
-        
+
         <!-- Additional Stats Row -->
         <div class="stats-grid secondary">
             <div class="stat-card">
@@ -283,18 +245,18 @@ if (!function_exists('timeAgo')) {
                     <i class="fas fa-calendar-check" style="color: #17a2b8;"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php echo $stats['today_attendance']; ?></h3>
+                    <h3><?php echo e($stats['today_attendance']); ?></h3>
                     <p>Present Today</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(111, 66, 193, 0.1);">
                     <i class="fas fa-venus-mars" style="color: #6f42c1;"></i>
                 </div>
                 <div class="stat-content">
                     <h3>
-                        <?php 
+                        <?php
                         $maleCount = 0;
                         $femaleCount = 0;
                         foreach ($genderStats as $g) {
@@ -308,7 +270,7 @@ if (!function_exists('timeAgo')) {
                 </div>
             </div>
         </div>
-        
+
         <!-- Charts -->
         <div class="charts-grid">
             <div class="chart-card">
@@ -322,7 +284,7 @@ if (!function_exists('timeAgo')) {
                 </div>
                 <?php endif; ?>
             </div>
-            
+
             <div class="chart-card">
                 <h3><i class="fas fa-chart-bar"></i> Fee Collection (Last 6 Months)</h3>
                 <?php if (!empty($feeData)): ?>
@@ -335,7 +297,7 @@ if (!function_exists('timeAgo')) {
                 <?php endif; ?>
             </div>
         </div>
-        
+
         <!-- Class Distribution -->
         <?php if (!empty($classDistribution)): ?>
         <div class="card mt-4">
@@ -348,7 +310,7 @@ if (!function_exists('timeAgo')) {
                     <div class="class-stat">
                         <div class="class-info">
                             <span class="class-name"><?php echo htmlspecialchars($class['class_name'] . ' ' . $class['section']); ?></span>
-                            <span class="student-count"><?php echo $class['student_count']; ?> students</span>
+                            <span class="student-count"><?php echo e($class['student_count']); ?> students</span>
                         </div>
                         <div class="progress-bar-container">
                             <div class="progress-bar-fill" style="width: <?php echo min(100, ($class['student_count'] / 30) * 100); ?>%;">
@@ -361,7 +323,7 @@ if (!function_exists('timeAgo')) {
             </div>
         </div>
         <?php endif; ?>
-        
+
         <!-- Recent Activities -->
         <div class="recent-activities">
             <h3><i class="fas fa-history"></i> Recent Activities</h3>
@@ -405,8 +367,6 @@ if (!function_exists('timeAgo')) {
     </main>
 </div>
 
-<!-- Chart.js Script -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 // Attendance Chart
 <?php if (!empty($attendanceData)): ?>
@@ -415,24 +375,24 @@ if (attendanceCtx) {
     new Chart(attendanceCtx, {
         type: 'line',
         data: {
-            labels: <?php echo json_encode(array_column($attendanceData, 'date')); ?>,
+            labels: <?php echo json_encode(array_column($attendanceData, 'date'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
             datasets: [{
                 label: 'Present',
-                data: <?php echo json_encode(array_column($attendanceData, 'present')); ?>,
+                data: <?php echo json_encode(array_column($attendanceData, 'present'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
                 borderColor: '#28a745',
                 backgroundColor: 'rgba(40, 167, 69, 0.1)',
                 tension: 0.4,
                 fill: true
             }, {
                 label: 'Absent',
-                data: <?php echo json_encode(array_column($attendanceData, 'absent')); ?>,
+                data: <?php echo json_encode(array_column($attendanceData, 'absent'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
                 borderColor: '#dc3545',
                 backgroundColor: 'rgba(220, 53, 69, 0.1)',
                 tension: 0.4,
                 fill: true
             }, {
                 label: 'Late',
-                data: <?php echo json_encode(array_column($attendanceData, 'late')); ?>,
+                data: <?php echo json_encode(array_column($attendanceData, 'late'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
                 borderColor: '#ffc107',
                 backgroundColor: 'rgba(255, 193, 7, 0.1)',
                 tension: 0.4,
@@ -463,10 +423,10 @@ if (feeCtx) {
     new Chart(feeCtx, {
         type: 'bar',
         data: {
-            labels: <?php echo json_encode(array_column($feeData, 'month')); ?>,
+            labels: <?php echo json_encode(array_column($feeData, 'month'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
             datasets: [{
                 label: 'Fee Collection (₦)',
-                data: <?php echo json_encode(array_column($feeData, 'total')); ?>,
+                data: <?php echo json_encode(array_column($feeData, 'total'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
                 backgroundColor: '#ffd700',
                 borderColor: '#002855',
                 borderWidth: 1
@@ -708,11 +668,11 @@ if (feeCtx) {
     .stats-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .stat-card {
         padding: 15px;
     }
-    
+
     .stat-content h3 {
         font-size: 24px;
     }

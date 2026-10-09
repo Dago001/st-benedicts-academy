@@ -1,42 +1,20 @@
 <?php
 // student/results.php - Student Results View
 require_once __DIR__ . '/../config/config.php';
-require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/security.php';
 
-// Note: FPDF library needs to be installed separately
-// Download from: http://www.fpdf.org/
-// Extract to: includes/fpdf/fpdf.php
-if (file_exists(__DIR__ . '/../includes/fpdf/fpdf.php')) {
-    require_once __DIR__ . '/../includes/fpdf/fpdf.php';
-}
-
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Require student role
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'student') {
-    header('Location: ' . BASE_URL . '/login.php');
-    exit;
-}
+Security::requireRole('student');
 
 $pageTitle = 'My Results';
 $extraJS = ['results.js', 'chart.js'];
 
-// Check if header exists
-$headerPath = __DIR__ . '/../includes/header.php';
-if (!file_exists($headerPath)) {
-    die("Error: Header file not found at: $headerPath");
-}
-include $headerPath;
+include __DIR__ . '/../includes/header.php';
 
 // Get database instance
 try {
     $db = Database::getInstance();
 } catch (Exception $e) {
-    echo '<div class="alert alert-danger">Database connection error: ' . htmlspecialchars($e->getMessage()) . '</div>';
+    echo '<div class="alert alert-danger">Database connection error: ' . htmlspecialchars(DEBUG_MODE ? $e->getMessage() : 'Please try again later.') . '</div>';
     include __DIR__ . '/../includes/footer.php';
     exit;
 }
@@ -46,9 +24,9 @@ $userId = $_SESSION['user_id'];
 // Get student info
 $student = $db->getRow(
     "SELECT s.*, u.first_name, u.last_name, u.email, c.class_name, c.section
-     FROM students s 
-     JOIN users u ON s.user_id = u.id 
-     LEFT JOIN classes c ON s.class_id = c.id 
+     FROM students s
+     JOIN users u ON s.user_id = u.id
+     LEFT JOIN classes c ON s.class_id = c.id
      WHERE s.user_id = ?",
     [$userId]
 );
@@ -61,15 +39,15 @@ if (!$student) {
 
 // Get available terms and academic years
 $terms = $db->getRows(
-    "SELECT DISTINCT term, academic_year 
-     FROM results 
+    "SELECT DISTINCT term, academic_year
+     FROM results
      WHERE student_id = ? AND is_approved = 1
      ORDER BY academic_year DESC, term DESC",
     [$student['id']]
 );
 
-$selectedTerm = isset($_GET['term']) ? $_GET['term'] : ($terms[0]['term'] ?? '');
-$selectedYear = isset($_GET['year']) ? $_GET['year'] : ($terms[0]['academic_year'] ?? '');
+$selectedTerm = in_array($_GET['term'] ?? '', ['Term 1', 'Term 2', 'Term 3'], true) ? $_GET['term'] : ($terms[0]['term'] ?? '');
+$selectedYear = preg_match('/^\d{4}-\d{4}$/', $_GET['year'] ?? '') ? $_GET['year'] : ($terms[0]['academic_year'] ?? '');
 
 // Get results for selected term
 $results = [];
@@ -84,29 +62,23 @@ if ($selectedTerm && $selectedYear) {
          ORDER BY s.subject_name",
         [$student['id'], $selectedTerm, $selectedYear]
     );
-    
+
     // Calculate summary
     if (!empty($results)) {
         $totalScore = 0;
         $totalMaxScore = 0;
         $subjectCount = count($results);
-        
+
         foreach ($results as $result) {
             $totalScore += $result['score'];
             $totalMaxScore += $result['max_score'];
         }
-        
+
         $average = $subjectCount > 0 ? round($totalScore / $subjectCount, 2) : 0;
         $percentage = $totalMaxScore > 0 ? round(($totalScore / $totalMaxScore) * 100, 2) : 0;
-        
-        // Determine grade
-        if ($percentage >= 70) $grade = 'A';
-        elseif ($percentage >= 60) $grade = 'B';
-        elseif ($percentage >= 50) $grade = 'C';
-        elseif ($percentage >= 45) $grade = 'D';
-        elseif ($percentage >= 40) $grade = 'E';
-        else $grade = 'F';
-        
+
+        $grade = letterGrade($totalScore, $totalMaxScore);
+
         $termSummary = [
             'total_score' => $totalScore,
             'total_max' => $totalMaxScore,
@@ -118,182 +90,6 @@ if ($selectedTerm && $selectedYear) {
     }
 }
 
-// Handle PDF download
-if (isset($_GET['download']) && $_GET['download'] === 'report' && !empty($results)) {
-    if (function_exists('generateReportCard')) {
-        generateReportCard($student, $results, $termSummary, $selectedTerm, $selectedYear);
-    } else {
-        // Simple CSV export as fallback if FPDF not available
-        header('Content-Type: text/csv');
-        header('Content-Disposition: attachment; filename="report_' . $student['admission_number'] . '_' . $selectedTerm . '.csv"');
-        
-        $output = fopen('php://output', 'w');
-        fputcsv($output, ['Subject', 'Score', 'Max Score', 'Percentage', 'Grade', 'Remarks']);
-        
-        foreach ($results as $result) {
-            $percentage = round(($result['score'] / $result['max_score']) * 100, 2);
-            fputcsv($output, [
-                $result['subject_name'],
-                $result['score'],
-                $result['max_score'],
-                $percentage . '%',
-                $result['grade'],
-                $result['remarks'] ?? '-'
-            ]);
-        }
-        
-        fputcsv($output, []);
-        fputcsv($output, ['SUMMARY']);
-        fputcsv($output, ['Total Score', $termSummary['total_score'] . ' / ' . $termSummary['total_max']]);
-        fputcsv($output, ['Average', $termSummary['average']]);
-        fputcsv($output, ['Percentage', $termSummary['percentage'] . '%']);
-        fputcsv($output, ['Overall Grade', $termSummary['grade']]);
-        
-        fclose($output);
-        exit;
-    }
-}
-
-function generateReportCard($student, $results, $summary, $term, $year) {
-    // Check if FPDF class exists
-    if (!class_exists('FPDF')) {
-        header('Content-Type: text/html');
-        echo '<div class="alert alert-error">FPDF library not found. Please install it to use PDF export.</div>';
-        return;
-    }
-    
-    try {
-        // Create PDF
-        $pdf = new FPDF();
-        $pdf->AddPage();
-        
-        // Add logo if exists
-        $logoPath = __DIR__ . '/../assets/images/logo.png';
-        if (file_exists($logoPath)) {
-            $pdf->Image($logoPath, 10, 10, 30);
-        }
-        
-        // School Header
-        $pdf->SetY(20);
-        $pdf->SetFont('Arial', 'B', 16);
-        $pdf->Cell(0, 10, defined('SCHOOL_NAME') ? SCHOOL_NAME : 'ST. BENEDICT\'S ACADEMY', 0, 1, 'C');
-        $pdf->SetFont('Arial', 'I', 10);
-        $pdf->Cell(0, 5, defined('SCHOOL_ADDRESS') ? SCHOOL_ADDRESS : 'Enugu, Nigeria', 0, 1, 'C');
-        $pdf->Cell(0, 5, 'Phone: ' . (defined('SCHOOL_PHONE') ? SCHOOL_PHONE : '09044472688'), 0, 1, 'C');
-        $pdf->Ln(10);
-        
-        // Report Title
-        $pdf->SetFont('Arial', 'B', 14);
-        $pdf->Cell(0, 10, 'STUDENT REPORT CARD', 0, 1, 'C');
-        $pdf->SetFont('Arial', 'B', 12);
-        $pdf->Cell(0, 10, $term . ' - ' . $year, 0, 1, 'C');
-        $pdf->Ln(5);
-        
-        // Student Information
-        $pdf->SetFont('Arial', 'B', 11);
-        $pdf->Cell(50, 8, 'Student Name:', 0, 0);
-        $pdf->SetFont('Arial', '', 11);
-        $pdf->Cell(0, 8, $student['first_name'] . ' ' . $student['last_name'], 0, 1);
-        
-        $pdf->SetFont('Arial', 'B', 11);
-        $pdf->Cell(50, 8, 'Admission No:', 0, 0);
-        $pdf->SetFont('Arial', '', 11);
-        $pdf->Cell(0, 8, $student['admission_number'], 0, 1);
-        
-        $pdf->SetFont('Arial', 'B', 11);
-        $pdf->Cell(50, 8, 'Class:', 0, 0);
-        $pdf->SetFont('Arial', '', 11);
-        $pdf->Cell(0, 8, ($student['class_name'] ?? '') . ' ' . ($student['section'] ?? ''), 0, 1);
-        $pdf->Ln(10);
-        
-        // Results Table
-        $pdf->SetFont('Arial', 'B', 11);
-        $pdf->SetFillColor(0, 40, 85); // Navy color
-        $pdf->SetTextColor(255, 255, 255); // White text
-        $pdf->Cell(70, 10, 'Subject', 1, 0, 'C', true);
-        $pdf->Cell(25, 10, 'Score', 1, 0, 'C', true);
-        $pdf->Cell(25, 10, 'Max', 1, 0, 'C', true);
-        $pdf->Cell(25, 10, '%', 1, 0, 'C', true);
-        $pdf->Cell(25, 10, 'Grade', 1, 0, 'C', true);
-        $pdf->Cell(30, 10, 'Remarks', 1, 1, 'C', true);
-        
-        $pdf->SetTextColor(0, 0, 0); // Black text
-        $pdf->SetFont('Arial', '', 10);
-        
-        $fill = false;
-        foreach ($results as $result) {
-            $percentage = round(($result['score'] / $result['max_score']) * 100, 1);
-            
-            // Set background color based on performance
-            if ($percentage >= 70) {
-                $pdf->SetFillColor(212, 237, 218); // Light green
-            } elseif ($percentage >= 50) {
-                $pdf->SetFillColor(255, 243, 205); // Light yellow
-            } else {
-                $pdf->SetFillColor(248, 215, 218); // Light red
-            }
-            
-            $pdf->Cell(70, 8, $result['subject_name'], 1, 0, 'L', true);
-            $pdf->Cell(25, 8, $result['score'], 1, 0, 'C', true);
-            $pdf->Cell(25, 8, $result['max_score'], 1, 0, 'C', true);
-            $pdf->Cell(25, 8, $percentage . '%', 1, 0, 'C', true);
-            $pdf->Cell(25, 8, $result['grade'], 1, 0, 'C', true);
-            $pdf->Cell(30, 8, $result['remarks'] ?? '-', 1, 1, 'C', true);
-            
-            $fill = !$fill;
-        }
-        
-        // Summary
-        $pdf->Ln(10);
-        $pdf->SetFont('Arial', 'B', 11);
-        $pdf->Cell(50, 8, 'Total Score:', 0, 0);
-        $pdf->SetFont('Arial', '', 11);
-        $pdf->Cell(50, 8, $summary['total_score'] . ' / ' . $summary['total_max'], 0, 1);
-        
-        $pdf->SetFont('Arial', 'B', 11);
-        $pdf->Cell(50, 8, 'Average:', 0, 0);
-        $pdf->SetFont('Arial', '', 11);
-        $pdf->Cell(50, 8, $summary['average'], 0, 1);
-        
-        $pdf->SetFont('Arial', 'B', 11);
-        $pdf->Cell(50, 8, 'Percentage:', 0, 0);
-        $pdf->SetFont('Arial', '', 11);
-        $pdf->Cell(50, 8, $summary['percentage'] . '%', 0, 1);
-        
-        $pdf->SetFont('Arial', 'B', 11);
-        $pdf->Cell(50, 8, 'Overall Grade:', 0, 0);
-        $pdf->SetFont('Arial', '', 11);
-        $pdf->Cell(50, 8, $summary['grade'], 0, 1);
-        
-        // Teacher's comment
-        $pdf->Ln(10);
-        $pdf->SetFont('Arial', 'B', 11);
-        $pdf->Cell(50, 8, 'Class Teacher\'s Comment:', 0, 1);
-        $pdf->SetFont('Arial', '', 11);
-        $pdf->Cell(0, 8, '_________________________________________________', 0, 1);
-        $pdf->Ln(5);
-        $pdf->Cell(0, 8, '_________________________________________________', 0, 1);
-        $pdf->Ln(10);
-        
-        $pdf->SetFont('Arial', 'B', 11);
-        $pdf->Cell(100, 8, 'Class Teacher', 0, 0);
-        $pdf->Cell(0, 8, 'Principal', 0, 1);
-        
-        // Footer
-        $pdf->Ln(10);
-        $pdf->SetFont('Arial', 'I', 8);
-        $pdf->Cell(0, 5, defined('SCHOOL_MOTTO') ? SCHOOL_MOTTO : 'Christo Duce, Una Sapientia et Virtute Crescimus', 0, 1, 'C');
-        
-        // Output PDF
-        $pdf->Output('D', 'Report_Card_' . $student['admission_number'] . '_' . $term . '.pdf');
-        exit;
-        
-    } catch (Exception $e) {
-        error_log("PDF Generation Error: " . $e->getMessage());
-        header('Content-Type: text/html');
-        echo '<div class="alert alert-error">Error generating PDF: ' . htmlspecialchars($e->getMessage()) . '</div>';
-    }
-}
 
 // Get performance chart data
 $performanceData = $db->getRows(
@@ -477,16 +273,16 @@ $performanceData = $db->getRows(
     .summary-grid {
         grid-template-columns: repeat(2, 1fr);
     }
-    
+
     .form-inline {
         flex-direction: column;
         align-items: stretch;
     }
-    
+
     .form-group {
         width: 100%;
     }
-    
+
     .btn {
         width: 100%;
     }
@@ -500,24 +296,8 @@ $performanceData = $db->getRows(
 </style>
 
 <div class="dashboard-container">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <h3>Student Panel</h3>
-        </div>
-        <nav class="sidebar-nav">
-            <ul>
-                <li><a href="dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
-                <li class="active"><a href="results.php"><i class="fas fa-chart-line"></i> My Results</a></li>
-                <li><a href="attendance.php"><i class="fas fa-calendar-check"></i> Attendance</a></li>
-                <li><a href="assignments.php"><i class="fas fa-tasks"></i> Assignments</a></li>
-                <li><a href="fees.php"><i class="fas fa-money-bill"></i> Fees</a></li>
-                <li><a href="messages.php"><i class="fas fa-envelope"></i> Messages</a></li>
-                <li><a href="profile.php"><i class="fas fa-user-cog"></i> Profile</a></li>
-            </ul>
-        </nav>
-    </aside>
-    
+    <?php render_sidebar('student'); ?>
+
     <main class="dashboard-main">
         <div class="dashboard-header">
             <h1>My Academic Results</h1>
@@ -527,7 +307,7 @@ $performanceData = $db->getRows(
                 <small><?php echo htmlspecialchars(($student['class_name'] ?? '') . ' ' . ($student['section'] ?? '')); ?></small>
             </div>
         </div>
-        
+
         <!-- Term Selection -->
         <div class="card">
             <div class="card-header">
@@ -544,24 +324,24 @@ $performanceData = $db->getRows(
                     <div class="form-group">
                         <label for="year">Academic Year</label>
                         <select name="year" id="year" class="form-control" onchange="this.form.submit()">
-                            <?php 
+                            <?php
                             $uniqueYears = array_unique(array_column($terms, 'academic_year'));
-                            foreach ($uniqueYears as $year): 
+                            foreach ($uniqueYears as $year):
                             ?>
-                            <option value="<?php echo htmlspecialchars($year); ?>" 
+                            <option value="<?php echo htmlspecialchars($year); ?>"
                                 <?php echo ($selectedYear == $year) ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($year); ?>
                             </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="term">Term</label>
                         <select name="term" id="term" class="form-control" onchange="this.form.submit()">
                             <?php foreach ($terms as $t): ?>
                             <?php if ($t['academic_year'] == $selectedYear): ?>
-                            <option value="<?php echo htmlspecialchars($t['term']); ?>" 
+                            <option value="<?php echo htmlspecialchars($t['term']); ?>"
                                 <?php echo ($selectedTerm == $t['term']) ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($t['term']); ?>
                             </option>
@@ -569,11 +349,11 @@ $performanceData = $db->getRows(
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    
+
                     <button type="submit" class="btn btn-primary">View Results</button>
-                    
+
                     <?php if (!empty($results)): ?>
-                    <a href="?download=report&term=<?php echo urlencode($selectedTerm); ?>&year=<?php echo urlencode($selectedYear); ?>" 
+                    <a href="report-card.php?term=<?php echo urlencode($selectedTerm); ?>&year=<?php echo urlencode($selectedYear); ?>" target="_blank" rel="noopener"
                        class="btn btn-accent">
                         <i class="fas fa-download"></i> Download Report
                     </a>
@@ -582,7 +362,7 @@ $performanceData = $db->getRows(
                 <?php endif; ?>
             </div>
         </div>
-        
+
         <?php if (!empty($results)): ?>
         <!-- Results Table -->
         <div class="card">
@@ -604,27 +384,27 @@ $performanceData = $db->getRows(
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($results as $result): 
+                            <?php foreach ($results as $result):
                                 $percentage = ($result['score'] / $result['max_score']) * 100;
                                 $gradeClass = $percentage >= 70 ? 'high' : ($percentage >= 50 ? 'medium' : 'low');
                             ?>
                             <tr>
                                 <td><strong><?php echo htmlspecialchars($result['subject_name']); ?></strong></td>
-                                <td><?php echo ucfirst($result['assessment_type']); ?></td>
-                                <td class="score <?php echo $gradeClass; ?>">
-                                    <?php echo $result['score']; ?>
+                                <td><?php echo e(ucfirst($result['assessment_type'])); ?></td>
+                                <td class="score <?php echo e($gradeClass); ?>">
+                                    <?php echo e($result['score']); ?>
                                 </td>
-                                <td><?php echo $result['max_score']; ?></td>
+                                <td><?php echo e($result['max_score']); ?></td>
                                 <td style="min-width: 150px;">
                                     <div class="progress-bar">
-                                        <div class="progress-fill <?php echo $gradeClass; ?>" 
-                                             style="width: <?php echo $percentage; ?>%">
+                                        <div class="progress-fill <?php echo e($gradeClass); ?>"
+                                             style="width: <?php echo e($percentage); ?>%">
                                             <?php echo number_format($percentage, 1); ?>%
                                         </div>
                                     </div>
                                 </td>
-                                <td class="grade <?php echo $gradeClass; ?>">
-                                    <?php echo $result['grade']; ?>
+                                <td class="grade <?php echo e($gradeClass); ?>">
+                                    <?php echo e($result['grade']); ?>
                                 </td>
                                 <td><?php echo htmlspecialchars($result['remarks'] ?? '-'); ?></td>
                             </tr>
@@ -634,34 +414,34 @@ $performanceData = $db->getRows(
                 </div>
             </div>
         </div>
-        
+
         <!-- Summary Card -->
         <div class="summary-card">
             <h3><i class="fas fa-chart-pie"></i> Term Summary</h3>
             <div class="summary-grid">
                 <div class="summary-item">
                     <label>Total Score</label>
-                    <span class="value"><?php echo $termSummary['total_score']; ?> / <?php echo $termSummary['total_max']; ?></span>
+                    <span class="value"><?php echo e($termSummary['total_score']); ?> / <?php echo e($termSummary['total_max']); ?></span>
                 </div>
                 <div class="summary-item">
                     <label>Average</label>
-                    <span class="value"><?php echo $termSummary['average']; ?></span>
+                    <span class="value"><?php echo e($termSummary['average']); ?></span>
                 </div>
                 <div class="summary-item">
                     <label>Percentage</label>
                     <span class="value <?php echo $termSummary['percentage'] >= 70 ? 'high' : ($termSummary['percentage'] >= 50 ? 'medium' : 'low'); ?>">
-                        <?php echo $termSummary['percentage']; ?>%
+                        <?php echo e($termSummary['percentage']); ?>%
                     </span>
                 </div>
                 <div class="summary-item">
                     <label>Overall Grade</label>
-                    <span class="grade-badge grade-<?php echo strtolower($termSummary['grade']); ?>">
-                        <?php echo $termSummary['grade']; ?>
+                    <span class="grade-badge grade-<?php echo e(strtolower($termSummary['grade'])); ?>">
+                        <?php echo e($termSummary['grade']); ?>
                     </span>
                 </div>
             </div>
         </div>
-        
+
         <?php elseif ($selectedTerm && $selectedYear): ?>
         <div class="alert alert-info">
             <i class="fas fa-info-circle fa-2x mb-3"></i>
@@ -669,7 +449,7 @@ $performanceData = $db->getRows(
             <p>No results found for the selected term.</p>
         </div>
         <?php endif; ?>
-        
+
         <!-- Performance Trend Chart -->
         <?php if (!empty($performanceData)): ?>
         <div class="card">
@@ -680,8 +460,7 @@ $performanceData = $db->getRows(
                 <canvas id="trendChart" width="400" height="200"></canvas>
             </div>
         </div>
-        
-        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
         <script>
         document.addEventListener('DOMContentLoaded', function() {
             const ctx = document.getElementById('trendChart').getContext('2d');
@@ -690,12 +469,12 @@ $performanceData = $db->getRows(
                 data: {
                     labels: <?php echo json_encode(array_map(function($item) {
                         return $item['term'] . ' ' . $item['academic_year'];
-                    }, array_reverse($performanceData))); ?>,
+                    }, array_reverse($performanceData)), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
                     datasets: [{
                         label: 'Average Performance (%)',
                         data: <?php echo json_encode(array_map(function($item) {
                             return round($item['average'], 1);
-                        }, array_reverse($performanceData))); ?>,
+                        }, array_reverse($performanceData)), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
                         borderColor: '#ffd700',
                         backgroundColor: 'rgba(255, 215, 0, 0.1)',
                         tension: 0.4,
@@ -733,7 +512,7 @@ $performanceData = $db->getRows(
         });
         </script>
         <?php endif; ?>
-        
+
         <!-- Performance by Subject Chart -->
         <?php if (!empty($results)): ?>
         <div class="card">
@@ -744,14 +523,14 @@ $performanceData = $db->getRows(
                 <canvas id="subjectChart" width="400" height="200"></canvas>
             </div>
         </div>
-        
+
         <script>
         document.addEventListener('DOMContentLoaded', function() {
             const ctx2 = document.getElementById('subjectChart').getContext('2d');
             new Chart(ctx2, {
                 type: 'bar',
                 data: {
-                    labels: <?php echo json_encode(array_column($results, 'subject_name')); ?>,
+                    labels: <?php echo json_encode(array_column($results, 'subject_name'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
                     datasets: [{
                         label: 'Score',
                         data: <?php echo json_encode(array_map(function($r) {

@@ -52,10 +52,10 @@ $leadership = [];
 if ($db) {
     try {
         $leadership = $db->getRows(
-            "SELECT u.*, t.qualification, t.specialization 
-             FROM users u 
-             JOIN teachers t ON u.id = t.user_id 
-             WHERE u.role = 'teacher' AND u.is_active = 1 
+            "SELECT u.*, t.qualification, t.specialization
+             FROM users u
+             JOIN teachers t ON u.id = t.user_id
+             WHERE u.role = 'teacher' AND u.is_active = 1
              ORDER BY u.first_name, u.last_name
              LIMIT 4"
         );
@@ -523,17 +523,17 @@ if (empty($leadership)) {
         grid-template-columns: 1fr;
         gap: var(--spacing-lg);
     }
-    
+
     .history-image {
         order: -1;
     }
-    
+
     .mvg-grid {
         grid-template-columns: 1fr;
         max-width: 600px;
         margin: 0 auto;
     }
-    
+
     .facilities-grid {
         grid-template-columns: repeat(2, 1fr);
     }
@@ -543,23 +543,23 @@ if (empty($leadership)) {
     .page-header h1 {
         font-size: var(--text-2xl);
     }
-    
+
     .history-stats {
         grid-template-columns: 1fr;
     }
-    
+
     .leadership-grid {
         grid-template-columns: 1fr;
         max-width: 400px;
         margin: 0 auto;
     }
-    
+
     .facilities-grid {
         grid-template-columns: 1fr;
         max-width: 400px;
         margin: 0 auto;
     }
-    
+
     .leader-image {
         height: 250px;
     }
@@ -569,19 +569,19 @@ if (empty($leadership)) {
     .section-title {
         font-size: var(--text-2xl);
     }
-    
+
     .history-content .lead {
         font-size: var(--text-lg);
     }
-    
+
     .mvg-card {
         padding: var(--spacing-lg);
     }
-    
+
     .facility-card {
         padding: var(--spacing-lg);
     }
-    
+
     .facility-icon {
         width: 60px;
         height: 60px;
@@ -630,7 +630,7 @@ if (empty($leadership)) {
                 <p class="lead">Founded in 2010, ST. BENEDICT'S EARLY YEARS BRITISH ACADEMY has been a beacon of excellence in early childhood education in Enugu.</p>
                 <p>What began as a small nursery with just 15 children has grown into one of the most respected British early years institutions in the region. Our journey has been guided by the Benedictine values of prayer, work, and community.</p>
                 <p>Today, we serve over 300 children from Nursery through Year 2, providing them with a solid foundation for lifelong learning, grounded in faith and academic excellence.</p>
-                
+
                 <div class="history-stats">
                     <div class="stat">
                         <span class="stat-value">2010</span>
@@ -647,7 +647,7 @@ if (empty($leadership)) {
                 </div>
             </div>
             <div class="history-image animate-fade-in" style="animation-delay: 0.2s;">
-                <img src="<?php echo BASE_URL; ?>/assets/images/school-history.jpg" 
+                <img src="<?php echo BASE_URL; ?>/assets/images/school-history.jpg"
                      alt="School History">
             </div>
         </div>
@@ -681,13 +681,13 @@ if (empty($leadership)) {
 <section class="leadership">
     <div class="container">
         <h2 class="section-title">Our Leadership</h2>
-        
+
         <div class="leadership-grid">
             <?php foreach ($leadership as $index => $leader): ?>
             <div class="leader-card animate-fade-in" style="animation-delay: <?php echo $index * 0.1; ?>s;">
                 <div class="leader-image">
                     <?php if (!empty($leader['profile_image'])): ?>
-                    <img src="<?php echo BASE_URL; ?>/uploads/teachers/<?php echo $leader['profile_image']; ?>" 
+                    <img src="<?php echo BASE_URL; ?>/uploads/teachers/<?php echo e($leader['profile_image']); ?>"
                          alt="<?php echo htmlspecialchars($leader['first_name'] . ' ' . $leader['last_name']); ?>">
                     <?php else: ?>
                     <div class="placeholder-image">
@@ -710,7 +710,7 @@ if (empty($leadership)) {
 <section class="facilities">
     <div class="container">
         <h2 class="section-title">Our Facilities</h2>
-        
+
         <div class="facilities-grid">
             <div class="facility-card animate-fade-in">
                 <div class="facility-icon">

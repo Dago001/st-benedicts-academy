@@ -1,36 +1,21 @@
 <?php
 // student/fee.php - Student Fee View Page (Redesigned with Attendance UI)
 require_once __DIR__ . '/../config/config.php';
-require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/security.php';
 
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Require student role
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'student') {
-    header('Location: ' . BASE_URL . '/login.php');
-    exit;
-}
+Security::requireRole('student');
 
 $pageTitle = 'My Fees';
 $extraCSS = ['dashboard.css'];
 $extraJS = ['charts.js'];
 
-// Check if header exists
-$headerPath = __DIR__ . '/../includes/header.php';
-if (!file_exists($headerPath)) {
-    die("Error: Header file not found at: $headerPath");
-}
-include $headerPath;
+include __DIR__ . '/../includes/header.php';
 
 // Get database instance
 try {
     $db = Database::getInstance();
 } catch (Exception $e) {
-    echo '<div class="alert alert-danger">Database connection error: ' . htmlspecialchars($e->getMessage()) . '</div>';
+    echo '<div class="alert alert-danger">Database connection error: ' . htmlspecialchars(DEBUG_MODE ? $e->getMessage() : 'Please try again later.') . '</div>';
     exit;
 }
 
@@ -40,9 +25,9 @@ $userId = $_SESSION['user_id'];
 $student = $db->getRow(
     "SELECT s.*, u.first_name, u.last_name, u.email, u.profile_image,
             c.class_name, c.section
-     FROM students s 
-     JOIN users u ON s.user_id = u.id 
-     LEFT JOIN classes c ON s.class_id = c.id 
+     FROM students s
+     JOIN users u ON s.user_id = u.id
+     LEFT JOIN classes c ON s.class_id = c.id
      WHERE s.user_id = ?",
     [$userId]
 );
@@ -53,25 +38,25 @@ if (!$student) {
 }
 
 // Get current academic year
-$currentAcademicYear = date('Y') . '-' . (date('Y') + 1);
+$currentAcademicYear = currentAcademicYear();
 $selectedAcademicYear = isset($_GET['academic_year']) ? Security::sanitize($_GET['academic_year']) : $currentAcademicYear;
 
 // Get all available academic years for dropdown
 $academicYears = $db->getRows(
-    "SELECT DISTINCT academic_year FROM fee_structure 
-     WHERE class_id = ? 
+    "SELECT DISTINCT academic_year FROM fee_structure
+     WHERE class_id = ?
      ORDER BY academic_year DESC",
     [$student['class_id']]
 );
 
 // Get all fee structures for student's class
 $feeStructures = $db->getRows(
-    "SELECT fs.*, 
+    "SELECT fs.*,
             COALESCE((
-                SELECT SUM(amount) 
-                FROM payments 
-                WHERE fee_structure_id = fs.id 
-                AND student_id = ? 
+                SELECT SUM(amount)
+                FROM payments
+                WHERE fee_structure_id = fs.id
+                AND student_id = ?
                 AND status = 'completed'
             ), 0) as paid_amount
      FROM fee_structure fs
@@ -92,7 +77,7 @@ $outstandingByTerm = [
 foreach ($feeStructures as $fee) {
     $totalFees += $fee['amount'];
     $totalPaid += $fee['paid_amount'];
-    
+
     if (isset($outstandingByTerm[$fee['term']])) {
         $outstandingByTerm[$fee['term']]['total'] += $fee['amount'];
         $outstandingByTerm[$fee['term']]['paid'] += $fee['paid_amount'];
@@ -107,7 +92,7 @@ $paymentHistory = $db->getRows(
     "SELECT p.*, fs.fee_type
      FROM payments p
      LEFT JOIN fee_structure fs ON p.fee_structure_id = fs.id
-     WHERE p.student_id = ? 
+     WHERE p.student_id = ?
        AND p.status = 'completed'
        AND p.academic_year = ?
      ORDER BY p.payment_date DESC",
@@ -127,14 +112,14 @@ $recentPayments = $db->getRows(
 
 // Get payment summary by term
 $paymentSummary = $db->getRows(
-    "SELECT 
+    "SELECT
         fs.term,
         COUNT(DISTINCT fs.id) as total_fee_items,
         COALESCE(SUM(fs.amount), 0) as total_amount,
         COALESCE(SUM(CASE WHEN p.id IS NOT NULL THEN p.amount ELSE 0 END), 0) as paid_amount
      FROM fee_structure fs
-     LEFT JOIN payments p ON fs.id = p.fee_structure_id 
-        AND p.student_id = ? 
+     LEFT JOIN payments p ON fs.id = p.fee_structure_id
+        AND p.student_id = ?
         AND p.status = 'completed'
      WHERE fs.class_id = ? AND fs.academic_year = ?
      GROUP BY fs.term
@@ -144,12 +129,12 @@ $paymentSummary = $db->getRows(
 
 // Get monthly payment trends for chart (last 6 months)
 $monthlyPayments = $db->getRows(
-    "SELECT 
+    "SELECT
         DATE_FORMAT(payment_date, '%Y-%m') as month,
         COUNT(*) as transaction_count,
         COALESCE(SUM(amount), 0) as total
      FROM payments
-     WHERE student_id = ? 
+     WHERE student_id = ?
        AND status = 'completed'
        AND payment_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
      GROUP BY DATE_FORMAT(payment_date, '%Y-%m')
@@ -607,33 +592,33 @@ function getStatusBadge($paid, $total) {
         flex-direction: column;
         text-align: center;
     }
-    
+
     .stats-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .dashboard-header {
         flex-direction: column;
         text-align: center;
     }
-    
+
     .form-row {
         flex-direction: column;
     }
-    
+
     .form-group {
         width: 100%;
     }
-    
+
     .circle-progress {
         width: 150px;
         height: 150px;
     }
-    
+
     .percentage {
         font-size: 2rem;
     }
-    
+
     .card-header {
         flex-direction: column;
         gap: 10px;
@@ -643,24 +628,8 @@ function getStatusBadge($paid, $total) {
 </style>
 
 <div class="dashboard-container">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <h3>Student Panel</h3>
-        </div>
-        <nav class="sidebar-nav">
-            <ul>
-                <li><a href="dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
-                <li><a href="results.php"><i class="fas fa-chart-line"></i> My Results</a></li>
-                <li><a href="attendance.php"><i class="fas fa-calendar-check"></i> Attendance</a></li>
-                <li><a href="assignments.php"><i class="fas fa-tasks"></i> Assignments</a></li>
-                <li class="active"><a href="fees.php"><i class="fas fa-money-bill"></i> Fees</a></li>
-                <li><a href="messages.php"><i class="fas fa-envelope"></i> Messages</a></li>
-                <li><a href="profile.php"><i class="fas fa-user-cog"></i> Profile</a></li>
-            </ul>
-        </nav>
-    </aside>
-    
+    <?php render_sidebar('student'); ?>
+
     <main class="dashboard-main">
         <div class="dashboard-header">
             <h1>My Fees</h1>
@@ -672,7 +641,7 @@ function getStatusBadge($paid, $total) {
                 </div>
             </div>
         </div>
-        
+
         <!-- Summary Cards -->
         <div class="stats-grid">
             <div class="stat-card">
@@ -684,7 +653,7 @@ function getStatusBadge($paid, $total) {
                     <p>Total Fees</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(40,167,69,0.1);">
                     <i class="fas fa-check-circle" style="color: #28a745;"></i>
@@ -694,7 +663,7 @@ function getStatusBadge($paid, $total) {
                     <p>Total Paid</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(220,53,69,0.1);">
                     <i class="fas fa-exclamation-triangle" style="color: #dc3545;"></i>
@@ -704,7 +673,7 @@ function getStatusBadge($paid, $total) {
                     <p>Outstanding Balance</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(23,162,184,0.1);">
                     <i class="fas fa-receipt" style="color: #17a2b8;"></i>
@@ -714,18 +683,18 @@ function getStatusBadge($paid, $total) {
                     <p>Payments Made</p>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <div class="stat-icon" style="background: rgba(255,193,7,0.1);">
                     <i class="fas fa-percent" style="color: #ffc107;"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php echo $paymentPercentage; ?>%</h3>
+                    <h3><?php echo e($paymentPercentage); ?>%</h3>
                     <p>Payment Rate</p>
                 </div>
             </div>
         </div>
-        
+
         <!-- Payment Progress Circle -->
         <div class="card">
             <div class="card-header">
@@ -736,52 +705,52 @@ function getStatusBadge($paid, $total) {
                     <div class="rate-circle">
                         <div class="circle-progress">
                             <span class="percentage">
-                                <?php echo $paymentPercentage; ?>%
+                                <?php echo e($paymentPercentage); ?>%
                                 <small>paid</small>
                             </span>
                         </div>
                     </div>
                     <div class="rate-details">
                         <p>
-                            <i class="fas fa-info-circle"></i> 
-                            Your payment progress for <strong><?php echo htmlspecialchars($selectedAcademicYear); ?></strong> is 
-                            <strong class="<?php echo $percentageColorClass; ?>"><?php echo $paymentPercentage; ?>%</strong>
+                            <i class="fas fa-info-circle"></i>
+                            Your payment progress for <strong><?php echo htmlspecialchars($selectedAcademicYear); ?></strong> is
+                            <strong class="<?php echo e($percentageColorClass); ?>"><?php echo e($paymentPercentage); ?>%</strong>
                         </p>
-                        
+
                         <?php if ($paymentPercentage >= 90): ?>
                         <p class="text-success">
-                            <i class="fas fa-star"></i> 
+                            <i class="fas fa-star"></i>
                             Excellent! You've almost completed your payments. Thank you for your timely payments!
                         </p>
                         <div class="progress">
-                            <div class="progress-bar bg-success" style="width: <?php echo $paymentPercentage; ?>%;"></div>
+                            <div class="progress-bar bg-success" style="width: <?php echo e($paymentPercentage); ?>%;"></div>
                         </div>
                         <?php elseif ($paymentPercentage >= 50): ?>
                         <p class="text-info">
-                            <i class="fas fa-thumbs-up"></i> 
+                            <i class="fas fa-thumbs-up"></i>
                             Good progress! You've paid more than half of your fees. Keep it up!
                         </p>
                         <div class="progress">
-                            <div class="progress-bar bg-info" style="width: <?php echo $paymentPercentage; ?>%;"></div>
+                            <div class="progress-bar bg-info" style="width: <?php echo e($paymentPercentage); ?>%;"></div>
                         </div>
                         <?php elseif ($paymentPercentage > 0): ?>
                         <p class="text-warning">
-                            <i class="fas fa-exclamation-triangle"></i> 
+                            <i class="fas fa-exclamation-triangle"></i>
                             You've started paying your fees. Please complete the remaining balance.
                         </p>
                         <div class="progress">
-                            <div class="progress-bar bg-warning" style="width: <?php echo $paymentPercentage; ?>%;"></div>
+                            <div class="progress-bar bg-warning" style="width: <?php echo e($paymentPercentage); ?>%;"></div>
                         </div>
                         <?php else: ?>
                         <p class="text-danger">
-                            <i class="fas fa-exclamation-triangle"></i> 
+                            <i class="fas fa-exclamation-triangle"></i>
                             No payments recorded yet. Please clear your outstanding fees.
                         </p>
                         <div class="progress">
                             <div class="progress-bar bg-danger" style="width: 0%;"></div>
                         </div>
                         <?php endif; ?>
-                        
+
                         <div style="margin-top: 15px; display: flex; gap: 20px; flex-wrap: wrap;">
                             <div><span class="badge badge-success">Paid: ₦<?php echo number_format($totalPaid, 2); ?></span></div>
                             <div><span class="badge badge-danger">Outstanding: ₦<?php echo number_format($outstandingBalance, 2); ?></span></div>
@@ -791,7 +760,7 @@ function getStatusBadge($paid, $total) {
                 </div>
             </div>
         </div>
-        
+
         <!-- Academic Year Selector -->
         <?php if (!empty($academicYears)): ?>
         <div class="card">
@@ -804,14 +773,14 @@ function getStatusBadge($paid, $total) {
                         <label for="academic_year">Academic Year</label>
                         <select id="academic_year" name="academic_year" class="form-control" onchange="this.form.submit()">
                             <?php foreach ($academicYears as $year): ?>
-                            <option value="<?php echo htmlspecialchars($year['academic_year']); ?>" 
+                            <option value="<?php echo htmlspecialchars($year['academic_year']); ?>"
                                 <?php echo $selectedAcademicYear == $year['academic_year'] ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($year['academic_year']); ?>
                             </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    
+
                     <div class="form-group">
                         <label>&nbsp;</label>
                         <a href="fees.php" class="btn btn-outline" style="padding: 8px 20px; display: inline-block; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; text-decoration: none; color: #333;">
@@ -822,7 +791,7 @@ function getStatusBadge($paid, $total) {
             </div>
         </div>
         <?php endif; ?>
-        
+
         <!-- Fee Structure Details -->
         <div class="card">
             <div class="card-header">
@@ -847,7 +816,7 @@ function getStatusBadge($paid, $total) {
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($feeStructures as $fee): 
+                            <?php foreach ($feeStructures as $fee):
                                 $balance = $fee['amount'] - $fee['paid_amount'];
                                 $isOverdue = !empty($fee['due_date']) && strtotime($fee['due_date']) < time() && $balance > 0;
                             ?>
@@ -904,7 +873,7 @@ function getStatusBadge($paid, $total) {
                 <?php endif; ?>
             </div>
         </div>
-        
+
         <!-- Payment Summary by Term -->
         <?php if (!empty($paymentSummary)): ?>
         <div class="card">
@@ -925,10 +894,10 @@ function getStatusBadge($paid, $total) {
                         </thead>
                         <tbody>
                             <?php foreach ($paymentSummary as $summary): ?>
-                                <?php 
+                                <?php
                                 $termOutstanding = $summary['total_amount'] - $summary['paid_amount'];
-                                $termPercentage = $summary['total_amount'] > 0 
-                                    ? round(($summary['paid_amount'] / $summary['total_amount']) * 100, 1) 
+                                $termPercentage = $summary['total_amount'] > 0
+                                    ? round(($summary['paid_amount'] / $summary['total_amount']) * 100, 1)
                                     : 0;
                                 $termColor = $termPercentage >= 90 ? 'success' : ($termPercentage >= 50 ? 'info' : 'danger');
                                 ?>
@@ -941,10 +910,10 @@ function getStatusBadge($paid, $total) {
                                     </td>
                                     <td style="min-width: 150px;">
                                         <div class="progress" style="height: 8px;">
-                                            <div class="progress-bar bg-<?php echo $termColor; ?>" 
+                                            <div class="progress-bar bg-<?php echo e($termColor); ?>"
                                                  style="width: <?php echo min(100, $termPercentage); ?>%;"></div>
                                         </div>
-                                        <small class="text-muted"><?php echo $termPercentage; ?>% paid</small>
+                                        <small class="text-muted"><?php echo e($termPercentage); ?>% paid</small>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -954,7 +923,7 @@ function getStatusBadge($paid, $total) {
             </div>
         </div>
         <?php endif; ?>
-        
+
         <!-- Payment History -->
         <div class="card">
             <div class="card-header">
@@ -991,7 +960,7 @@ function getStatusBadge($paid, $total) {
                                 </td>
                                 <td>
                                     <span class="payment-method">
-                                        <?php 
+                                        <?php
                                         $method = $payment['payment_method'];
                                         switch($method) {
                                             case 'bank_transfer':
@@ -1025,7 +994,7 @@ function getStatusBadge($paid, $total) {
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <a href="print-receipt.php?id=<?php echo $payment['id']; ?>" class="receipt-link" target="_blank">
+                                    <a href="print-receipt.php?id=<?php echo e($payment['id']); ?>" class="receipt-link" target="_blank">
                                         <i class="fas fa-print"></i> Print
                                     </a>
                                 </td>
@@ -1051,7 +1020,7 @@ function getStatusBadge($paid, $total) {
                 <?php endif; ?>
             </div>
         </div>
-        
+
         <!-- Recent Payments (All Time) -->
         <?php if (!empty($recentPayments)): ?>
         <div class="card">
@@ -1082,7 +1051,7 @@ function getStatusBadge($paid, $total) {
                                 <td class="text-right text-success">₦<?php echo number_format($payment['amount'], 2); ?></td>
                                 <td><?php echo ucfirst(str_replace('_', ' ', $payment['payment_method'])); ?></td>
                                 <td>
-                                    <a href="print-receipt.php?id=<?php echo $payment['id']; ?>" class="receipt-link" target="_blank">
+                                    <a href="print-receipt.php?id=<?php echo e($payment['id']); ?>" class="receipt-link" target="_blank">
                                         <i class="fas fa-print"></i>
                                     </a>
                                 </td>
@@ -1094,7 +1063,7 @@ function getStatusBadge($paid, $total) {
             </div>
         </div>
         <?php endif; ?>
-        
+
         <!-- Monthly Payment Chart -->
         <?php if (!empty($monthlyPayments) && count($monthlyPayments) > 1): ?>
         <div class="card">
@@ -1106,13 +1075,11 @@ function getStatusBadge($paid, $total) {
             </div>
         </div>
         <?php endif; ?>
-        
-        
+
+
     </main>
 </div>
 
-<!-- Chart.js Script -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 <?php if (!empty($monthlyPayments) && count($monthlyPayments) > 1): ?>
 document.addEventListener('DOMContentLoaded', function() {
@@ -1125,7 +1092,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }, $monthlyPayments)); ?>,
             datasets: [{
                 label: 'Payment Amount (₦)',
-                data: <?php echo json_encode(array_column($monthlyPayments, 'total')); ?>,
+                data: <?php echo json_encode(array_column($monthlyPayments, 'total'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
                 borderColor: '#28a745',
                 backgroundColor: 'rgba(40, 167, 69, 0.1)',
                 tension: 0.4,

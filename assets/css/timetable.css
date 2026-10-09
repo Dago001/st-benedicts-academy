@@ -1,0 +1,11 @@
+.timetable { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.tt-day { background: #f8f9fa; border-radius: 10px; padding: 10px; min-width: 0; }
+.tt-day h4 { margin: 0 0 8px; color: #002855; font-size: .95rem; }
+.tt-slot { position: relative; background: #fff; border-left: 4px solid #ffd700; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+.tt-time { font-size: .75rem; color: #667; }
+.tt-subject { font-weight: 600; }
+.tt-meta { font-size: .8rem; color: #667; }
+.tt-slot form { position: absolute; top: 6px; right: 6px; margin: 0; }
+.tt-empty { font-size: .85rem; margin: 0; }
+@media (max-width: 991px) { .timetable { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 575px) { .timetable { grid-template-columns: 1fr; } }

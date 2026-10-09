@@ -477,12 +477,12 @@ if ($db) {
     .assessment-grid {
         grid-template-columns: repeat(2, 1fr);
     }
-    
+
     .approach-grid {
         grid-template-columns: 1fr;
         gap: 30px;
     }
-    
+
     .approach-quote {
         position: relative;
         bottom: 0;
@@ -495,30 +495,30 @@ if ($db) {
     .page-header {
         padding: var(--spacing-2xl) 0;
     }
-    
+
     .page-header h1 {
         font-size: var(--text-2xl);
     }
-    
+
     .section-title {
         font-size: 2rem;
     }
-    
+
     .stages-grid,
     .subjects-grid,
     .assessment-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .assessment-card {
         padding: 30px 20px;
     }
-    
+
     .assessment-note {
         flex-direction: column;
         text-align: center;
     }
-    
+
     .approach-feature {
         flex-direction: column;
         text-align: center;
@@ -529,15 +529,15 @@ if ($db) {
     .page-header h1 {
         font-size: var(--text-xl);
     }
-    
+
     .section-title {
         font-size: 1.5rem;
     }
-    
+
     .stage-title {
         font-size: 1.5rem;
     }
-    
+
     .assessment-item {
         padding: 10px;
     }
@@ -577,10 +577,10 @@ if ($db) {
             <span class="section-tag">Our Curriculum</span>
             <h2 class="section-title">British Early Years <span class="text-highlight">Foundation Stage</span></h2>
         </div>
-        
+
         <div class="overview-content">
-            <p class="lead"><?php echo $curriculum['overview']; ?></p>
-            <p><?php echo $curriculum['approach']; ?></p>
+            <p class="lead"><?php echo e($curriculum['overview']); ?></p>
+            <p><?php echo e($curriculum['approach']); ?></p>
         </div>
     </div>
 </section>
@@ -605,7 +605,7 @@ if ($db) {
                     </ul>
                 </div>
             </div>
-            
+
             <!-- Reception Stage -->
             <div class="stage-card">
                 <div class="stage-age">Ages 4-5</div>
@@ -622,7 +622,7 @@ if ($db) {
                     </ul>
                 </div>
             </div>
-            
+
             <!-- Year 1-2 Stage -->
             <div class="stage-card">
                 <div class="stage-age">Ages 5-7</div>
@@ -651,7 +651,7 @@ if ($db) {
             <span class="section-tag">Subjects</span>
             <h2 class="section-title">What We <span class="text-highlight">Teach</span></h2>
         </div>
-        
+
         <div class="subjects-grid">
             <?php foreach ($curriculum['subjects'] as $subject): ?>
             <div class="subject-card">
@@ -669,10 +669,10 @@ if ($db) {
                     ];
                     $icon = $icons[$subject] ?? 'fa-graduation-cap';
                     ?>
-                    <i class="fas <?php echo $icon; ?>"></i>
+                    <i class="fas <?php echo e($icon); ?>"></i>
                 </div>
-                <h3><?php echo $subject; ?></h3>
-                <p>Age-appropriate learning activities designed to develop skills and knowledge in <?php echo strtolower($subject); ?>.</p>
+                <h3><?php echo e($subject); ?></h3>
+                <p>Age-appropriate learning activities designed to develop skills and knowledge in <?php echo e(strtolower($subject)); ?>.</p>
             </div>
             <?php endforeach; ?>
         </div>
@@ -687,7 +687,7 @@ if ($db) {
                 <span class="section-tag">Our Approach</span>
                 <h2 class="section-title">Learning Through <span class="text-highlight">Play & Discovery</span></h2>
                 <p>We believe that children learn best when they are actively engaged and having fun. Our approach combines:</p>
-                
+
                 <div class="approach-features">
                     <div class="approach-feature">
                         <i class="fas fa-play-circle"></i>
@@ -696,7 +696,7 @@ if ($db) {
                             <p>Children choose activities that interest them, fostering independence and motivation.</p>
                         </div>
                     </div>
-                    
+
                     <div class="approach-feature">
                         <i class="fas fa-users"></i>
                         <div>
@@ -704,7 +704,7 @@ if ($db) {
                             <p>Teachers facilitate learning through carefully planned activities and interventions.</p>
                         </div>
                     </div>
-                    
+
                     <div class="approach-feature">
                         <i class="fas fa-seedling"></i>
                         <div>
@@ -712,7 +712,7 @@ if ($db) {
                             <p>Regular outdoor sessions for physical development and connection with nature.</p>
                         </div>
                     </div>
-                    
+
                     <div class="approach-feature">
                         <i class="fas fa-pray"></i>
                         <div>
@@ -722,7 +722,7 @@ if ($db) {
                     </div>
                 </div>
             </div>
-            
+
             <div class="approach-image">
                 <img src="<?php echo BASE_URL; ?>/assets/images/learning-approach.jpeg" alt="Children learning through play">
                 <div class="approach-quote">
@@ -741,33 +741,33 @@ if ($db) {
         <div class="assessment-card">
             <h2>Assessment & Progress Tracking</h2>
             <p>We continuously monitor each child's progress through:</p>
-            
+
             <div class="assessment-grid">
                 <div class="assessment-item">
                     <i class="fas fa-eye"></i>
                     <h4>Observation</h4>
                     <p>Regular observations of children during play and activities</p>
                 </div>
-                
+
                 <div class="assessment-item">
                     <i class="fas fa-folder-open"></i>
                     <h4>Learning Journeys</h4>
                     <p>Digital portfolios documenting each child's achievements</p>
                 </div>
-                
+
                 <div class="assessment-item">
                     <i class="fas fa-chart-line"></i>
                     <h4>Progress Checks</h4>
                     <p>Termly assessments against age-expected outcomes</p>
                 </div>
-                
+
                 <div class="assessment-item">
                     <i class="fas fa-users-cog"></i>
                     <h4>Parent Consultations</h4>
                     <p>Regular meetings to discuss progress and next steps</p>
                 </div>
             </div>
-            
+
             <div class="assessment-note">
                 <i class="fas fa-info-circle"></i>
                 <p>Parents receive detailed reports at the end of each term and are invited to discuss their child's progress with teachers.</p>

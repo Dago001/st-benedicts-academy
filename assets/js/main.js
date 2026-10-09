@@ -1,10 +1,17 @@
 // assets/js/main.js
 
+// Site-wide globals (BASE_URL / CSRF_TOKEN are defined by includes/header.php)
+function escapeHtml(value) {
+    return String(value === null || value === undefined ? '' : value)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 // Mobile Menu Toggle
 document.addEventListener('DOMContentLoaded', function() {
     const mobileToggle = document.getElementById('mobileMenuToggle');
     const navMenu = document.getElementById('navMenu');
-    
+
     if (mobileToggle && navMenu) {
         mobileToggle.addEventListener('click', function() {
             navMenu.classList.toggle('active');
@@ -15,11 +22,11 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
+
     // Close mobile menu when clicking outside
     document.addEventListener('click', function(event) {
-        if (navMenu && navMenu.classList.contains('active') && 
-            !navMenu.contains(event.target) && 
+        if (navMenu && navMenu.classList.contains('active') &&
+            !navMenu.contains(event.target) &&
             !mobileToggle.contains(event.target)) {
             navMenu.classList.remove('active');
             const icon = mobileToggle.querySelector('i');
@@ -29,14 +36,14 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
-    
+
     // Initialize tooltips
     const tooltips = document.querySelectorAll('[data-tooltip]');
     tooltips.forEach(element => {
         element.addEventListener('mouseenter', showTooltip);
         element.addEventListener('mouseleave', hideTooltip);
     });
-    
+
     // Lazy loading images
     const lazyImages = document.querySelectorAll('img[loading="lazy"]');
     if ('IntersectionObserver' in window) {
@@ -50,19 +57,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         });
-        
+
         lazyImages.forEach(img => imageObserver.observe(img));
     }
-    
+
     // Form validation
     const forms = document.querySelectorAll('form[data-validate]');
     forms.forEach(form => {
         form.addEventListener('submit', validateForm);
     });
-    
+
     // Check for notifications
     checkNotifications();
-    
+
     // Initialize data tables
     initializeDataTables();
 });
@@ -71,14 +78,14 @@ document.addEventListener('DOMContentLoaded', function() {
 function showTooltip(event) {
     const element = event.target;
     const text = element.dataset.tooltip;
-    
+
     const tooltip = document.createElement('div');
     tooltip.className = 'tooltip';
     tooltip.textContent = text;
     tooltip.id = 'current-tooltip';
-    
+
     document.body.appendChild(tooltip);
-    
+
     const rect = element.getBoundingClientRect();
     tooltip.style.top = rect.top - tooltip.offsetHeight - 5 + 'px';
     tooltip.style.left = rect.left + (rect.width / 2) - (tooltip.offsetWidth / 2) + 'px';
@@ -95,7 +102,7 @@ function hideTooltip() {
 function validateForm(event) {
     const form = event.target;
     let isValid = true;
-    
+
     // Required fields
     const requiredFields = form.querySelectorAll('[required]');
     requiredFields.forEach(field => {
@@ -106,7 +113,7 @@ function validateForm(event) {
             markFieldValid(field);
         }
     });
-    
+
     // Email validation
     const emailFields = form.querySelectorAll('input[type="email"]');
     emailFields.forEach(field => {
@@ -115,7 +122,7 @@ function validateForm(event) {
             isValid = false;
         }
     });
-    
+
     // Phone validation (Nigerian)
     const phoneFields = form.querySelectorAll('input[type="tel"]');
     phoneFields.forEach(field => {
@@ -124,7 +131,7 @@ function validateForm(event) {
             isValid = false;
         }
     });
-    
+
     // Password match
     const password = form.querySelector('input[name="password"]');
     const confirmPassword = form.querySelector('input[name="confirm_password"]');
@@ -132,7 +139,7 @@ function validateForm(event) {
         markFieldInvalid(confirmPassword, 'Passwords do not match');
         isValid = false;
     }
-    
+
     if (!isValid) {
         event.preventDefault();
         showFormError('Please correct the errors in the form');
@@ -141,7 +148,7 @@ function validateForm(event) {
 
 function markFieldInvalid(field, message) {
     field.classList.add('error');
-    
+
     let errorDiv = field.parentNode.querySelector('.error-message');
     if (!errorDiv) {
         errorDiv = document.createElement('div');
@@ -173,10 +180,10 @@ function showFormError(message) {
     const alert = document.createElement('div');
     alert.className = 'alert alert-error';
     alert.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + message;
-    
+
     const form = document.querySelector('form');
     form.insertBefore(alert, form.firstChild);
-    
+
     setTimeout(() => {
         alert.remove();
     }, 5000);
@@ -232,18 +239,18 @@ function initializeDataTables() {
 function submitFormAjax(formId, url, callback) {
     const form = document.getElementById(formId);
     if (!form) return;
-    
+
     form.addEventListener('submit', function(e) {
         e.preventDefault();
-        
+
         const formData = new FormData(form);
         const submitButton = form.querySelector('button[type="submit"]');
-        
+
         if (submitButton) {
             submitButton.disabled = true;
             submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
         }
-        
+
         fetch(url, {
             method: 'POST',
             body: formData
@@ -254,7 +261,7 @@ function submitFormAjax(formId, url, callback) {
                 submitButton.disabled = false;
                 submitButton.innerHTML = 'Submit';
             }
-            
+
             if (callback) {
                 callback(data);
             }
@@ -274,7 +281,7 @@ function submitFormAjax(formId, url, callback) {
 function printElement(elementId) {
     const element = document.getElementById(elementId);
     if (!element) return;
-    
+
     const printWindow = window.open('', '_blank');
     printWindow.document.write('<html><head><title>Print</title>');
     printWindow.document.write('<link rel="stylesheet" href="' + BASE_URL + '/assets/css/style.css">');
@@ -289,10 +296,10 @@ function printElement(elementId) {
 function toggleTheme() {
     const body = document.body;
     body.classList.toggle('dark-mode');
-    
+
     const isDark = body.classList.contains('dark-mode');
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
-    
+
     const toggleButton = document.querySelector('.theme-toggle i');
     if (toggleButton) {
         toggleButton.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
@@ -309,22 +316,22 @@ if (savedTheme === 'dark') {
 function exportToExcel(tableId, filename) {
     const table = document.getElementById(tableId);
     if (!table) return;
-    
+
     let csv = [];
     const rows = table.querySelectorAll('tr');
-    
+
     rows.forEach(row => {
         const rowData = [];
         const cols = row.querySelectorAll('td, th');
-        
+
         cols.forEach(col => {
             let text = col.innerText.replace(/,/g, '');
             rowData.push(text);
         });
-        
+
         csv.push(rowData.join(','));
     });
-    
+
     const csvContent = csv.join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);

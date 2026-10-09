@@ -1,13 +1,7 @@
 <?php
 // public/contact.php - Contact Page
 require_once __DIR__ . '/../config/config.php';
-require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/security.php';
-
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
 
 $pageTitle = 'Contact Us - Get in Touch';
 $pageDescription = 'Contact ST. BENEDICT\'S EARLY YEARS BRITISH ACADEMY. Find our location, phone number, email, and send us a message.';
@@ -21,12 +15,7 @@ $metaTags = [
     'twitter:card' => 'summary_large_image'
 ];
 
-// Check if header exists
-$headerPath = __DIR__ . '/../includes/header.php';
-if (!file_exists($headerPath)) {
-    die("Error: Header file not found at: $headerPath");
-}
-include $headerPath;
+include __DIR__ . '/../includes/header.php';
 
 // Get database instance
 try {
@@ -40,115 +29,63 @@ $message = '';
 $messageType = '';
 
 // Handle contact form submission
+$sent = false;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $errors = [];
     if (!Security::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
-        $message = 'Invalid security token';
-        $messageType = 'error';
+        $errors[] = 'Your session expired. Please reload the page and try again.';
+    } elseif (!empty($_POST['website'])) {
+        $sent = true; // honeypot: silently drop bot submissions
+    } elseif (($_SESSION['contact_attempts'][date('YmdH')] ?? 0) >= 5) {
+        $errors[] = 'Too many messages from this device. Please try again later or call the school office.';
     } else {
+        $_SESSION['contact_attempts'] = [date('YmdH') => ($_SESSION['contact_attempts'][date('YmdH')] ?? 0) + 1];
         $data = [
-            'name' => Security::sanitize($_POST['name'] ?? ''),
-            'email' => Security::sanitize($_POST['email'] ?? ''),
-            'phone' => Security::sanitize($_POST['phone'] ?? ''),
-            'subject' => Security::sanitize($_POST['subject'] ?? ''),
-            'message' => Security::sanitize($_POST['message'] ?? '')
+            'name' => mb_substr(Security::sanitize($_POST['name'] ?? ''), 0, 100),
+            'email' => mb_substr(Security::sanitize($_POST['email'] ?? ''), 0, 100),
+            'phone' => mb_substr(Security::sanitize($_POST['phone'] ?? ''), 0, 20),
+            'subject' => mb_substr(Security::sanitize($_POST['subject'] ?? ''), 0, 200),
+            'message' => mb_substr(trim(str_replace("\0", '', (string)($_POST['message'] ?? ''))), 0, 5000),
         ];
-        
-        // Validate
-        $errors = [];
-        
-        if (empty($data['name'])) {
-            $errors[] = 'Name is required';
-        }
-        
-        if (!Security::validateEmail($data['email'])) {
-            $errors[] = 'Valid email is required';
-        }
-        
-        if (empty($data['message'])) {
-            $errors[] = 'Message is required';
-        }
-        
-        // Validate phone if provided
-        if (!empty($data['phone']) && !Security::validatePhone($data['phone'])) {
-            $errors[] = 'Valid Nigerian phone number is required (e.g., 08012345678)';
-        }
-        
-        if (empty($errors) && $db) {
+
+        if ($data['name'] === '') $errors[] = 'Name is required';
+        if (!Security::validateEmail($data['email'])) $errors[] = 'A valid email is required';
+        if ($data['message'] === '') $errors[] = 'Message is required';
+        if ($data['phone'] !== '' && !Security::validatePhone($data['phone'])) $errors[] = 'A valid Nigerian phone number is required (e.g., 08012345678)';
+        if (!$db) $errors[] = 'We could not save your message right now. Please try again later.';
+
+        if (!$errors) {
             try {
-                // Save to database
                 $db->insert(
-                    "INSERT INTO contact_messages (name, email, phone, subject, message, submitted_at) 
-                     VALUES (?, ?, ?, ?, ?, NOW())",
+                    "INSERT INTO contact_messages (name, email, phone, subject, message) VALUES (?, ?, ?, ?, ?)",
                     [$data['name'], $data['email'], $data['phone'], $data['subject'], $data['message']]
                 );
-                
-                // Send email notification to admin
-                $adminEmail = defined('SCHOOL_EMAIL') ? SCHOOL_EMAIL : 'admin@stbenedicts.edu.ng';
-                $emailSubject = "New Contact Message from " . $data['name'];
-                $emailMessage = "
-                <html>
-                <head>
-                    <style>
-                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                        .header { background: #002855; color: white; padding: 20px; text-align: center; }
-                        .content { background: #f9f9f9; padding: 30px; }
-                        .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #666; }
-                    </style>
-                </head>
-                <body>
-                    <div class='container'>
-                        <div class='header'>
-                            <h2>New Contact Form Submission</h2>
-                        </div>
-                        <div class='content'>
-                            <p><strong>Name:</strong> {$data['name']}</p>
-                            <p><strong>Email:</strong> {$data['email']}</p>
-                            <p><strong>Phone:</strong> " . (!empty($data['phone']) ? $data['phone'] : 'Not provided') . "</p>
-                            <p><strong>Subject:</strong> " . (!empty($data['subject']) ? $data['subject'] : 'No subject') . "</p>
-                            <p><strong>Message:</strong></p>
-                            <p>" . nl2br($data['message']) . "</p>
-                        </div>
-                        <div class='footer'>
-                            <p>This message was sent from the contact form on your website.</p>
-                        </div>
-                    </div>
-                </body>
-                </html>
-                ";
-                
-                $headers = "MIME-Version: 1.0" . "\r\n";
-                $headers .= "Content-type:text/html;charset=UTF-8" . "\r\n";
-                $headers .= "From: " . (defined('SCHOOL_NAME') ? SCHOOL_NAME : 'ST. BENEDICT\'S ACADEMY') . " <" . $data['email'] . ">\r\n";
-                
-                mail($adminEmail, $emailSubject, $emailMessage, $headers);
-                
-                $message = '<div style="text-align: center;">
-                    <i class="fas fa-check-circle" style="font-size: 4rem; color: #28a745; margin-bottom: 20px;"></i>
-                    <h3>Thank You for Contacting Us!</h3>
-                    <p>We have received your message and will get back to you within 24 hours.</p>
-                </div>';
-                $messageType = 'success';
-                
-                // Clear form data
+                sendEmail(SCHOOL_EMAIL, 'New contact message from ' . $data['name'],
+                    "<div style='font-family:Arial,sans-serif;max-width:600px'>"
+                    . "<h2>New contact form submission</h2>"
+                    . "<p><strong>Name:</strong> " . e($data['name']) . "</p>"
+                    . "<p><strong>Email:</strong> " . e($data['email']) . "</p>"
+                    . "<p><strong>Phone:</strong> " . e($data['phone'] ?: 'Not provided') . "</p>"
+                    . "<p><strong>Subject:</strong> " . e($data['subject'] ?: 'No subject') . "</p>"
+                    . "<p>" . nl2br(e($data['message'])) . "</p></div>");
+                $sent = true;
                 $_POST = [];
-                
             } catch (Exception $e) {
-                $message = 'An error occurred. Please try again later or contact us directly.';
-                $messageType = 'error';
-                error_log("Contact form error: " . $e->getMessage());
+                error_log('Contact form error: ' . $e->getMessage());
+                $errors[] = 'An error occurred. Please try again later or contact us directly.';
             }
-        } elseif (!empty($errors)) {
-            $message = '<ul><li>' . implode('</li><li>', $errors) . '</li></ul>';
-            $messageType = 'error';
-        } else {
-            $message = 'Database connection error. Please try again later.';
-            $messageType = 'error';
         }
+    }
+    if ($errors) {
+        $messageType = 'error';
+        $message = implode("\n", $errors);
+    }
+    if ($sent) {
+        $messageType = 'success';
     }
 }
 
-// Get business hours
+// Opening hours
 $businessHours = [
     'Monday' => '8:00 AM - 4:00 PM',
     'Tuesday' => '8:00 AM - 4:00 PM',
@@ -736,21 +673,21 @@ $businessHours = [
         font-size: 60px;
         line-height: 19.19px;
     }
-    
+
     .breadcrumb a {
         font-size: 35px;
         line-height: 20px;
     }
-    
+
     .section-title {
         font-size: var(--text-2xl);
     }
-    
+
     .contact-grid {
         grid-template-columns: 1fr;
         gap: var(--spacing-xl);
     }
-    
+
     .contact-form-container {
         order: -1;
     }
@@ -760,46 +697,46 @@ $businessHours = [
     .page-header {
         padding: 30px 0;
     }
-    
+
     .page-header h1 {
         font-size: 48px;
         line-height: 19.19px;
     }
-    
+
     .breadcrumb a {
         font-size: 28px;
         line-height: 20px;
     }
-    
+
     .section-title {
         font-size: var(--text-xl);
     }
-    
+
     .contact-form .form-row {
         grid-template-columns: 1fr;
     }
-    
+
     .form-card {
         padding: var(--spacing-xl);
     }
-    
+
     .form-card h3 {
         font-size: var(--text-xl);
     }
-    
+
     .info-card {
         flex-direction: column;
         text-align: center;
     }
-    
+
     .info-icon {
         margin: 0 auto;
     }
-    
+
     .social-links {
         justify-content: center;
     }
-    
+
     .map-container {
         height: 350px;
     }
@@ -809,47 +746,47 @@ $businessHours = [
     .page-header {
         padding: 20px 0;
     }
-    
+
     .page-header h1 {
         font-size: 36px;
         line-height: 19.19px;
     }
-    
+
     .breadcrumb a {
         font-size: 22px;
         line-height: 20px;
     }
-    
+
     .section-title {
         font-size: var(--text-lg);
     }
-    
+
     .info-card {
         padding: var(--spacing-md);
     }
-    
+
     .info-icon {
         width: 50px;
         height: 50px;
         font-size: var(--text-xl);
     }
-    
+
     .hours-row {
         flex-direction: column;
         align-items: center;
         gap: var(--spacing-xs);
     }
-    
+
     .social-link {
         width: 40px;
         height: 40px;
         font-size: var(--text-md);
     }
-    
+
     .map-container {
         height: 250px;
     }
-    
+
     .faq-question h3 {
         font-size: var(--text-sm);
     }
@@ -875,9 +812,9 @@ $businessHours = [
                     <span class="section-tag">Get in Touch</span>
                     <h2 class="section-title">We'd Love to <span class="text-highlight">Hear From You</span></h2>
                 </div>
-                
+
                 <p class="contact-intro">Have questions about admissions, curriculum, or anything else? Our team is ready to answer all your questions.</p>
-                
+
                 <div class="info-cards">
                     <div class="info-card">
                         <div class="info-icon">
@@ -891,7 +828,7 @@ $businessHours = [
                             </a>
                         </div>
                     </div>
-                    
+
                     <div class="info-card">
                         <div class="info-icon">
                             <i class="fas fa-phone-alt"></i>
@@ -902,7 +839,7 @@ $businessHours = [
                             <p class="small">Monday - Friday: 8:00 AM - 4:00 PM</p>
                         </div>
                     </div>
-                    
+
                     <div class="info-card">
                         <div class="info-icon">
                             <i class="fas fa-envelope"></i>
@@ -913,7 +850,7 @@ $businessHours = [
                             <p class="small">We reply within 24 hours</p>
                         </div>
                     </div>
-                    
+
                     <div class="info-card">
                         <div class="info-icon">
                             <i class="fas fa-clock"></i>
@@ -923,15 +860,15 @@ $businessHours = [
                             <div class="hours-list">
                                 <?php foreach ($businessHours as $day => $hours): ?>
                                 <div class="hours-row">
-                                    <span class="day"><?php echo $day; ?>:</span>
-                                    <span class="hours"><?php echo $hours; ?></span>
+                                    <span class="day"><?php echo e($day); ?>:</span>
+                                    <span class="hours"><?php echo e($hours); ?></span>
                                 </div>
                                 <?php endforeach; ?>
                             </div>
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="social-connect">
                     <h3>Connect With Us</h3>
                     <div class="social-links">
@@ -939,63 +876,72 @@ $businessHours = [
                         <a href="#" class="social-link" target="_blank"><i class="fab fa-twitter"></i></a>
                         <a href="#" class="social-link" target="_blank"><i class="fab fa-instagram"></i></a>
                         <a href="#" class="social-link" target="_blank"><i class="fab fa-youtube"></i></a>
-                        <a href="#" class="social-link" target="_blank"><i class="fab fa-linkedin-in"></i></a>
+                        
                     </div>
                 </div>
             </div>
-            
+
             <!-- Contact Form -->
             <div class="contact-form-container">
                 <div class="form-card">
                     <h3>Send a Message</h3>
-                    
-                    <?php if ($message): ?>
-                    <div class="alert alert-<?php echo $messageType; ?>">
-                        <?php echo $message; ?>
+
+                    <?php if ($messageType === 'error' && $message): ?>
+                    <div class="alert alert-error" role="alert">
+                        <ul style="margin:0;padding-left:18px"><?php foreach (explode("\n", $message) as $line): ?><li><?php echo e($line); ?></li><?php endforeach; ?></ul>
                     </div>
                     <?php endif; ?>
-                    
+
+                    <?php if ($messageType === 'success'): ?>
+                    <div class="alert alert-success" style="text-align:center">
+                        <i class="fas fa-check-circle" style="font-size:3rem;color:#28a745;margin-bottom:12px"></i>
+                        <h3>Thank you for contacting us!</h3>
+                        <p>We have received your message and will get back to you within 24 hours.</p>
+                    </div>
+                    <?php endif; ?>
+
                     <?php if ($messageType !== 'success'): ?>
                     <form method="POST" class="contact-form" id="contactForm">
-                        <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
-                        
+                        <?php echo csrf_field(); ?>
+                        <div style="position:absolute;left:-9999px" aria-hidden="true"><label>Leave this empty <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+
                         <div class="form-group">
                             <label for="name">Your Name *</label>
-                            <input type="text" id="name" name="name" class="form-control" 
-                                   value="<?php echo htmlspecialchars($_POST['name'] ?? ''); ?>" 
+                            <input type="text" id="name" name="name" class="form-control"
+                                   value="<?php echo htmlspecialchars($_POST['name'] ?? ''); ?>"
                                    placeholder="Enter your full name" required>
                         </div>
-                        
+
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="email">Email Address *</label>
-                                <input type="email" id="email" name="email" class="form-control" 
-                                       value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>" 
+                                <input type="email" id="email" name="email" class="form-control"
+                                       value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>"
                                        placeholder="you@example.com" required>
                             </div>
-                            
+
                             <div class="form-group">
                                 <label for="phone">Phone Number</label>
-                                <input type="tel" id="phone" name="phone" class="form-control" 
-                                       value="<?php echo htmlspecialchars($_POST['phone'] ?? ''); ?>" 
+                                <input type="tel" id="phone" name="phone" class="form-control"
+                                       value="<?php echo htmlspecialchars($_POST['phone'] ?? ''); ?>"
                                        placeholder="08012345678">
                                 <small>Optional - Nigerian mobile number</small>
                             </div>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="subject">Subject</label>
-                            <input type="text" id="subject" name="subject" class="form-control" 
-                                   value="<?php echo htmlspecialchars($_POST['subject'] ?? ''); ?>" 
+                            <input type="text" id="subject" name="subject" class="form-control"
+                                   value="<?php echo htmlspecialchars($_POST['subject'] ?? ''); ?>"
                                    placeholder="What is your message about?">
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="message">Message *</label>
-                            <textarea id="message" name="message" class="form-control" rows="6" 
+                            <textarea id="message" name="message" class="form-control" rows="6"
                                       placeholder="Type your message here..." required><?php echo htmlspecialchars($_POST['message'] ?? ''); ?></textarea>
                         </div>
-                        
+
                         <button type="submit" class="btn btn-primary btn-block">
                             <i class="fas fa-paper-plane"></i> Send Message
                         </button>
@@ -1011,9 +957,9 @@ $businessHours = [
 <section class="map-section">
     <div class="container">
         <div class="map-container">
-            <iframe 
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3964.211234567890!2d7.123456789012345!3d6.123456789012345!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zNsKwMDcnMjQuNCJOIDfCsDA3JzI0LjQiRQ!5e0!3m2!1sen!2sng!4v1234567890123!5m2!1sen!2sng" 
-                allowfullscreen="" 
+            <iframe
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3964.211234567890!2d7.123456789012345!3d6.123456789012345!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zNsKwMDcnMjQuNCJOIDfCsDA3JzI0LjQiRQ!5e0!3m2!1sen!2sng!4v1234567890123!5m2!1sen!2sng"
+                allowfullscreen=""
                 loading="lazy">
             </iframe>
         </div>
@@ -1027,7 +973,7 @@ $businessHours = [
             <span class="section-tag">FAQ</span>
             <h2 class="section-title">Frequently Asked <span class="text-highlight">Questions</span></h2>
         </div>
-        
+
         <div class="faq-grid">
             <div class="faq-item">
                 <div class="faq-question" onclick="toggleFAQ(this)">
@@ -1038,7 +984,7 @@ $businessHours = [
                     <p>Admission requirements include: completed application form, birth certificate, immunization records, recent passport photographs, and previous school reports (if applicable). Please visit our Admissions page for more details.</p>
                 </div>
             </div>
-            
+
             <div class="faq-item">
                 <div class="faq-question" onclick="toggleFAQ(this)">
                     <h3>What is the school fees structure?</h3>
@@ -1048,7 +994,7 @@ $businessHours = [
                     <p>Our fee structure varies by class and includes tuition, development levy, sports fee, and other applicable charges. Please contact our admissions office for detailed fee information or download our prospectus.</p>
                 </div>
             </div>
-            
+
             <div class="faq-item">
                 <div class="faq-question" onclick="toggleFAQ(this)">
                     <h3>Do you offer transportation services?</h3>
@@ -1058,7 +1004,7 @@ $businessHours = [
                     <p>Yes, we provide safe and reliable transportation services with trained drivers and attendants. Our buses cover major routes within Enugu. Please contact the school office for route availability.</p>
                 </div>
             </div>
-            
+
             <div class="faq-item">
                 <div class="faq-question" onclick="toggleFAQ(this)">
                     <h3>What is the teacher-student ratio?</h3>
@@ -1068,7 +1014,7 @@ $businessHours = [
                     <p>We maintain small class sizes with a typical teacher-student ratio of 1:8 to ensure individual attention and quality learning experiences for every child.</p>
                 </div>
             </div>
-            
+
             <div class="faq-item">
                 <div class="faq-question" onclick="toggleFAQ(this)">
                     <h3>Do you provide meals?</h3>
@@ -1078,7 +1024,7 @@ $businessHours = [
                     <p>Yes, we provide nutritious meals and snacks prepared in our hygienic kitchen. Our menu is designed by nutritionists to ensure balanced meals for growing children.</p>
                 </div>
             </div>
-            
+
             <div class="faq-item">
                 <div class="faq-question" onclick="toggleFAQ(this)">
                     <h3>How can I schedule a school tour?</h3>
@@ -1103,11 +1049,11 @@ document.getElementById('contactForm')?.addEventListener('submit', function(e) {
     const submitBtn = this.querySelector('button[type="submit"]');
     submitBtn.classList.add('btn-loading');
     submitBtn.disabled = true;
-    
+
     const email = document.getElementById('email').value;
     const phone = document.getElementById('phone').value;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    
+
     if (!emailRegex.test(email)) {
         e.preventDefault();
         alert('Please enter a valid email address');
@@ -1115,7 +1061,7 @@ document.getElementById('contactForm')?.addEventListener('submit', function(e) {
         submitBtn.disabled = false;
         return false;
     }
-    
+
     if (phone) {
         const phoneRegex = /^0[789][01]\d{8}$/;
         if (!phoneRegex.test(phone)) {
@@ -1131,7 +1077,7 @@ document.getElementById('contactForm')?.addEventListener('submit', function(e) {
 // Add animation on scroll
 document.addEventListener('DOMContentLoaded', function() {
     const elements = document.querySelectorAll('.info-card, .faq-item');
-    
+
     const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
@@ -1140,7 +1086,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }, { threshold: 0.1 });
-    
+
     elements.forEach(el => {
         el.style.opacity = '0';
         observer.observe(el);

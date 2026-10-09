@@ -1,13 +1,7 @@
 <?php
 // public/admissions.php
 require_once __DIR__ . '/../config/config.php';
-require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/security.php';
-
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
 
 $pageTitle = 'Admissions - Apply to ST. BENEDICT\'S EARLY YEARS BRITISH ACADEMY';
 $pageDescription = 'Apply for admission to ST. BENEDICT\'S EARLY YEARS BRITISH ACADEMY. Learn about our admission requirements, process, and start your child\'s educational journey with us.';
@@ -22,27 +16,8 @@ $metaTags = [
     'twitter:card' => 'summary_large_image'
 ];
 
-// Check if header exists
-$headerPath = __DIR__ . '/../includes/header.php';
-if (!file_exists($headerPath)) {
-    die("Error: Header file not found at: $headerPath");
-}
-include $headerPath;
+include __DIR__ . '/../includes/header.php';
 
-// Define upload path if not defined
-if (!defined('UPLOAD_PATH')) {
-    define('UPLOAD_PATH', __DIR__ . '/../uploads/');
-}
-
-// Create upload directory if it doesn't exist
-$uploadDir = UPLOAD_PATH . 'admissions/';
-if (!file_exists($uploadDir)) {
-    if (!mkdir($uploadDir, 0777, true)) {
-        error_log("Failed to create upload directory: " . $uploadDir);
-    }
-}
-
-// Get database instance
 try {
     $db = Database::getInstance();
 } catch (Exception $e) {
@@ -50,316 +25,115 @@ try {
     $db = null;
 }
 
-// Define email function if not exists
-if (!function_exists('sendEmail')) {
-    function sendEmail($to, $subject, $message) {
-        $headers = "MIME-Version: 1.0" . "\r\n";
-        $headers .= "Content-type:text/html;charset=UTF-8" . "\r\n";
-        $headers .= "From: " . (defined('SCHOOL_NAME') ? SCHOOL_NAME : 'ST. BENEDICT\'S ACADEMY') . " <" . (defined('SCHOOL_EMAIL') ? SCHOOL_EMAIL : 'noreply@stbenedicts.edu.ng') . ">\r\n";
-        
-        return mail($to, $subject, $message, $headers);
-    }
-}
-
-// Handle form submission
 $message = '';
 $messageType = '';
+$applied = null;
+
+$documentTypes = [
+    'birth_certificate' => ['Birth Certificate', ['pdf', 'jpg', 'jpeg', 'png'], true],
+    'passport_photo' => ['Passport Photograph', ['jpg', 'jpeg', 'png'], true],
+    'immunization_record' => ['Immunization Record', ['pdf', 'jpg', 'jpeg', 'png'], false],
+    'previous_report' => ['Previous School Report', ['pdf', 'jpg', 'jpeg', 'png'], false],
+];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Verify CSRF token
+    $errors = [];
+    $stored = [];
     if (!Security::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
-        $message = 'Invalid security token. Please refresh the page and try again.';
-        $messageType = 'error';
+        $errors[] = 'Your session expired. Please reload the page and try again.';
+    } elseif (!empty($_POST['website'])) {
+        $messageType = 'success'; // honeypot: bots get a fake success and nothing is stored
+    } elseif (($_SESSION['admission_attempts'][date('YmdH')] ?? 0) >= 5) {
+        $errors[] = 'Too many submissions from this device. Please try again later or call the school office.';
+    } elseif (!$db) {
+        $errors[] = 'We could not process your application right now. Please try again later.';
     } else {
-        // Sanitize input
-        $firstName = Security::sanitize($_POST['first_name'] ?? '');
-        $middleName = Security::sanitize($_POST['middle_name'] ?? '');
-        $lastName = Security::sanitize($_POST['last_name'] ?? '');
-        $dob = Security::sanitize($_POST['dob'] ?? '');
-        $gender = Security::sanitize($_POST['gender'] ?? '');
-        $class = Security::sanitize($_POST['class'] ?? '');
-        $parentName = Security::sanitize($_POST['parent_name'] ?? '');
-        $parentEmail = Security::sanitize($_POST['parent_email'] ?? '');
-        $parentPhone = Security::sanitize($_POST['parent_phone'] ?? '');
-        $address = Security::sanitize($_POST['address'] ?? '');
-        $previousSchool = Security::sanitize($_POST['previous_school'] ?? '');
-        
-        // Validate
-        $errors = [];
-        
-        if (empty($firstName)) $errors[] = 'First name is required';
-        if (empty($lastName)) $errors[] = 'Last name is required';
-        if (empty($dob)) $errors[] = 'Date of birth is required';
-        if (empty($gender)) $errors[] = 'Gender is required';
-        if (empty($class)) $errors[] = 'Class is required';
-        if (empty($parentName)) $errors[] = 'Parent name is required';
-        
-        // Validate email
-        if (empty($parentEmail)) {
-            $errors[] = 'Parent email is required';
-        } elseif (!Security::validateEmail($parentEmail)) {
-            $errors[] = 'Valid parent email is required';
-        }
-        
-        // Validate phone
-        if (empty($parentPhone)) {
-            $errors[] = 'Parent phone is required';
-        } elseif (!Security::validatePhone($parentPhone)) {
-            $errors[] = 'Valid Nigerian phone number is required (e.g., 08012345678)';
-        }
-        
-        if (empty($address)) $errors[] = 'Address is required';
-        
-        if (empty($errors)) {
-            // Generate application number
-            $appNumber = 'APP-' . date('Y') . '-' . str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);
-            
-            // Handle multiple file uploads
-            $uploadedFiles = [];
-            $uploadErrors = [];
-            
-            // Document types and their required status
-            $documentTypes = [
-                'birth_certificate' => 'Birth Certificate',
-                'passport_photo' => 'Passport Photograph',
-                'immunization_record' => 'Immunization Record',
-                'previous_report' => 'Previous School Report'
-            ];
-            
-            foreach ($documentTypes as $key => $label) {
-                if (isset($_FILES[$key]) && $_FILES[$key]['error'] !== UPLOAD_ERR_NO_FILE) {
-                    if ($_FILES[$key]['error'] === UPLOAD_ERR_OK) {
-                        $upload = Security::validateFileUpload($_FILES[$key]);
-                        if ($upload['valid']) {
-                            $fileName = $key . '_' . $appNumber . '_' . time() . '.' . $upload['extension'];
-                            $fullPath = $uploadDir . $fileName;
-                            
-                            if (move_uploaded_file($_FILES[$key]['tmp_name'], $fullPath)) {
-                                $uploadedFiles[$key] = $fileName;
-                                chmod($fullPath, 0644);
-                            } else {
-                                $uploadErrors[] = "Failed to upload $label";
-                            }
-                        } else {
-                            $uploadErrors[] = "$label: " . implode(', ', $upload['errors']);
-                        }
-                    } else {
-                        $uploadErrors[] = "Error uploading $label";
-                    }
+        $_SESSION['admission_attempts'] = [date('YmdH') => ($_SESSION['admission_attempts'][date('YmdH')] ?? 0) + 1];
+        $t = function ($k, $max = 100) { return mb_substr(Security::sanitize($_POST[$k] ?? ''), 0, $max); };
+        $firstName = $t('first_name', 50);
+        $middleName = $t('middle_name', 50);
+        $lastName = $t('last_name', 50);
+        $dob = valid_date($_POST['dob'] ?? '');
+        $gender = $_POST['gender'] ?? '';
+        $class = $t('class', 50);
+        $parentName = $t('parent_name', 100);
+        $parentEmail = $t('parent_email', 100);
+        $parentPhone = $t('parent_phone', 20);
+        $address = $t('address', 500);
+        $previousSchool = $t('previous_school', 200);
+
+        if ($firstName === '') $errors[] = 'First name is required';
+        if ($lastName === '') $errors[] = 'Last name is required';
+        if (!$dob || $dob > date('Y-m-d')) $errors[] = 'A valid date of birth is required';
+        if (!in_array($gender, ['male', 'female', 'other'], true)) $errors[] = 'Gender is required';
+        if ($class === '') $errors[] = 'Class is required';
+        if ($parentName === '') $errors[] = 'Parent name is required';
+        if (!Security::validateEmail($parentEmail)) $errors[] = 'A valid parent email is required';
+        if (!Security::validatePhone($parentPhone)) $errors[] = 'A valid Nigerian phone number is required (e.g., 08012345678)';
+        if ($address === '') $errors[] = 'Address is required';
+
+        if (!$errors) {
+            $privateDir = PRIVATE_PATH . 'applications/';
+            if (!is_dir($privateDir)) { @mkdir($privateDir, 0750, true); }
+            foreach ($documentTypes as $key => [$label, $allowed, $required]) {
+                $has = isset($_FILES[$key]) && $_FILES[$key]['error'] !== UPLOAD_ERR_NO_FILE;
+                if (!$has) {
+                    if ($required) $errors[] = "$label is required";
+                    continue;
+                }
+                $check = Security::validateFileUpload($_FILES[$key], $allowed);
+                if (!$check['valid']) { $errors[] = "$label: " . $check['message']; continue; }
+                $name = $key . '_' . bin2hex(random_bytes(12)) . '.' . $check['extension'];
+                if (move_uploaded_file($_FILES[$key]['tmp_name'], $privateDir . $name)) {
+                    @chmod($privateDir . $name, 0640);
+                    $stored[$key] = $name;
+                } else {
+                    $errors[] = "Failed to upload $label";
                 }
             }
-            
-            // Check if at least birth certificate and passport photo are uploaded
-            if (!isset($uploadedFiles['birth_certificate'])) {
-                $errors[] = 'Birth certificate is required';
-            }
-            if (!isset($uploadedFiles['passport_photo'])) {
-                $errors[] = 'Passport photograph is required';
-            }
-            
-            if (empty($errors) && empty($uploadErrors) && $db) {
-                // Save to database
-                try {
-                    // Store file paths as JSON in database
-                    $documentsJson = json_encode($uploadedFiles);
-                    
-                    // Check if the admissions table exists and has the correct structure
-                    $tableCheck = $db->getRow("SHOW TABLES LIKE 'admissions'");
-                    
-                    if (!$tableCheck) {
-                        // Create admissions table if it doesn't exist
-                        $db->query("
-                            CREATE TABLE IF NOT EXISTS admissions (
-                                id INT PRIMARY KEY AUTO_INCREMENT,
-                                application_number VARCHAR(50) UNIQUE NOT NULL,
-                                first_name VARCHAR(50) NOT NULL,
-                                middle_name VARCHAR(50),
-                                last_name VARCHAR(50) NOT NULL,
-                                date_of_birth DATE NOT NULL,
-                                gender ENUM('male', 'female', 'other') NOT NULL,
-                                class_applying_for VARCHAR(50) NOT NULL,
-                                parent_name VARCHAR(100) NOT NULL,
-                                parent_email VARCHAR(100) NOT NULL,
-                                parent_phone VARCHAR(20) NOT NULL,
-                                address TEXT NOT NULL,
-                                previous_school VARCHAR(200),
-                                documents_path TEXT,
-                                status ENUM('pending', 'reviewing', 'accepted', 'rejected') DEFAULT 'pending',
-                                reviewed_by INT,
-                                reviewed_at DATETIME,
-                                remarks TEXT,
-                                submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                INDEX idx_status (status)
-                            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-                        ");
-                    }
-                    
-                    // Insert into database
-                    $inserted = $db->insert(
-                        "INSERT INTO admissions (application_number, first_name, middle_name, last_name, date_of_birth, gender, class_applying_for, parent_name, parent_email, parent_phone, address, previous_school, documents_path, status, submitted_at) 
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())",
-                        [
-                            $appNumber, 
-                            $firstName, 
-                            $middleName, 
-                            $lastName, 
-                            $dob, 
-                            $gender, 
-                            $class, 
-                            $parentName, 
-                            $parentEmail, 
-                            $parentPhone, 
-                            $address, 
-                            $previousSchool, 
-                            $documentsJson
-                        ]
-                    );
-                    
-                    if (!$inserted) {
-                        throw new Exception("Failed to insert record");
-                    }
-                    
-                    // Send confirmation email
-                    $fullName = trim($firstName . ' ' . $middleName . ' ' . $lastName);
-                    $emailSubject = "Application Received - " . (defined('SCHOOL_NAME') ? SCHOOL_NAME : 'ST. BENEDICT\'S ACADEMY');
-                    $emailMessage = "
-                    <html>
-                    <head>
-                        <style>
-                            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                            .header { background: #002855; color: white; padding: 20px; text-align: center; border-radius: 10px 10px 0 0; }
-                            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-                            .app-number { font-size: 24px; font-weight: bold; color: #c41e3a; text-align: center; padding: 15px; background: #ffd700; border-radius: 5px; margin: 20px 0; }
-                            .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #666; }
-                            .doc-list { background: white; padding: 15px; border-radius: 5px; margin: 15px 0; }
-                            .doc-list li { color: #28a745; }
-                        </style>
-                    </head>
-                    <body>
-                        <div class='container'>
-                            <div class='header'>
-                                <h2>Application Received</h2>
-                            </div>
-                            <div class='content'>
-                                <p>Dear <strong>$parentName</strong>,</p>
-                                <p>Thank you for applying to <strong>" . (defined('SCHOOL_NAME') ? SCHOOL_NAME : 'ST. BENEDICT\'S ACADEMY') . "</strong>.</p>
-                                <p>We have received your application for:</p>
-                                <p><strong>Child's Full Name:</strong> $fullName<br>
-                                <strong>Class Applying For:</strong> $class</p>
-                                
-                                <div class='app-number'>
-                                    Your Application Number:<br>
-                                    <span style='font-size: 28px;'>$appNumber</span>
-                                </div>
-                                
-                                <div class='doc-list'>
-                                    <p><strong>Documents Received:</strong></p>
-                                    <ul>
-                                        " . (isset($uploadedFiles['birth_certificate']) ? '<li>✓ Birth Certificate</li>' : '') . "
-                                        " . (isset($uploadedFiles['passport_photo']) ? '<li>✓ Passport Photograph</li>' : '') . "
-                                        " . (isset($uploadedFiles['immunization_record']) ? '<li>✓ Immunization Record</li>' : '') . "
-                                        " . (isset($uploadedFiles['previous_report']) ? '<li>✓ Previous School Report</li>' : '') . "
-                                    </ul>
-                                </div>
-                                
-                                <p><strong>Next Steps:</strong></p>
-                                <ol>
-                                    <li>Our admissions team will review your application within 3-5 working days.</li>
-                                    <li>You will receive an email to schedule an assessment/interview.</li>
-                                    <li>After the assessment, you will receive the admission decision.</li>
-                                    <li>If accepted, you will receive enrollment instructions.</li>
-                                </ol>
-                                
-                                <p>If you have any questions, please contact our admissions office at " . (defined('SCHOOL_PHONE') ? SCHOOL_PHONE : '09044472688') . " or email admissions@" . (defined('SCHOOL_EMAIL') ? SCHOOL_EMAIL : 'stbenedicts.edu.ng') . ".</p>
-                                
-                                <p>May God bless you,</p>
-                                <p><strong>Admissions Team</strong><br>" . (defined('SCHOOL_NAME') ? SCHOOL_NAME : 'ST. BENEDICT\'S ACADEMY') . "</p>
-                            </div>
-                            <div class='footer'>
-                                <p>This is an automated message. Please do not reply to this email.</p>
-                            </div>
-                        </div>
-                    </body>
-                    </html>
-                    ";
-                    
-                    sendEmail($parentEmail, $emailSubject, $emailMessage);
-                    
-                    // Also send notification to admin
-                    $adminEmail = defined('SCHOOL_EMAIL') ? SCHOOL_EMAIL : 'admin@stbenedicts.edu.ng';
-                    $adminSubject = "New Admission Application - $appNumber";
-                    $adminMessage = "
-                    <html>
-                    <body>
-                        <h2>New Admission Application</h2>
-                        <p><strong>Application Number:</strong> $appNumber</p>
-                        <p><strong>Child's Full Name:</strong> $fullName</p>
-                        <p><strong>Date of Birth:</strong> $dob</p>
-                        <p><strong>Gender:</strong> $gender</p>
-                        <p><strong>Class Applying For:</strong> $class</p>
-                        <p><strong>Parent Name:</strong> $parentName</p>
-                        <p><strong>Parent Email:</strong> $parentEmail</p>
-                        <p><strong>Parent Phone:</strong> $parentPhone</p>
-                        <p><strong>Address:</strong> $address</p>
-                        <p><strong>Previous School:</strong> " . ($previousSchool ?: 'None') . "</p>
-                        <p><strong>Documents Uploaded:</strong></p>
-                        <ul>
-                            " . (isset($uploadedFiles['birth_certificate']) ? '<li>Birth Certificate</li>' : '') . "
-                            " . (isset($uploadedFiles['passport_photo']) ? '<li>Passport Photograph</li>' : '') . "
-                            " . (isset($uploadedFiles['immunization_record']) ? '<li>Immunization Record</li>' : '') . "
-                            " . (isset($uploadedFiles['previous_report']) ? '<li>Previous School Report</li>' : '') . "
-                        </ul>
-                        <p><a href='" . BASE_URL . "/admin/admissions.php'>View in Admin Panel</a></p>
-                    </body>
-                    </html>
-                    ";
-                    
-                    sendEmail($adminEmail, $adminSubject, $adminMessage);
-                    
-                    $message = '<div style="text-align: center;">
-                        <i class="fas fa-check-circle" style="font-size: 4rem; color: #28a745; margin-bottom: 20px;"></i>
-                        <h3>Application Submitted Successfully!</h3>
-                        <p>Your application number is: <strong style="font-size: 1.5rem; color: #c41e3a;">' . $appNumber . '</strong></p>
-                        <p>We have sent a confirmation email to: <strong>' . $parentEmail . '</strong></p>
-                        <p>Our admissions team will contact you within 3-5 working days.</p>
-                        <hr style="margin: 30px 0;">
-                        <h4>Next Steps:</h4>
-                        <ol style="text-align: left; max-width: 400px; margin: 20px auto;">
-                            <li>Wait for our call/email to schedule an assessment</li>
-                            <li>Bring your child for the assessment/interview</li>
-                            <li>Receive admission decision</li>
-                            <li>Complete enrollment if accepted</li>
-                        </ol>
-                        <div style="margin-top: 30px;">
-                            <a href="' . BASE_URL . '/index.php" class="btn btn-primary">Return to Home</a>
-                            <a href="admissions.php" class="btn btn-outline" style="margin-left: 10px;">Submit Another Application</a>
-                        </div>
-                    </div>';
-                    $messageType = 'success';
-                    
-                    // Clear form data
-                    $_POST = [];
-                    
-                } catch (Exception $e) {
-                    $message = 'An error occurred while submitting your application. Please try again later or contact us directly.';
-                    $messageType = 'error';
-                    error_log("Admission application error: " . $e->getMessage());
-                }
-            } elseif (!empty($errors)) {
-                $message = '<ul><li>' . implode('</li><li>', $errors) . '</li></ul>';
-                $messageType = 'error';
-            } elseif (!empty($uploadErrors)) {
-                $message = '<ul><li>' . implode('</li><li>', $uploadErrors) . '</li></ul>';
-                $messageType = 'error';
-            } else {
-                $message = 'Database connection error. Please try again later.';
-                $messageType = 'error';
+        }
+
+        if (!$errors) {
+            try {
+                $appNumber = generateApplicationNumber();
+                $db->insert(
+                    "INSERT INTO admissions (application_number, first_name, middle_name, last_name, date_of_birth, gender, class_applying_for, parent_name, parent_email, parent_phone, address, previous_school, documents_path, status)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')",
+                    [$appNumber, $firstName, $middleName ?: null, $lastName, $dob, $gender, $class, $parentName, $parentEmail, $parentPhone, $address, $previousSchool ?: null, json_encode($stored)]
+                );
+
+                $fullName = trim($firstName . ' ' . $middleName . ' ' . $lastName);
+                $docList = '';
+                foreach ($stored as $key => $_) { $docList .= '<li>&#10003; ' . e($documentTypes[$key][0]) . '</li>'; }
+                sendEmail($parentEmail, 'Application Received - ' . SCHOOL_NAME,
+                    "<div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto'>"
+                    . "<h2 style='background:#002855;color:#fff;padding:16px;text-align:center'>Application Received</h2>"
+                    . "<p>Dear <strong>" . e($parentName) . "</strong>,</p>"
+                    . "<p>Thank you for applying to <strong>" . e(SCHOOL_NAME) . "</strong> for <strong>" . e($fullName) . "</strong> (" . e($class) . ").</p>"
+                    . "<p style='font-size:20px;text-align:center;background:#ffd700;padding:12px'><strong>" . e($appNumber) . "</strong></p>"
+                    . "<p><strong>Documents received:</strong></p><ul>$docList</ul>"
+                    . "<ol><li>We will review your application within 3-5 working days.</li><li>You will be contacted to schedule an assessment.</li><li>You will then receive the admission decision.</li></ol>"
+                    . "<p>Questions? Call " . e(SCHOOL_PHONE) . ".</p><p><strong>Admissions Team</strong></p></div>");
+                sendEmail(SCHOOL_EMAIL, "New Admission Application - $appNumber",
+                    "<h2>New Admission Application</h2><p><strong>Number:</strong> " . e($appNumber) . "</p><p><strong>Child:</strong> " . e($fullName)
+                    . " (" . e($dob) . ", " . e($gender) . ")</p><p><strong>Class:</strong> " . e($class) . "</p><p><strong>Parent:</strong> " . e($parentName)
+                    . " &middot; " . e($parentEmail) . " &middot; " . e($parentPhone) . "</p><p><a href='" . e(BASE_URL) . "/admin/applications.php'>Review in the admin panel</a></p>");
+
+                $applied = ['number' => $appNumber, 'email' => $parentEmail];
+                $messageType = 'success';
+                $_POST = [];
+            } catch (Exception $e) {
+                foreach ($stored as $f) { @unlink(PRIVATE_PATH . 'applications/' . $f); }
+                error_log("Admission application error: " . $e->getMessage());
+                $errors[] = 'An error occurred while submitting your application. Please try again later or contact us directly.';
             }
         } else {
-            $message = '<ul><li>' . implode('</li><li>', $errors) . '</li></ul>';
-            $messageType = 'error';
+            foreach ($stored as $f) { @unlink(PRIVATE_PATH . 'applications/' . $f); }
         }
+    }
+    if ($errors) {
+        $messageType = 'error';
+        $message = implode("\n", $errors);
     }
 }
 
@@ -859,15 +633,15 @@ if (empty($classes)) {
         max-width: 600px;
         margin: 0 auto;
     }
-    
+
     .form-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .form-group.full-width {
         grid-column: auto;
     }
-    
+
     .document-upload-grid {
         grid-template-columns: 1fr;
     }
@@ -877,27 +651,27 @@ if (empty($classes)) {
     .page-header h1 {
         font-size: var(--text-2xl);
     }
-    
+
     .section-title {
         font-size: var(--text-2xl);
     }
-    
+
     .form-container {
         padding: var(--spacing-lg);
     }
-    
+
     .form-section {
         padding: var(--spacing-lg);
     }
-    
+
     .form-actions {
         flex-direction: column;
     }
-    
+
     .form-actions .btn {
         width: 100%;
     }
-    
+
     .info-card {
         padding: var(--spacing-lg);
     }
@@ -907,19 +681,19 @@ if (empty($classes)) {
     .form-container {
         padding: var(--spacing-md);
     }
-    
+
     .form-section {
         padding: var(--spacing-md);
     }
-    
+
     .form-section h3 {
         font-size: var(--text-lg);
     }
-    
+
     .checkbox-label {
         font-size: var(--text-xs);
     }
-    
+
     .document-item {
         padding: var(--spacing-md);
     }
@@ -978,7 +752,7 @@ if (empty($classes)) {
                     <li>Non-refundable application fee</li>
                 </ul>
             </div>
-            
+
             <div class="info-card animate-fade-in" style="animation-delay: 0.2s;">
                 <i class="fas fa-clock"></i>
                 <h3>Admission Process</h3>
@@ -991,7 +765,7 @@ if (empty($classes)) {
                     <li>Acceptance and enrollment</li>
                 </ol>
             </div>
-            
+
             <div class="info-card animate-fade-in" style="animation-delay: 0.4s;">
                 <i class="fas fa-download"></i>
                 <h3>Downloads</h3>
@@ -1013,50 +787,67 @@ if (empty($classes)) {
 <section class="application-form">
     <div class="container">
         <h2 class="section-title">Online Application</h2>
-        
-        <?php if ($message): ?>
-        <div class="alert alert-<?php echo $messageType; ?>">
-            <?php echo $message; ?>
+
+        <?php if ($messageType === 'error' && $message): ?>
+        <div class="alert alert-error" role="alert">
+            <ul style="margin:0;padding-left:18px"><?php foreach (explode("\n", $message) as $line): ?><li><?php echo e($line); ?></li><?php endforeach; ?></ul>
         </div>
         <?php endif; ?>
-        
+
+        <?php if ($messageType === 'success'): ?>
+        <div class="alert alert-success" style="text-align:center">
+            <i class="fas fa-check-circle" style="font-size:4rem;color:#28a745;margin-bottom:20px"></i>
+            <h3>Application Submitted Successfully!</h3>
+            <?php if ($applied): ?>
+            <p>Your application number is: <strong style="font-size:1.5rem;color:#c41e3a"><?php echo e($applied['number']); ?></strong></p>
+            <p>We have sent a confirmation email to <strong><?php echo e($applied['email']); ?></strong>.</p>
+            <?php endif; ?>
+            <p>Our admissions team will contact you within 3-5 working days.</p>
+            <div style="margin-top:24px">
+                <a href="<?php echo BASE_URL; ?>/index.php" class="btn btn-primary">Return to Home</a>
+                <a href="admissions.php" class="btn btn-outline">Submit Another Application</a>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <?php if ($messageType !== 'success'): ?>
         <form method="POST" action="" enctype="multipart/form-data" class="form-container" id="admissionForm">
-            <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
-            
+            <?php echo csrf_field(); ?>
+            <div style="position:absolute;left:-9999px" aria-hidden="true"><label>Leave this empty <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+
             <div class="form-section">
                 <h3><i class="fas fa-child"></i> Child's Information</h3>
-                
+
                 <div class="form-grid">
                     <div class="form-group">
                         <label for="first_name">First Name *</label>
-                        <input type="text" id="first_name" name="first_name" 
-                               value="<?php echo htmlspecialchars($_POST['first_name'] ?? ''); ?>" 
+                        <input type="text" id="first_name" name="first_name"
+                               value="<?php echo htmlspecialchars($_POST['first_name'] ?? ''); ?>"
                                placeholder="Enter child's first name" required>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="middle_name">Middle Name</label>
-                        <input type="text" id="middle_name" name="middle_name" 
-                               value="<?php echo htmlspecialchars($_POST['middle_name'] ?? ''); ?>" 
+                        <input type="text" id="middle_name" name="middle_name"
+                               value="<?php echo htmlspecialchars($_POST['middle_name'] ?? ''); ?>"
                                placeholder="Enter child's middle name (optional)">
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="last_name">Last Name *</label>
-                        <input type="text" id="last_name" name="last_name" 
-                               value="<?php echo htmlspecialchars($_POST['last_name'] ?? ''); ?>" 
+                        <input type="text" id="last_name" name="last_name"
+                               value="<?php echo htmlspecialchars($_POST['last_name'] ?? ''); ?>"
                                placeholder="Enter child's last name" required>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="dob">Date of Birth *</label>
-                        <input type="date" id="dob" name="dob" 
-                               value="<?php echo htmlspecialchars($_POST['dob'] ?? ''); ?>" 
+                        <input type="date" id="dob" name="dob"
+                               value="<?php echo htmlspecialchars($_POST['dob'] ?? ''); ?>"
                                required>
                         <small>Enter child's date of birth</small>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="gender">Gender *</label>
                         <select id="gender" name="gender" required>
@@ -1065,67 +856,67 @@ if (empty($classes)) {
                             <option value="female" <?php echo (($_POST['gender'] ?? '') == 'female') ? 'selected' : ''; ?>>Female</option>
                         </select>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="class">Class Applying For *</label>
                         <select id="class" name="class" required>
                             <option value="">Select Class</option>
                             <?php foreach ($classes as $class): ?>
-                            <option value="<?php echo htmlspecialchars($class['class_name'] . ' ' . ($class['section'] ?? '')); ?>" 
+                            <option value="<?php echo htmlspecialchars($class['class_name'] . ' ' . ($class['section'] ?? '')); ?>"
                                 <?php echo (($_POST['class'] ?? '') == ($class['class_name'] . ' ' . ($class['section'] ?? ''))) ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($class['class_name'] . ' ' . ($class['section'] ?? '')); ?>
                             </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="previous_school">Previous School (if any)</label>
-                        <input type="text" id="previous_school" name="previous_school" 
-                               value="<?php echo htmlspecialchars($_POST['previous_school'] ?? ''); ?>" 
+                        <input type="text" id="previous_school" name="previous_school"
+                               value="<?php echo htmlspecialchars($_POST['previous_school'] ?? ''); ?>"
                                placeholder="Name of previous school">
                     </div>
                 </div>
             </div>
-            
+
             <div class="form-section">
                 <h3><i class="fas fa-users"></i> Parent/Guardian Information</h3>
-                
+
                 <div class="form-grid">
                     <div class="form-group">
                         <label for="parent_name">Parent/Guardian Full Name *</label>
-                        <input type="text" id="parent_name" name="parent_name" 
-                               value="<?php echo htmlspecialchars($_POST['parent_name'] ?? ''); ?>" 
+                        <input type="text" id="parent_name" name="parent_name"
+                               value="<?php echo htmlspecialchars($_POST['parent_name'] ?? ''); ?>"
                                placeholder="Enter parent's full name" required>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="parent_email">Email Address *</label>
-                        <input type="email" id="parent_email" name="parent_email" 
-                               value="<?php echo htmlspecialchars($_POST['parent_email'] ?? ''); ?>" 
+                        <input type="email" id="parent_email" name="parent_email"
+                               value="<?php echo htmlspecialchars($_POST['parent_email'] ?? ''); ?>"
                                placeholder="parent@example.com" required>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="parent_phone">Phone Number *</label>
-                        <input type="tel" id="parent_phone" name="parent_phone" 
-                               value="<?php echo htmlspecialchars($_POST['parent_phone'] ?? ''); ?>" 
+                        <input type="tel" id="parent_phone" name="parent_phone"
+                               value="<?php echo htmlspecialchars($_POST['parent_phone'] ?? ''); ?>"
                                placeholder="08012345678" required>
                         <small>Nigerian mobile number (e.g., 08012345678)</small>
                     </div>
-                    
+
                     <div class="form-group full-width">
                         <label for="address">Home Address *</label>
-                        <textarea id="address" name="address" rows="3" 
+                        <textarea id="address" name="address" rows="3"
                                   placeholder="Enter your complete home address" required><?php echo htmlspecialchars($_POST['address'] ?? ''); ?></textarea>
                     </div>
                 </div>
             </div>
-            
+
             <div class="form-section">
                 <h3><i class="fas fa-file-upload"></i> Required Documents</h3>
                 <p style="margin-bottom: var(--spacing-lg); color: var(--gray);">Please upload the following documents. Files must be in PDF, JPG, or PNG format (max 5MB each).</p>
-                
+
                 <div class="document-upload-grid">
                     <!-- Birth Certificate - Required -->
                     <div class="document-item required">
@@ -1137,7 +928,7 @@ if (empty($classes)) {
                         <input type="file" id="birth_certificate" name="birth_certificate" accept=".pdf,.jpg,.jpeg,.png" required>
                         <div id="birth-certificate-info" class="file-info"></div>
                     </div>
-                    
+
                     <!-- Passport Photograph - Required -->
                     <div class="document-item required">
                         <div class="document-header">
@@ -1148,7 +939,7 @@ if (empty($classes)) {
                         <input type="file" id="passport_photo" name="passport_photo" accept=".jpg,.jpeg,.png" required>
                         <div id="passport-photo-info" class="file-info"></div>
                     </div>
-                    
+
                     <!-- Immunization Record - Optional -->
                     <div class="document-item">
                         <div class="document-header">
@@ -1159,7 +950,7 @@ if (empty($classes)) {
                         <input type="file" id="immunization_record" name="immunization_record" accept=".pdf,.jpg,.jpeg,.png">
                         <div id="immunization-record-info" class="file-info"></div>
                     </div>
-                    
+
                     <!-- Previous School Report - Optional -->
                     <div class="document-item">
                         <div class="document-header">
@@ -1172,14 +963,14 @@ if (empty($classes)) {
                     </div>
                 </div>
             </div>
-            
+
             <div class="form-group">
                 <label class="checkbox-label">
                     <input type="checkbox" name="terms" id="terms" required>
                     <span>I confirm that the information provided is accurate and I have read the admission requirements.</span>
                 </label>
             </div>
-            
+
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary btn-large" id="submitBtn">
                     <i class="fas fa-paper-plane"></i> Submit Application
@@ -1198,7 +989,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('admissionForm');
     const submitBtn = document.getElementById('submitBtn');
     const resetBtn = document.getElementById('resetBtn');
-    
+
     // File input elements
     const fileInputs = {
         birth_certificate: document.getElementById('birth_certificate'),
@@ -1206,7 +997,7 @@ document.addEventListener('DOMContentLoaded', function() {
         immunization_record: document.getElementById('immunization_record'),
         previous_report: document.getElementById('previous_report')
     };
-    
+
     // File info containers
     const fileInfoContainers = {
         birth_certificate: document.getElementById('birth-certificate-info'),
@@ -1214,7 +1005,7 @@ document.addEventListener('DOMContentLoaded', function() {
         immunization_record: document.getElementById('immunization-record-info'),
         previous_report: document.getElementById('previous-report-info')
     };
-    
+
     // Add file change listeners
     for (const [key, input] of Object.entries(fileInputs)) {
         if (input) {
@@ -1223,13 +1014,13 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     }
-    
+
     function handleFileSelect(e, fileKey) {
         const file = e.target.files[0];
         const infoContainer = fileInfoContainers[fileKey];
-        
+
         if (!infoContainer) return;
-        
+
         if (file) {
             // Check file size
             if (file.size > 5 * 1024 * 1024) {
@@ -1238,7 +1029,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 infoContainer.innerHTML = '';
                 return;
             }
-            
+
             // Check file type
             const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
             if (!allowedTypes.includes(file.type)) {
@@ -1247,20 +1038,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 infoContainer.innerHTML = '';
                 return;
             }
-            
+
             // Show file info
             infoContainer.innerHTML = `<i class="fas fa-check-circle"></i> Selected: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
         } else {
             infoContainer.innerHTML = '';
         }
     }
-    
+
     if (form) {
         form.addEventListener('submit', function(e) {
             // Show loading state
             submitBtn.classList.add('btn-loading');
             submitBtn.disabled = true;
-            
+
             // Validate required files
             if (!fileInputs.birth_certificate.files[0]) {
                 e.preventDefault();
@@ -1269,7 +1060,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 submitBtn.disabled = false;
                 return;
             }
-            
+
             if (!fileInputs.passport_photo.files[0]) {
                 e.preventDefault();
                 alert('Passport photograph is required');
@@ -1277,7 +1068,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 submitBtn.disabled = false;
                 return;
             }
-            
+
             // Validate phone number
             const phone = document.getElementById('parent_phone').value;
             const phoneRegex = /^0[789][01]\d{8}$/;
@@ -1290,7 +1081,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
+
     // Reset button
     if (resetBtn) {
         resetBtn.addEventListener('click', function(e) {
@@ -1304,7 +1095,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
+
     // Auto-hide alerts after 5 seconds
     setTimeout(function() {
         document.querySelectorAll('.alert').forEach(function(alert) {
@@ -1319,7 +1110,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }, 5000);
-    
+
     // Add animation classes
     document.querySelectorAll('.info-card, .form-section, .document-item').forEach(function(el, index) {
         el.style.animation = `fadeIn 0.6s ease ${index * 0.1}s both`;

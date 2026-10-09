@@ -565,7 +565,7 @@
     .charts-container {
         grid-template-columns: 1fr;
     }
-    
+
     .quick-actions {
         grid-template-columns: repeat(2, 1fr);
     }
@@ -575,15 +575,15 @@
     .dashboard-sidebar {
         transform: translateX(-100%);
     }
-    
+
     .dashboard-sidebar.active {
         transform: translateX(0);
     }
-    
+
     .dashboard-main {
         margin-left: 0;
     }
-    
+
     .widget-grid {
         grid-template-columns: repeat(2, 1fr);
     }
@@ -593,21 +593,21 @@
     .dashboard-main {
         padding: 20px;
     }
-    
+
     .widget-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .top-bar {
         flex-direction: column;
         gap: 15px;
     }
-    
+
     .user-menu {
         width: 100%;
         justify-content: space-between;
     }
-    
+
     .quick-actions {
         grid-template-columns: 1fr;
     }

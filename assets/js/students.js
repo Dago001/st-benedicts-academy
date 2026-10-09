@@ -8,19 +8,19 @@ document.addEventListener('DOMContentLoaded', function() {
     if (studentForm) {
         validateStudentForm(studentForm);
     }
-    
+
     // Initialize search
     const searchInput = document.getElementById('searchStudents');
     if (searchInput) {
         searchInput.addEventListener('keyup', debounce(searchStudents, 300));
     }
-    
+
     // Handle bulk actions
     const bulkActionSelect = document.getElementById('bulkAction');
     if (bulkActionSelect) {
         bulkActionSelect.addEventListener('change', handleBulkAction);
     }
-    
+
     // Handle file upload preview
     const photoInput = document.getElementById('profile_image');
     if (photoInput) {
@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', function() {
 function validateStudentForm(form) {
     form.addEventListener('submit', function(e) {
         let isValid = true;
-        
+
         // Validate admission number format
         const admissionNo = document.getElementById('admission_number');
         if (admissionNo && admissionNo.value) {
@@ -42,7 +42,7 @@ function validateStudentForm(form) {
                 isValid = false;
             }
         }
-        
+
         // Validate email
         const email = document.getElementById('email');
         if (email && email.value) {
@@ -51,7 +51,7 @@ function validateStudentForm(form) {
                 isValid = false;
             }
         }
-        
+
         // Validate phone (Nigerian format)
         const phone = document.getElementById('phone');
         if (phone && phone.value) {
@@ -60,7 +60,7 @@ function validateStudentForm(form) {
                 isValid = false;
             }
         }
-        
+
         // Validate date of birth
         const dob = document.getElementById('date_of_birth');
         if (dob && dob.value) {
@@ -70,7 +70,7 @@ function validateStudentForm(form) {
                 isValid = false;
             }
         }
-        
+
         if (!isValid) {
             e.preventDefault();
         }
@@ -82,11 +82,11 @@ function calculateAge(dob) {
     const today = new Date();
     let age = today.getFullYear() - dob.getFullYear();
     const monthDiff = today.getMonth() - dob.getMonth();
-    
+
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
         age--;
     }
-    
+
     return age;
 }
 
@@ -94,16 +94,16 @@ function calculateAge(dob) {
 function searchStudents(e) {
     const searchTerm = e.target.value.toLowerCase();
     const table = document.getElementById('studentsTable');
-    
+
     if (!table) return;
-    
+
     const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-    
+
     for (let row of rows) {
         const name = row.cells[2].textContent.toLowerCase();
         const admission = row.cells[3].textContent.toLowerCase();
         const email = row.cells[5].textContent.toLowerCase();
-        
+
         if (name.includes(searchTerm) || admission.includes(searchTerm) || email.includes(searchTerm)) {
             row.style.display = '';
         } else {
@@ -116,15 +116,15 @@ function searchStudents(e) {
 function handleBulkAction(e) {
     const action = e.target.value;
     if (!action) return;
-    
+
     const selectedStudents = getSelectedStudents();
-    
+
     if (selectedStudents.length === 0) {
         alert('Please select at least one student');
         e.target.value = '';
         return;
     }
-    
+
     switch (action) {
         case 'delete':
             bulkDelete(selectedStudents);
@@ -139,7 +139,7 @@ function handleBulkAction(e) {
             exportStudents(selectedStudents);
             break;
     }
-    
+
     e.target.value = '';
 }
 
@@ -154,23 +154,23 @@ function bulkDelete(students) {
     if (!confirm('Are you sure you want to delete ' + students.length + ' student(s)?')) {
         return;
     }
-    
+
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = 'students.php';
-    
+
     const csrf = document.createElement('input');
     csrf.type = 'hidden';
     csrf.name = 'csrf_token';
     csrf.value = document.querySelector('input[name="csrf_token"]').value;
     form.appendChild(csrf);
-    
+
     const action = document.createElement('input');
     action.type = 'hidden';
     action.name = 'action';
     action.value = 'bulk_delete';
     form.appendChild(action);
-    
+
     students.forEach(id => {
         const input = document.createElement('input');
         input.type = 'hidden';
@@ -178,7 +178,7 @@ function bulkDelete(students) {
         input.value = id;
         form.appendChild(input);
     });
-    
+
     document.body.appendChild(form);
     form.submit();
 }
@@ -186,7 +186,7 @@ function bulkDelete(students) {
 // Export students
 function exportStudents(students) {
     let csv = 'Admission Number,Name,Class,Email,Phone,Status\n';
-    
+
     students.forEach(id => {
         const row = document.querySelector(`tr[data-student-id="${id}"]`);
         if (row) {
@@ -194,7 +194,7 @@ function exportStudents(students) {
             csv += `${cells[3].textContent},${cells[2].textContent},${cells[4].textContent},${cells[5].textContent},${cells[6].textContent},${cells[7].textContent}\n`;
         }
     });
-    
+
     downloadCSV(csv, 'students_export.csv');
 }
 
@@ -230,7 +230,7 @@ function generateLogin(studentId) {
     .then(data => {
         if (data.success) {
             showNotification('Login credentials generated successfully', 'success');
-            
+
             // Show credentials modal
             showCredentialsModal(data.username, data.password);
         } else {
@@ -265,7 +265,7 @@ function showCredentialsModal(username, password) {
             </div>
         </div>
     `;
-    
+
     document.body.appendChild(modal);
     modal.style.display = 'block';
 }
@@ -274,7 +274,7 @@ function showCredentialsModal(username, password) {
 function printCredentials() {
     const modal = document.getElementById('credentialsModal');
     const content = modal.querySelector('.modal-body').innerHTML;
-    
+
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`
         <html>
@@ -283,11 +283,11 @@ function printCredentials() {
             <style>
                 body { font-family: Arial, sans-serif; padding: 20px; }
                 h1 { color: #002855; }
-                .credentials { 
-                    border: 2px solid #ffd700; 
-                    padding: 20px; 
-                    margin: 20px 0; 
-                    border-radius: 10px; 
+                .credentials {
+                    border: 2px solid #ffd700;
+                    padding: 20px;
+                    margin: 20px 0;
+                    border-radius: 10px;
                 }
                 .credentials p { margin: 10px 0; }
             </style>

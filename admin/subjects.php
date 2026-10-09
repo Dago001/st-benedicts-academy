@@ -1,40 +1,25 @@
 <?php
 // admin/subjects.php - Subject Management
 require_once __DIR__ . '/../config/config.php';
-require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/security.php';
 
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Require admin role
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
-    header('Location: ' . BASE_URL . '/login.php');
-    exit;
-}
+Security::requireRole('admin');
 
 $pageTitle = 'Subject Management';
-$extraCSS = ['dataTables.css', 'admin.css'];
-$extraJS = ['subjects.js', 'dataTables.js'];
+$extraCSS = ['admin.css'];
+$extraJS = ['subjects.js'];
 
-// Check if header exists
-$headerPath = __DIR__ . '/../includes/header.php';
-if (!file_exists($headerPath)) {
-    die("Error: Header file not found at: $headerPath");
-}
-include $headerPath;
+include __DIR__ . '/../includes/header.php';
 
 // Get database instance
 $db = Database::getInstance();
 
-$message = '';
-$messageType = '';
+[$message, $messageType] = flash_get();
 
 // Handle actions
 $action = isset($_GET['action']) ? $_GET['action'] : 'list';
-$id = isset($_GET['id']) ? (int)$_GET['id'] : null;
+$id = isset($_POST['id']) ? (int)$_POST['id'] : (isset($_GET['id']) ? (int)$_GET['id'] : null);
+if (!in_array($action, ['list', 'add', 'edit'], true)) $action = 'list';
 $classFilter = isset($_GET['class_id']) ? (int)$_GET['class_id'] : 0;
 
 // Handle form submissions
@@ -44,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $messageType = 'error';
     } else {
         $postAction = $_POST['action'] ?? '';
-        
+
         switch ($postAction) {
             case 'add':
             case 'edit':
@@ -55,20 +40,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $classId = !empty($_POST['class_id']) ? (int)$_POST['class_id'] : null;
                 $teacherId = !empty($_POST['teacher_id']) ? (int)$_POST['teacher_id'] : null;
                 $isActive = isset($_POST['is_active']) ? 1 : 0;
-                
+
                 // Validate required fields
                 if (empty($subjectName)) {
                     $message = 'Subject name is required';
                     $messageType = 'error';
                     break;
                 }
-                
+
                 if (empty($subjectCode)) {
                     $message = 'Subject code is required';
                     $messageType = 'error';
                     break;
                 }
-                
+
+                if (!preg_match('/^[A-Za-z0-9_-]{2,20}$/', $subjectCode)) {
+                    $message = 'Subject code must be 2-20 letters, numbers, dashes or underscores';
+                    $messageType = 'error';
+                    break;
+                }
+                if (mb_strlen($subjectName) > 100) {
+                    $message = 'Subject name is too long';
+                    $messageType = 'error';
+                    break;
+                }
+                if ($classId && !$db->getRow('SELECT id FROM classes WHERE id = ?', [$classId])) {
+                    $message = 'Selected class does not exist';
+                    $messageType = 'error';
+                    break;
+                }
+                if ($teacherId && !$db->getRow('SELECT id FROM teachers WHERE id = ?', [$teacherId])) {
+                    $message = 'Selected teacher does not exist';
+                    $messageType = 'error';
+                    break;
+                }
+
                 // Check if subject code already exists
                 try {
                     if ($postAction === 'add') {
@@ -76,13 +82,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             "SELECT id FROM subjects WHERE subject_code = ?",
                             [$subjectCode]
                         );
-                        
+
                         if ($existing) {
                             throw new Exception("Subject code already exists");
                         }
-                        
+
                         $db->insert(
-                            "INSERT INTO subjects (subject_name, subject_code, description, class_id, teacher_id, is_active) 
+                            "INSERT INTO subjects (subject_name, subject_code, description, class_id, teacher_id, is_active)
                              VALUES (?, ?, ?, ?, ?, ?)",
                             [
                                 $subjectName,
@@ -93,28 +99,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $isActive
                             ]
                         );
-                        
+
                         Security::logAudit('ADDED_SUBJECT', 'subjects');
                         $message = 'Subject added successfully';
                         $messageType = 'success';
-                        
+
                     } else {
-                        if (!$id) {
-                            throw new Exception("Invalid subject ID");
+                        if (!$id || !$db->getRow('SELECT id FROM subjects WHERE id = ?', [$id])) {
+                            throw new Exception("Subject not found");
                         }
-                        
+
                         // Check if subject code already exists for other subjects
                         $existing = $db->getRow(
                             "SELECT id FROM subjects WHERE subject_code = ? AND id != ?",
                             [$subjectCode, $id]
                         );
-                        
+
                         if ($existing) {
                             throw new Exception("Subject code already exists");
                         }
-                        
+
                         $db->query(
-                            "UPDATE subjects SET subject_name = ?, subject_code = ?, description = ?, 
+                            "UPDATE subjects SET subject_name = ?, subject_code = ?, description = ?,
                              class_id = ?, teacher_id = ?, is_active = ? WHERE id = ?",
                             [
                                 $subjectName,
@@ -126,7 +132,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $id
                             ]
                         );
-                        
+
                         Security::logAudit('UPDATED_SUBJECT', 'subjects', $id);
                         $message = 'Subject updated successfully';
                         $messageType = 'success';
@@ -136,65 +142,71 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $messageType = 'error';
                 }
                 break;
-                
+
             case 'delete':
                 try {
                     if (!$id) {
                         throw new Exception("Invalid subject ID");
                     }
-                    
+
                     // Check if subject has results
                     $resultCount = $db->getRow("SELECT COUNT(*) as count FROM results WHERE subject_id = ?", [$id])['count'] ?? 0;
-                    
+
                     if ($resultCount > 0) {
                         $message = 'Cannot delete subject with existing results';
                         $messageType = 'error';
                         break;
                     }
-                    
+
                     // Check if subject has homework
                     $homeworkCount = $db->getRow("SELECT COUNT(*) as count FROM homework WHERE subject_id = ?", [$id])['count'] ?? 0;
-                    
+
                     if ($homeworkCount > 0) {
                         $message = 'Cannot delete subject with existing homework';
                         $messageType = 'error';
                         break;
                     }
-                    
+
                     $db->query("DELETE FROM subjects WHERE id = ?", [$id]);
-                    
+
                     Security::logAudit('DELETED_SUBJECT', 'subjects', $id);
                     $message = 'Subject deleted successfully';
                     $messageType = 'success';
-                    
+
                 } catch (Exception $e) {
                     $message = 'Error: ' . $e->getMessage();
                     $messageType = 'error';
                 }
                 break;
-                
+
             case 'bulk_assign':
                 $classId = (int)($_POST['bulk_class_id'] ?? 0);
                 $teacherId = !empty($_POST['bulk_teacher_id']) ? (int)$_POST['bulk_teacher_id'] : null;
                 $subjectIds = isset($_POST['subject_ids']) ? explode(',', $_POST['subject_ids']) : [];
-                $subjectIds = array_map('intval', $subjectIds);
-                
+                $subjectIds = array_values(array_filter(array_map('intval', $subjectIds)));
+
                 if (!$classId || empty($subjectIds)) {
                     $message = 'Please select a class and at least one subject';
                     $messageType = 'error';
                     break;
                 }
-                
+
                 try {
+                    if (!$db->getRow('SELECT id FROM classes WHERE id = ?', [$classId])) {
+                        throw new Exception('Selected class does not exist');
+                    }
+                    if ($teacherId && !$db->getRow('SELECT id FROM teachers WHERE id = ?', [$teacherId])) {
+                        throw new Exception('Selected teacher does not exist');
+                    }
                     $placeholders = implode(',', array_fill(0, count($subjectIds), '?'));
                     $params = [$classId];
-                    
+
                     if ($teacherId) {
                         $params[] = $teacherId;
                     }
-                    
+
                     $params = array_merge($params, $subjectIds);
-                    
+
                     if ($teacherId) {
                         $db->query(
                             "UPDATE subjects SET class_id = ?, teacher_id = ? WHERE id IN ($placeholders)",
@@ -206,11 +218,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $params
                         );
                     }
-                    
+
                     Security::logAudit('BULK_ASSIGNED_SUBJECTS', 'subjects');
                     $message = 'Subjects assigned successfully';
                     $messageType = 'success';
-                    
+
                 } catch (Exception $e) {
                     $message = 'Error: ' . $e->getMessage();
                     $messageType = 'error';
@@ -220,11 +232,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $messageType === 'success') {
+    flash_redirect($message, 'success', BASE_URL . '/admin/subjects.php');
+}
+
 // Get subject for editing
 $subject = null;
 if ($action === 'edit' && $id) {
     $subject = $db->getRow(
-        "SELECT s.*, c.class_name 
+        "SELECT s.*, c.class_name
          FROM subjects s
          LEFT JOIN classes c ON s.class_id = c.id
          WHERE s.id = ?",
@@ -239,15 +255,15 @@ $classes = $db->getRows(
 
 // Get teachers for dropdown
 $teachers = $db->getRows(
-    "SELECT t.id, u.first_name, u.last_name 
-     FROM teachers t 
-     JOIN users u ON t.user_id = u.id 
+    "SELECT t.id, u.first_name, u.last_name
+     FROM teachers t
+     JOIN users u ON t.user_id = u.id
      WHERE u.is_active = 1
      ORDER BY u.first_name, u.last_name"
 );
 
 // Get subjects list with filters
-$page = isset($_GET['p']) ? (int)$_GET['p'] : 1;
+$page = page_param('p');
 $limit = 20;
 $offset = ($page - 1) * $limit;
 
@@ -266,7 +282,7 @@ $totalSubjects = $db->getRow($countQuery, $params)['count'] ?? 0;
 $totalPages = $totalSubjects > 0 ? ceil($totalSubjects / $limit) : 1;
 
 // Get subjects
-$query = "SELECT s.*, 
+$query = "SELECT s.*,
                  c.class_name, c.section,
                  CONCAT(u.first_name, ' ', u.last_name) as teacher_name,
                  (SELECT COUNT(*) FROM results WHERE subject_id = s.id) as result_count,
@@ -286,7 +302,7 @@ $subjects = $db->getRows($query, $params);
 
 // Get unassigned subjects (no class)
 $unassignedSubjects = $db->getRows(
-    "SELECT s.*, 
+    "SELECT s.*,
             CONCAT(u.first_name, ' ', u.last_name) as teacher_name
      FROM subjects s
      LEFT JOIN teachers t ON s.teacher_id = t.id
@@ -687,15 +703,15 @@ if (!function_exists('generateSubjectCode')) {
         width: 100%;
         margin-top: 10px;
     }
-    
+
     #searchInput {
         width: 100% !important;
     }
-    
+
     .action-buttons {
         justify-content: center;
     }
-    
+
     .bulk-action-bar {
         width: 90%;
         flex-direction: column;
@@ -703,7 +719,7 @@ if (!function_exists('generateSubjectCode')) {
         padding: 15px;
         border-radius: 10px;
     }
-    
+
     .modal-content {
         width: 95%;
         margin: 10% auto;
@@ -712,30 +728,8 @@ if (!function_exists('generateSubjectCode')) {
 </style>
 
 <div class="dashboard-container">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <h3>Admin Panel</h3>
-        </div>
-        <nav class="sidebar-nav">
-            <ul>
-                <li><a href="dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
-                <li><a href="students.php"><i class="fas fa-user-graduate"></i> Students</a></li>
-                <li><a href="parents.php"><i class="fas fa-users"></i> Parents</a></li>
-                <li><a href="teachers.php"><i class="fas fa-chalkboard-teacher"></i> Teachers</a></li>
-                <li><a href="classes.php"><i class="fas fa-school"></i> Classes</a></li>
-                <li class="active"><a href="subjects.php"><i class="fas fa-book"></i> Subjects</a></li>
-                <li><a href="attendance.php"><i class="fas fa-calendar-check"></i> Attendance</a></li>
-                <li><a href="fees.php"><i class="fas fa-money-bill"></i> Fees</a></li>
-                <li><a href="results.php"><i class="fas fa-chart-line"></i> Results</a></li>
-                <li><a href="announcements.php"><i class="fas fa-bullhorn"></i> Announcements</a></li>
-                <li><a href="gallery.php"><i class="fas fa-images"></i> Gallery</a></li>
-                <li><a href="reports.php"><i class="fas fa-file-alt"></i> Reports</a></li>
-                <li><a href="audit-logs.php"><i class="fas fa-history"></i> Audit Logs</a></li>
-            </ul>
-        </nav>
-    </aside>
-    
+    <?php render_sidebar('admin'); ?>
+
     <main class="dashboard-main">
         <div class="dashboard-header">
             <h1>Subject Management</h1>
@@ -751,15 +745,15 @@ if (!function_exists('generateSubjectCode')) {
                 </a>
             </div>
         </div>
-        
+
         <?php if ($message): ?>
-        <div class="alert alert-<?php echo $messageType; ?> alert-dismissible">
+        <div class="alert alert-<?php echo e($messageType); ?> alert-dismissible">
             <i class="fas <?php echo $messageType === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'; ?>"></i>
             <?php echo htmlspecialchars($message); ?>
             <button type="button" class="close" onclick="this.parentElement.remove()">&times;</button>
         </div>
         <?php endif; ?>
-        
+
         <!-- Filter Bar -->
         <div class="card">
             <div class="card-body">
@@ -769,7 +763,7 @@ if (!function_exists('generateSubjectCode')) {
                         <select id="class_id" name="class_id" class="form-control" onchange="this.form.submit()">
                             <option value="0">All Classes</option>
                             <?php foreach ($classes as $class): ?>
-                            <option value="<?php echo $class['id']; ?>" <?php echo $classFilter == $class['id'] ? 'selected' : ''; ?>>
+                            <option value="<?php echo e($class['id']); ?>" <?php echo $classFilter == $class['id'] ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($class['class_name'] . ' ' . ($class['section'] ?? '')); ?>
                             </option>
                             <?php endforeach; ?>
@@ -782,7 +776,7 @@ if (!function_exists('generateSubjectCode')) {
                 </form>
             </div>
         </div>
-        
+
         <?php if ($action === 'add' || $action === 'edit'): ?>
         <!-- Subject Form -->
         <div class="card">
@@ -792,54 +786,54 @@ if (!function_exists('generateSubjectCode')) {
             <div class="card-body">
                 <form method="POST" class="form-container">
                     <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
-                    <input type="hidden" name="action" value="<?php echo $action; ?>">
+                    <input type="hidden" name="action" value="<?php echo e($action); ?>">
                     <?php if ($action === 'edit'): ?>
-                    <input type="hidden" name="id" value="<?php echo $id; ?>">
+                    <input type="hidden" name="id" value="<?php echo e($id); ?>">
                     <?php endif; ?>
-                    
+
                     <div class="form-row">
                         <div class="form-group col-md-6">
                             <label for="subject_name">Subject Name *</label>
-                            <input type="text" id="subject_name" name="subject_name" class="form-control" 
-                                   value="<?php echo htmlspecialchars($subject['subject_name'] ?? ''); ?>" 
+                            <input type="text" id="subject_name" name="subject_name" class="form-control"
+                                   value="<?php echo htmlspecialchars($subject['subject_name'] ?? ''); ?>"
                                    placeholder="e.g., Mathematics, English Language" required
                                    onkeyup="generateCode(this.value)">
                         </div>
-                        
+
                         <div class="form-group col-md-6">
                             <label for="subject_code">Subject Code *</label>
-                            <input type="text" id="subject_code" name="subject_code" class="form-control" 
-                                   value="<?php echo htmlspecialchars($subject['subject_code'] ?? ''); ?>" 
+                            <input type="text" id="subject_code" name="subject_code" class="form-control"
+                                   value="<?php echo htmlspecialchars($subject['subject_code'] ?? ''); ?>"
                                    placeholder="e.g., MATH001" required>
                             <small class="form-text text-muted">Unique identifier for the subject</small>
                         </div>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="description">Description</label>
                         <textarea id="description" name="description" class="form-control" rows="3"><?php echo htmlspecialchars($subject['description'] ?? ''); ?></textarea>
                     </div>
-                    
+
                     <div class="form-row">
                         <div class="form-group col-md-6">
                             <label for="form_class_id">Assign to Class</label>
                             <select id="form_class_id" name="class_id" class="form-control">
                                 <option value="">-- Not Assigned --</option>
                                 <?php foreach ($classes as $class): ?>
-                                <option value="<?php echo $class['id']; ?>" 
+                                <option value="<?php echo e($class['id']); ?>"
                                     <?php echo (isset($subject['class_id']) && $subject['class_id'] == $class['id']) ? 'selected' : ''; ?>>
                                     <?php echo htmlspecialchars($class['class_name'] . ' ' . ($class['section'] ?? '')); ?>
                                 </option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        
+
                         <div class="form-group col-md-6">
                             <label for="form_teacher_id">Assign Teacher</label>
                             <select id="form_teacher_id" name="teacher_id" class="form-control">
                                 <option value="">-- Not Assigned --</option>
                                 <?php foreach ($teachers as $teacher): ?>
-                                <option value="<?php echo $teacher['id']; ?>" 
+                                <option value="<?php echo e($teacher['id']); ?>"
                                     <?php echo (isset($subject['teacher_id']) && $subject['teacher_id'] == $teacher['id']) ? 'selected' : ''; ?>>
                                     <?php echo htmlspecialchars($teacher['first_name'] . ' ' . $teacher['last_name']); ?>
                                 </option>
@@ -847,15 +841,15 @@ if (!function_exists('generateSubjectCode')) {
                             </select>
                         </div>
                     </div>
-                    
+
                     <div class="form-group">
                         <label class="checkbox-label">
-                            <input type="checkbox" name="is_active" value="1" 
+                            <input type="checkbox" name="is_active" value="1"
                                    <?php echo (!isset($subject['is_active']) || $subject['is_active']) ? 'checked' : ''; ?>>
                             Active Subject
                         </label>
                     </div>
-                    
+
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save"></i> <?php echo $action === 'add' ? 'Add Subject' : 'Update Subject'; ?>
@@ -867,9 +861,9 @@ if (!function_exists('generateSubjectCode')) {
                 </form>
             </div>
         </div>
-        
+
         <?php else: ?>
-        
+
         <!-- Unassigned Subjects Alert -->
         <?php if (!empty($unassignedSubjects)): ?>
         <div class="alert alert-warning">
@@ -880,12 +874,12 @@ if (!function_exists('generateSubjectCode')) {
             </button>
         </div>
         <?php endif; ?>
-        
+
         <!-- Subjects List -->
         <div class="card">
             <div class="card-header">
                 <h3>
-                    <?php if ($classFilter > 0): 
+                    <?php if ($classFilter > 0):
                         $className = $db->getRow("SELECT class_name, section FROM classes WHERE id = ?", [$classFilter]);
                         echo 'Subjects for ' . htmlspecialchars($className['class_name'] . ' ' . ($className['section'] ?? ''));
                     else: ?>
@@ -916,7 +910,7 @@ if (!function_exists('generateSubjectCode')) {
                         <tbody>
                             <?php foreach ($subjects as $subject): ?>
                             <tr>
-                                <td><input type="checkbox" class="subject-select" value="<?php echo $subject['id']; ?>"></td>
+                                <td><input type="checkbox" class="subject-select" value="<?php echo e($subject['id']); ?>"></td>
                                 <td><strong><?php echo htmlspecialchars($subject['subject_code']); ?></strong></td>
                                 <td><?php echo htmlspecialchars($subject['subject_name']); ?></td>
                                 <td>
@@ -935,14 +929,14 @@ if (!function_exists('generateSubjectCode')) {
                                 </td>
                                 <td>
                                     <?php if ($subject['result_count'] > 0): ?>
-                                    <span class="badge badge-info"><?php echo $subject['result_count']; ?></span>
+                                    <span class="badge badge-info"><?php echo e($subject['result_count']); ?></span>
                                     <?php else: ?>
                                     <span class="badge badge-light">0</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
                                     <?php if ($subject['homework_count'] > 0): ?>
-                                    <span class="badge badge-info"><?php echo $subject['homework_count']; ?></span>
+                                    <span class="badge badge-info"><?php echo e($subject['homework_count']); ?></span>
                                     <?php else: ?>
                                     <span class="badge badge-light">0</span>
                                     <?php endif; ?>
@@ -956,15 +950,15 @@ if (!function_exists('generateSubjectCode')) {
                                 </td>
                                 <td>
                                     <div class="action-buttons">
-                                        <a href="?action=edit&id=<?php echo $subject['id']; ?><?php echo $classFilter ? '&class_id=' . $classFilter : ''; ?>" class="btn-icon" title="Edit">
+                                        <a href="?action=edit&id=<?php echo e($subject['id']); ?><?php echo $classFilter ? '&class_id=' . $classFilter : ''; ?>" class="btn-icon" title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <a href="results.php?subject_id=<?php echo $subject['id']; ?>" class="btn-icon" title="View Results">
+                                        <a href="results.php?subject_id=<?php echo e($subject['id']); ?>" class="btn-icon" title="View Results">
                                             <i class="fas fa-chart-line"></i>
                                         </a>
                                         <?php if ($subject['result_count'] == 0 && $subject['homework_count'] == 0): ?>
-                                        <button type="button" class="btn-icon text-danger" 
-                                                onclick="confirmDelete(<?php echo $subject['id']; ?>, '<?php echo htmlspecialchars(addslashes($subject['subject_name'])); ?>')"
+                                        <button type="button" class="btn-icon text-danger"
+                                                onclick="confirmDelete(<?php echo e($subject['id']); ?>, '<?php echo htmlspecialchars(addslashes($subject['subject_name'])); ?>')"
                                                 title="Delete">
                                             <i class="fas fa-trash"></i>
                                         </button>
@@ -980,7 +974,7 @@ if (!function_exists('generateSubjectCode')) {
                         </tbody>
                     </table>
                 </div>
-                
+
                 <!-- Bulk Action Bar -->
                 <div id="bulkActionBar" class="bulk-action-bar" style="display: none;">
                     <div class="bulk-info">
@@ -995,7 +989,7 @@ if (!function_exists('generateSubjectCode')) {
                         </button>
                     </div>
                 </div>
-                
+
                 <!-- Pagination -->
                 <?php if ($totalPages > 1): ?>
                 <div class="pagination">
@@ -1004,13 +998,13 @@ if (!function_exists('generateSubjectCode')) {
                         <i class="fas fa-chevron-left"></i> Previous
                     </a>
                     <?php endif; ?>
-                    
+
                     <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                    <a href="?p=<?php echo $i; ?><?php echo $classFilter ? '&class_id=' . $classFilter : ''; ?>" class="page-link <?php echo $i == $page ? 'active' : ''; ?>">
-                        <?php echo $i; ?>
+                    <a href="?p=<?php echo e($i); ?><?php echo $classFilter ? '&class_id=' . $classFilter : ''; ?>" class="page-link <?php echo $i == $page ? 'active' : ''; ?>">
+                        <?php echo e($i); ?>
                     </a>
                     <?php endfor; ?>
-                    
+
                     <?php if ($page < $totalPages): ?>
                     <a href="?p=<?php echo $page + 1; ?><?php echo $classFilter ? '&class_id=' . $classFilter : ''; ?>" class="page-link">
                         Next <i class="fas fa-chevron-right"></i>
@@ -1018,7 +1012,7 @@ if (!function_exists('generateSubjectCode')) {
                     <?php endif; ?>
                 </div>
                 <?php endif; ?>
-                
+
                 <?php else: ?>
                 <div class="alert alert-info">
                     <i class="fas fa-info-circle"></i>
@@ -1043,31 +1037,31 @@ if (!function_exists('generateSubjectCode')) {
                 <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
                 <input type="hidden" name="action" value="bulk_assign">
                 <input type="hidden" name="subject_ids" id="bulkSubjectIds">
-                
+
                 <div class="form-group">
                     <label for="bulk_class_id">Assign to Class *</label>
                     <select id="bulk_class_id" name="bulk_class_id" class="form-control" required>
                         <option value="">-- Select Class --</option>
                         <?php foreach ($classes as $class): ?>
-                        <option value="<?php echo $class['id']; ?>">
+                        <option value="<?php echo e($class['id']); ?>">
                             <?php echo htmlspecialchars($class['class_name'] . ' ' . ($class['section'] ?? '')); ?>
                         </option>
                         <?php endforeach; ?>
                     </select>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="bulk_teacher_id">Assign Teacher (Optional)</label>
                     <select id="bulk_teacher_id" name="bulk_teacher_id" class="form-control">
                         <option value="">-- Not Assigned --</option>
                         <?php foreach ($teachers as $teacher): ?>
-                        <option value="<?php echo $teacher['id']; ?>">
+                        <option value="<?php echo e($teacher['id']); ?>">
                             <?php echo htmlspecialchars($teacher['first_name'] . ' ' . $teacher['last_name']); ?>
                         </option>
                         <?php endforeach; ?>
                     </select>
                 </div>
-                
+
                 <div class="alert alert-info" id="selectedSubjectsInfo">
                     <span id="modalSelectedCount">0</span> subjects will be assigned
                 </div>
@@ -1132,7 +1126,7 @@ function updateSelectedSubjects() {
     selectedSubjects = Array.from(document.querySelectorAll('.subject-select:checked')).map(cb => cb.value);
     const bar = document.getElementById('bulkActionBar');
     const countSpan = document.getElementById('selectedCount');
-    
+
     if (selectedSubjects.length > 0) {
         countSpan.textContent = selectedSubjects.length;
         bar.style.display = 'flex';
@@ -1154,7 +1148,7 @@ function showBulkAssignModal() {
         alert('Please select at least one subject to assign');
         return;
     }
-    
+
     document.getElementById('modalSelectedCount').textContent = selectedSubjects.length;
     document.getElementById('bulkSubjectIds').value = selectedSubjects.join(',');
     document.getElementById('bulkAssignModal').style.display = 'block';
@@ -1175,15 +1169,15 @@ document.getElementById('searchInput')?.addEventListener('keyup', function() {
     const searchTerm = this.value.toLowerCase();
     const table = document.getElementById('subjectsTable');
     if (!table) return;
-    
+
     const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-    
+
     for (let row of rows) {
         const code = row.cells[1]?.textContent.toLowerCase() || '';
         const name = row.cells[2]?.textContent.toLowerCase() || '';
         const className = row.cells[3]?.textContent.toLowerCase() || '';
         const teacher = row.cells[4]?.textContent.toLowerCase() || '';
-        
+
         if (name.includes(searchTerm) || code.includes(searchTerm) || className.includes(searchTerm) || teacher.includes(searchTerm)) {
             row.style.display = '';
         } else {
@@ -1196,7 +1190,7 @@ document.getElementById('searchInput')?.addEventListener('keyup', function() {
 window.onclick = function(event) {
     const bulkModal = document.getElementById('bulkAssignModal');
     const deleteModal = document.getElementById('deleteModal');
-    
+
     if (event.target === bulkModal) {
         bulkModal.style.display = 'none';
     }

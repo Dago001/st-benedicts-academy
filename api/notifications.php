@@ -1,134 +1,63 @@
 <?php
-// api/notifications.php
-header('Content-Type: application/json');
-require_once '../config/config.php';
-require_once '../config/database.php';
-require_once '../config/security.php';
+// api/notifications.php - unread messages, announcements and sending messages
+require_once __DIR__ . '/../includes/api.php';
+require_once __DIR__ . '/../includes/messaging.php';
 
-Security::requireLogin();
-
-$response = ['success' => false, 'message' => ''];
+$input = api_init(['GET', 'POST']);
+$db = db();
+$userId = (int)$_SESSION['user_id'];
+$role = $_SESSION['user_role'];
+$audienceFor = ['student' => 'students', 'teacher' => 'teachers', 'parent' => 'parents', 'admin' => 'admins'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    $action = $_GET['action'] ?? '';
-    $db = db();
-    $userId = $_SESSION['user_id'];
-    
-    switch ($action) {
+    switch ($_GET['action'] ?? '') {
         case 'get_unread':
-            // Get unread messages
             $messages = $db->getRows(
-                "SELECT m.*, 
-                        CONCAT(u.first_name, ' ', u.last_name) as sender_name,
-                        u.role as sender_role
-                 FROM messages m
-                 JOIN users u ON m.sender_id = u.id
-                 WHERE m.receiver_id = ? AND m.is_read = 0
-                 ORDER BY m.created_at DESC",
+                "SELECT m.id, m.subject, m.message, m.created_at,
+                        CONCAT(u.first_name, ' ', u.last_name) AS sender_name, u.role AS sender_role
+                 FROM messages m JOIN users u ON m.sender_id = u.id
+                 WHERE m.receiver_id = ? AND m.is_read = 0 ORDER BY m.created_at DESC",
                 [$userId]
             );
-            
-            // Get recent announcements
             $announcements = $db->getRows(
-                "SELECT * FROM announcements 
-                 WHERE (audience = 'all' OR audience = ?) 
-                   AND is_published = 1 
+                "SELECT id, title, content, priority, created_at FROM announcements
+                 WHERE (audience = 'all' OR audience = ?) AND is_published = 1
+                   AND (expires_at IS NULL OR expires_at > NOW())
                    AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
                  ORDER BY created_at DESC",
-                [$_SESSION['user_role']]
+                [$audienceFor[$role] ?? 'all']
             );
-            
-            $response['success'] = true;
-            $response['data'] = [
-                'messages' => $messages,
-                'announcements' => $announcements,
-                'total_unread' => count($messages)
-            ];
-            break;
-            
+            api_ok(['data' => ['messages' => $messages, 'announcements' => $announcements, 'total_unread' => count($messages)]]);
+
         case 'mark_read':
-            $messageId = Security::sanitize($_GET['message_id'] ?? '');
-            
-            $db->query(
-                "UPDATE messages SET is_read = 1, read_at = NOW() 
-                 WHERE id = ? AND receiver_id = ?",
-                [$messageId, $userId]
-            );
-            
-            $response['success'] = true;
-            break;
-            
+            $id = api_int($_GET['message_id'] ?? null);
+            if (!$id) api_error('Message ID required');
+            $db->query('UPDATE messages SET is_read = 1, read_at = NOW() WHERE id = ? AND receiver_id = ?', [$id, $userId]);
+            api_ok();
+
         case 'get_count':
-            $count = $db->getRow(
-                "SELECT COUNT(*) as count FROM messages 
-                 WHERE receiver_id = ? AND is_read = 0",
-                [$userId]
-            )['count'];
-            
-            $response['success'] = true;
-            $response['count'] = $count;
-            break;
+            api_ok(['count' => (int)$db->getRow('SELECT COUNT(*) c FROM messages WHERE receiver_id = ? AND is_read = 0', [$userId])['c']]);
+
+        default:
+            api_error('Invalid action');
     }
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $action = $_POST['action'] ?? '';
-    
-    if (!Security::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
-        $response['message'] = 'Invalid security token';
-        echo json_encode($response);
-        exit;
-    }
-    
-    $db = db();
-    $userId = $_SESSION['user_id'];
-    
-    switch ($action) {
-        case 'send_message':
-            $receiverId = Security::sanitize($_POST['receiver_id'] ?? '');
-            $subject = Security::sanitize($_POST['subject'] ?? '');
-            $message = Security::sanitize($_POST['message'] ?? '');
-            
-            if (empty($receiverId) || empty($message)) {
-                $response['message'] = 'Receiver and message required';
-                break;
-            }
-            
-            $db->insert(
-                "INSERT INTO messages (sender_id, receiver_id, subject, message) 
-                 VALUES (?, ?, ?, ?)",
-                [$userId, $receiverId, $subject, $message]
-            );
-            
-            // Send email notification if enabled
-            $receiver = $db->getRow(
-                "SELECT email, first_name FROM users WHERE id = ?",
-                [$receiverId]
-            );
-            
-            if ($receiver) {
-                $emailSubject = "New Message from " . SCHOOL_NAME;
-                $emailMessage = "
-                <html>
-                <body>
-                    <h3>You have a new message</h3>
-                    <p>Dear {$receiver['first_name']},</p>
-                    <p>You have received a new message from {$_SESSION['user_name']}.</p>
-                    <p>Please login to your dashboard to view the message.</p>
-                    <p><a href='" . BASE_URL . "/login.php'>Login Here</a></p>
-                </body>
-                </html>
-                ";
-                sendEmail($receiver['email'], $emailSubject, $emailMessage);
-            }
-            
-            Security::logAudit('SENT_MESSAGE', 'messages');
-            
-            $response['success'] = true;
-            $response['message'] = 'Message sent successfully';
-            break;
-    }
-}
+if (($input['action'] ?? '') !== 'send_message') api_error('Invalid action');
 
-echo json_encode($response);
-?>
+$receiverId = api_int($input['receiver_id'] ?? null);
+$subject = mb_substr(Security::sanitize($input['subject'] ?? ''), 0, 200);
+$message = Security::sanitize($input['message'] ?? '');
+if (!$receiverId || $message === '') api_error('Receiver and message required');
+if (mb_strlen($message) > 5000) api_error('Message is too long');
+if (!can_message_user($receiverId)) api_error('You cannot message this user', 403);
+
+$id = $db->insert('INSERT INTO messages (sender_id, receiver_id, subject, message) VALUES (?, ?, ?, ?)', [$userId, $receiverId, $subject, $message]);
+$receiver = $db->getRow('SELECT email, first_name FROM users WHERE id = ?', [$receiverId]);
+if ($receiver) {
+    sendEmail($receiver['email'], 'New Message from ' . SCHOOL_NAME,
+        '<h3>You have a new message</h3><p>Dear ' . e($receiver['first_name']) . ',</p><p>You have received a new message from '
+        . e($_SESSION['user_name']) . '.</p><p><a href="' . e(BASE_URL) . '/login.php">Log in to read it</a></p>');
+}
+Security::logAudit('SENT_MESSAGE', 'messages', $id);
+api_ok(['message' => 'Message sent successfully']);

@@ -1,40 +1,23 @@
 <?php
 // admin/students.php
 require_once __DIR__ . '/../config/config.php';
-require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/security.php';
 
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Require admin role
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
-    header('Location: ' . BASE_URL . '/login.php');
-    exit;
-}
+Security::requireRole('admin');
 
 $pageTitle = 'Student Management';
-$extraCSS = ['dataTables.css'];
-$extraJS = ['students.js', 'dataTables.js'];
+$extraJS = ['students.js'];
 
-// Check if header exists
-$headerPath = __DIR__ . '/../includes/header.php';
-if (!file_exists($headerPath)) {
-    die("Error: Header file not found at: $headerPath");
-}
-include $headerPath;
-
-// Get database instance
 $db = Database::getInstance();
 
-$message = '';
-$messageType = '';
+[$message, $messageType] = flash_get();
 
 // Handle actions
 $action = isset($_GET['action']) ? $_GET['action'] : 'list';
 $id = isset($_GET['id']) ? (int)$_GET['id'] : null;
+if (!in_array($action, ['list', 'add', 'edit'], true)) $action = 'list';
+// Posted id (modal forms) takes precedence over the query string
+if (isset($_POST['id'])) $id = (int)$_POST['id'];
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -43,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $messageType = 'error';
     } else {
         $postAction = $_POST['action'] ?? '';
-        
+
         switch ($postAction) {
             case 'add':
             case 'edit':
@@ -54,49 +37,84 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $lastName = Security::sanitize($_POST['last_name'] ?? '');
                 $phone = Security::sanitize($_POST['phone'] ?? '');
                 $password = $_POST['password'] ?? '';
-                
+
                 // Validate required fields
                 if (empty($username) || empty($email) || empty($firstName) || empty($lastName)) {
                     $message = 'Please fill in all required fields';
                     $messageType = 'error';
                     break;
                 }
-                
+                if (!valid_username($username)) {
+                    $message = 'Username must be 3-50 letters, numbers, dots, dashes or underscores';
+                    $messageType = 'error';
+                    break;
+                }
+                if (!Security::validateEmail($email)) {
+                    $message = 'Please enter a valid email address';
+                    $messageType = 'error';
+                    break;
+                }
+                if ($phone !== '' && !Security::validatePhone($phone)) {
+                    $message = 'Please enter a valid Nigerian phone number';
+                    $messageType = 'error';
+                    break;
+                }
                 if ($postAction === 'add' && empty($password)) {
                     $message = 'Password is required for new students';
                     $messageType = 'error';
                     break;
                 }
-                
+                if ($password !== '' && ($pwError = strong_password($password))) {
+                    $message = $pwError;
+                    $messageType = 'error';
+                    break;
+                }
+
                 $studentData = [
                     'admission_number' => Security::sanitize($_POST['admission_number'] ?? ''),
                     'class_id' => !empty($_POST['class_id']) ? (int)$_POST['class_id'] : null,
                     'parent_id' => !empty($_POST['parent_id']) ? (int)$_POST['parent_id'] : null,
-                    'date_of_birth' => Security::sanitize($_POST['date_of_birth'] ?? ''),
-                    'gender' => Security::sanitize($_POST['gender'] ?? ''),
-                    'admission_date' => Security::sanitize($_POST['admission_date'] ?? date('Y-m-d')),
+                    'date_of_birth' => valid_date($_POST['date_of_birth'] ?? ''),
+                    'gender' => in_array($_POST['gender'] ?? '', ['male', 'female', 'other'], true) ? $_POST['gender'] : null,
+                    'admission_date' => valid_date($_POST['admission_date'] ?? '') ?? date('Y-m-d'),
                     'address' => Security::sanitize($_POST['address'] ?? ''),
                     'blood_group' => Security::sanitize($_POST['blood_group'] ?? ''),
                     'medical_notes' => Security::sanitize($_POST['medical_notes'] ?? '')
                 ];
-                
+
+                if ($studentData['date_of_birth'] && $studentData['date_of_birth'] > date('Y-m-d')) {
+                    $message = 'Date of birth cannot be in the future';
+                    $messageType = 'error';
+                    break;
+                }
+                if ($studentData['class_id'] && !$db->getRow('SELECT id FROM classes WHERE id = ?', [$studentData['class_id']])) {
+                    $message = 'Selected class does not exist';
+                    $messageType = 'error';
+                    break;
+                }
+                if ($studentData['parent_id'] && !$db->getRow('SELECT id FROM parents WHERE id = ?', [$studentData['parent_id']])) {
+                    $message = 'Selected parent does not exist';
+                    $messageType = 'error';
+                    break;
+                }
+
                 try {
                     $db->beginTransaction();
-                    
+
                     if ($postAction === 'add') {
                         // Check if username or email already exists
                         $existing = $db->getRow(
                             "SELECT id FROM users WHERE username = ? OR email = ?",
                             [$username, $email]
                         );
-                        
+
                         if ($existing) {
                             throw new Exception("Username or email already exists");
                         }
-                        
+
                         // Create user
                         $userId = $db->insert(
-                            "INSERT INTO users (username, email, password_hash, first_name, last_name, phone, role, is_active) 
+                            "INSERT INTO users (username, email, password_hash, first_name, last_name, phone, role, is_active)
                              VALUES (?, ?, ?, ?, ?, ?, 'student', 1)",
                             [
                                 $username,
@@ -107,20 +125,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $phone
                             ]
                         );
-                        
+
                         if (!$userId) {
                             throw new Exception("Failed to create user");
                         }
-                        
+
                         // Generate admission number if not provided
                         if (empty($studentData['admission_number'])) {
                             $studentData['admission_number'] = generateAdmissionNumber();
+                        } elseif ($db->getRow('SELECT id FROM students WHERE admission_number = ?', [$studentData['admission_number']])) {
+                            throw new Exception('Admission number already exists');
                         }
-                        
+
                         // Create student
                         $studentId = $db->insert(
-                            "INSERT INTO students (user_id, admission_number, class_id, parent_id, date_of_birth, 
-                             gender, admission_date, address, blood_group, medical_notes) 
+                            "INSERT INTO students (user_id, admission_number, class_id, parent_id, date_of_birth,
+                             gender, admission_date, address, blood_group, medical_notes)
                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                             [
                                 $userId,
@@ -135,35 +155,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $studentData['medical_notes']
                             ]
                         );
-                        
+
                         Security::logAudit('ADDED_STUDENT', 'students', $studentId);
                         $message = 'Student added successfully';
                         $messageType = 'success';
-                        
+
                     } else {
                         // Edit existing student
-                        $userId = (int)($_POST['user_id'] ?? 0);
-                        
-                        if (!$userId) {
-                            throw new Exception("Invalid user ID");
+                        $existingStudent = $db->getRow('SELECT user_id FROM students WHERE id = ?', [$id]);
+                        if (!$existingStudent) {
+                            throw new Exception("Student not found");
                         }
-                        
+                        $userId = (int)$existingStudent['user_id'];
+                        if ($db->getRow('SELECT id FROM users WHERE email = ? AND id <> ?', [$email, $userId])) {
+                            throw new Exception('Email is already used by another account');
+                        }
+                        if ($db->getRow('SELECT id FROM students WHERE admission_number = ? AND id <> ?', [$studentData['admission_number'], $id])) {
+                            throw new Exception('Admission number already exists');
+                        }
+
                         // Update user
                         $userParams = [$firstName, $lastName, $email, $phone, $userId];
                         $userSql = "UPDATE users SET first_name = ?, last_name = ?, email = ?, phone = ?";
-                        
+
                         if (!empty($password)) {
                             $userSql .= ", password_hash = ?";
                             array_splice($userParams, 4, 0, Security::hashPassword($password));
                         }
-                        
+
                         $userSql .= " WHERE id = ?";
                         $db->query($userSql, $userParams);
-                        
+
                         // Update student
                         $db->query(
-                            "UPDATE students SET admission_number = ?, class_id = ?, parent_id = ?, 
-                             date_of_birth = ?, gender = ?, admission_date = ?, address = ?, 
+                            "UPDATE students SET admission_number = ?, class_id = ?, parent_id = ?,
+                             date_of_birth = ?, gender = ?, admission_date = ?, address = ?,
                              blood_group = ?, medical_notes = ? WHERE id = ?",
                             [
                                 $studentData['admission_number'],
@@ -178,35 +204,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $id
                             ]
                         );
-                        
+
                         Security::logAudit('UPDATED_STUDENT', 'students', $id);
                         $message = 'Student updated successfully';
                         $messageType = 'success';
                     }
-                    
+
                     $db->commit();
-                    
+
                 } catch (Exception $e) {
                     $db->rollback();
                     $message = 'Error: ' . $e->getMessage();
                     $messageType = 'error';
                 }
                 break;
-                
+
             case 'delete':
                 try {
                     // Get user_id first
                     $student = $db->getRow("SELECT user_id FROM students WHERE id = ?", [$id]);
-                    
+
                     if ($student) {
                         // Instead of soft delete, we can either:
                         // 1. Actually delete the user (not recommended)
                         // 2. Set is_active to 0 (recommended)
                         $db->query(
-                            "UPDATE users SET is_active = 0 WHERE id = ?", 
+                            "UPDATE users SET is_active = 0 WHERE id = ?",
                             [$student['user_id']]
                         );
-                        
+
                         Security::logAudit('DEACTIVATED_STUDENT', 'students', $id);
                         $message = 'Student deactivated successfully';
                         $messageType = 'success';
@@ -219,30 +245,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $messageType = 'error';
                 }
                 break;
-                
+
             case 'promote':
                 $fromClass = (int)($_POST['from_class'] ?? 0);
                 $toClass = (int)($_POST['to_class'] ?? 0);
                 $academicYear = Security::sanitize($_POST['academic_year'] ?? '');
-                
+
                 if (!$fromClass || !$toClass || !$academicYear) {
                     $message = 'Please select both classes and enter academic year';
                     $messageType = 'error';
                     break;
                 }
-                
+
                 try {
+                    if ($fromClass === $toClass) {
+                        throw new Exception('Source and destination classes must differ');
+                    }
                     $result = $db->query(
                         "UPDATE students SET class_id = ? WHERE class_id = ?",
                         [$toClass, $fromClass]
                     );
-                    
+
                     // Get affected rows
-                    $count = $db->getRow("SELECT ROW_COUNT() as count")['count'];
-                    
-                    Security::logAudit('PROMOTED_STUDENTS', 'students', null, 
+                    $count = $result->rowCount();
+
+                    Security::logAudit('PROMOTED_STUDENTS', 'students', null,
                                      ['from' => $fromClass, 'to' => $toClass, 'year' => $academicYear]);
-                    
+
                     $message = "$count students promoted successfully";
                     $messageType = 'success';
                 } catch (Exception $e) {
@@ -250,17 +279,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $messageType = 'error';
                 }
                 break;
-                
+
             case 'activate':
                 try {
                     $student = $db->getRow("SELECT user_id FROM students WHERE id = ?", [$id]);
-                    
+
                     if ($student) {
                         $db->query(
-                            "UPDATE users SET is_active = 1 WHERE id = ?", 
+                            "UPDATE users SET is_active = 1 WHERE id = ?",
                             [$student['user_id']]
                         );
-                        
+
                         Security::logAudit('ACTIVATED_STUDENT', 'students', $id);
                         $message = 'Student activated successfully';
                         $messageType = 'success';
@@ -274,14 +303,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// Post/Redirect/Get so a browser refresh does not resubmit the form
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $messageType === 'success') {
+    flash_redirect($message, 'success', BASE_URL . '/admin/students.php');
+}
+
 // Get data based on action
 $classes = $db->getRows("SELECT * FROM classes WHERE is_active = 1 ORDER BY class_name");
 
 // Get parents for dropdown
 $parents = $db->getRows(
-    "SELECT p.id, u.first_name, u.last_name, u.email 
-     FROM parents p 
-     JOIN users u ON p.user_id = u.id 
+    "SELECT p.id, u.first_name, u.last_name, u.email
+     FROM parents p
+     JOIN users u ON p.user_id = u.id
      WHERE u.is_active = 1
      ORDER BY u.first_name"
 );
@@ -289,15 +323,15 @@ $parents = $db->getRows(
 if ($action === 'edit' && $id) {
     $student = $db->getRow(
         "SELECT s.*, u.username, u.email, u.first_name, u.last_name, u.phone, u.id as user_id, u.is_active
-         FROM students s 
-         JOIN users u ON s.user_id = u.id 
+         FROM students s
+         JOIN users u ON s.user_id = u.id
          WHERE s.id = ?",
         [$id]
     );
 }
 
 // Get students list with pagination
-$page = isset($_GET['p']) ? (int)$_GET['p'] : 1;
+$page = page_param('p');
 $limit = 20;
 $offset = ($page - 1) * $limit;
 
@@ -325,41 +359,11 @@ $students = $db->getRows(
     [$limit, $offset]
 );
 
-// Helper function for admission number generation if not defined
-if (!function_exists('generateAdmissionNumber')) {
-    function generateAdmissionNumber() {
-        $year = date('Y');
-        $random = str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);
-        return "STB/{$year}/{$random}";
-    }
-}
 ?>
 
 <div class="dashboard-container">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <h3>Admin Panel</h3>
-        </div>
-        <nav class="sidebar-nav">
-            <ul>
-                <li><a href="dashboard.php"><i class="fas fa-home"></i> Dashboard</a></li>
-                <li class="active"><a href="students.php"><i class="fas fa-user-graduate"></i> Students</a></li>
-                <li><a href="parents.php"><i class="fas fa-users"></i> Parents</a></li>
-                <li><a href="teachers.php"><i class="fas fa-chalkboard-teacher"></i> Teachers</a></li>
-                <li><a href="classes.php"><i class="fas fa-school"></i> Classes</a></li>
-                <li><a href="subjects.php"><i class="fas fa-book"></i> Subjects</a></li>
-                <li><a href="attendance.php"><i class="fas fa-calendar-check"></i> Attendance</a></li>
-                <li><a href="fees.php"><i class="fas fa-money-bill"></i> Fees</a></li>
-                <li><a href="results.php"><i class="fas fa-chart-line"></i> Results</a></li>
-                <li><a href="announcements.php"><i class="fas fa-bullhorn"></i> Announcements</a></li>
-                <li><a href="gallery.php"><i class="fas fa-images"></i> Gallery</a></li>
-                <li><a href="reports.php"><i class="fas fa-file-alt"></i> Reports</a></li>
-                <li><a href="audit-logs.php"><i class="fas fa-history"></i> Audit Logs</a></li>
-            </ul>
-        </nav>
-    </aside>
-    
+    <?php render_sidebar('admin'); ?>
+
     <main class="dashboard-main">
         <div class="dashboard-header">
             <h1>Student Management</h1>
@@ -375,15 +379,15 @@ if (!function_exists('generateAdmissionNumber')) {
                 </a>
             </div>
         </div>
-        
+
         <?php if ($message): ?>
-        <div class="alert alert-<?php echo $messageType; ?> alert-dismissible">
+        <div class="alert alert-<?php echo e($messageType); ?> alert-dismissible">
             <i class="fas <?php echo $messageType === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'; ?>"></i>
             <?php echo htmlspecialchars($message); ?>
             <button type="button" class="close" onclick="this.parentElement.remove()">&times;</button>
         </div>
         <?php endif; ?>
-        
+
         <?php if ($action === 'add' || $action === 'edit'): ?>
         <!-- Student Form -->
         <div class="card">
@@ -393,32 +397,32 @@ if (!function_exists('generateAdmissionNumber')) {
             <div class="card-body">
                 <form method="POST" class="form-container" enctype="multipart/form-data">
                     <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
-                    <input type="hidden" name="action" value="<?php echo $action; ?>">
+                    <input type="hidden" name="action" value="<?php echo e($action); ?>">
                     <?php if ($action === 'edit'): ?>
                     <input type="hidden" name="user_id" value="<?php echo $student['user_id'] ?? ''; ?>">
                     <?php endif; ?>
-                    
+
                     <div class="form-section">
                         <h3><i class="fas fa-user"></i> Personal Information</h3>
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="first_name">First Name *</label>
-                                <input type="text" id="first_name" name="first_name" class="form-control" 
+                                <input type="text" id="first_name" name="first_name" class="form-control"
                                        value="<?php echo htmlspecialchars($student['first_name'] ?? ''); ?>" required>
                             </div>
-                            
+
                             <div class="form-group">
                                 <label for="last_name">Last Name *</label>
-                                <input type="text" id="last_name" name="last_name" class="form-control" 
+                                <input type="text" id="last_name" name="last_name" class="form-control"
                                        value="<?php echo htmlspecialchars($student['last_name'] ?? ''); ?>" required>
                             </div>
-                            
+
                             <div class="form-group">
                                 <label for="date_of_birth">Date of Birth *</label>
-                                <input type="date" id="date_of_birth" name="date_of_birth" class="form-control" 
+                                <input type="date" id="date_of_birth" name="date_of_birth" class="form-control"
                                        value="<?php echo htmlspecialchars($student['date_of_birth'] ?? ''); ?>" required>
                             </div>
-                            
+
                             <div class="form-group">
                                 <label for="gender">Gender *</label>
                                 <select id="gender" name="gender" class="form-control" required>
@@ -427,106 +431,106 @@ if (!function_exists('generateAdmissionNumber')) {
                                     <option value="female" <?php echo (isset($student['gender']) && $student['gender'] === 'female') ? 'selected' : ''; ?>>Female</option>
                                 </select>
                             </div>
-                            
+
                             <div class="form-group">
                                 <label for="blood_group">Blood Group</label>
                                 <select id="blood_group" name="blood_group" class="form-control">
                                     <option value="">Select Blood Group</option>
-                                    <?php 
+                                    <?php
                                     $bloodGroups = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
                                     foreach ($bloodGroups as $bg):
                                     ?>
-                                    <option value="<?php echo $bg; ?>" <?php echo (isset($student['blood_group']) && $student['blood_group'] === $bg) ? 'selected' : ''; ?>>
-                                        <?php echo $bg; ?>
+                                    <option value="<?php echo e($bg); ?>" <?php echo (isset($student['blood_group']) && $student['blood_group'] === $bg) ? 'selected' : ''; ?>>
+                                        <?php echo e($bg); ?>
                                     </option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="form-section">
                         <h3><i class="fas fa-address-card"></i> Contact Information</h3>
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="email">Email Address *</label>
-                                <input type="email" id="email" name="email" class="form-control" 
+                                <input type="email" id="email" name="email" class="form-control"
                                        value="<?php echo htmlspecialchars($student['email'] ?? ''); ?>" required>
                             </div>
-                            
+
                             <div class="form-group">
                                 <label for="phone">Phone Number</label>
-                                <input type="tel" id="phone" name="phone" class="form-control" 
+                                <input type="tel" id="phone" name="phone" class="form-control"
                                        value="<?php echo htmlspecialchars($student['phone'] ?? ''); ?>">
                             </div>
-                            
+
                             <div class="form-group full-width">
                                 <label for="address">Home Address</label>
                                 <textarea id="address" name="address" class="form-control" rows="3"><?php echo htmlspecialchars($student['address'] ?? ''); ?></textarea>
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="form-section">
                         <h3><i class="fas fa-graduation-cap"></i> Academic Information</h3>
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="admission_number">Admission Number *</label>
-                                <input type="text" id="admission_number" name="admission_number" class="form-control" 
+                                <input type="text" id="admission_number" name="admission_number" class="form-control"
                                        value="<?php echo htmlspecialchars($student['admission_number'] ?? (function_exists('generateAdmissionNumber') ? generateAdmissionNumber() : '')); ?>" required>
                             </div>
-                            
+
                             <div class="form-group">
                                 <label for="admission_date">Admission Date *</label>
-                                <input type="date" id="admission_date" name="admission_date" class="form-control" 
+                                <input type="date" id="admission_date" name="admission_date" class="form-control"
                                        value="<?php echo htmlspecialchars($student['admission_date'] ?? date('Y-m-d')); ?>" required>
                             </div>
-                            
+
                             <div class="form-group">
                                 <label for="class_id">Class</label>
                                 <select id="class_id" name="class_id" class="form-control">
                                     <option value="">Select Class</option>
                                     <?php foreach ($classes as $class): ?>
-                                    <option value="<?php echo $class['id']; ?>" 
+                                    <option value="<?php echo e($class['id']); ?>"
                                         <?php echo (isset($student['class_id']) && $student['class_id'] == $class['id']) ? 'selected' : ''; ?>>
                                         <?php echo htmlspecialchars($class['class_name'] . ' ' . $class['section']); ?>
                                     </option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
-                            
+
                             <div class="form-group">
                                 <label for="parent_id">Parent/Guardian</label>
                                 <select id="parent_id" name="parent_id" class="form-control">
                                     <option value="">Select Parent</option>
                                     <?php foreach ($parents as $parent): ?>
-                                    <option value="<?php echo $parent['id']; ?>" 
+                                    <option value="<?php echo e($parent['id']); ?>"
                                         <?php echo (isset($student['parent_id']) && $student['parent_id'] == $parent['id']) ? 'selected' : ''; ?>>
                                         <?php echo htmlspecialchars($parent['first_name'] . ' ' . $parent['last_name']); ?>
                                     </option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
-                            
+
                             <div class="form-group full-width">
                                 <label for="medical_notes">Medical Notes</label>
                                 <textarea id="medical_notes" name="medical_notes" class="form-control" rows="3"><?php echo htmlspecialchars($student['medical_notes'] ?? ''); ?></textarea>
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="form-section">
                         <h3><i class="fas fa-lock"></i> Login Information</h3>
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="username">Username *</label>
-                                <input type="text" id="username" name="username" class="form-control" 
+                                <input type="text" id="username" name="username" class="form-control"
                                        value="<?php echo htmlspecialchars($student['username'] ?? ''); ?>" required>
                             </div>
-                            
+
                             <div class="form-group">
                                 <label for="password">Password <?php echo $action === 'add' ? '*' : ''; ?></label>
-                                <input type="password" id="password" name="password" class="form-control" 
+                                <input type="password" id="password" name="password" class="form-control"
                                        <?php echo $action === 'add' ? 'required' : ''; ?>>
                                 <?php if ($action === 'edit'): ?>
                                 <small class="form-text text-muted">Leave blank to keep current password</small>
@@ -534,7 +538,7 @@ if (!function_exists('generateAdmissionNumber')) {
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save"></i> <?php echo $action === 'add' ? 'Add Student' : 'Update Student'; ?>
@@ -546,7 +550,7 @@ if (!function_exists('generateAdmissionNumber')) {
                 </form>
             </div>
         </div>
-        
+
         <?php elseif ($action === 'promote'): ?>
         <!-- Promote Students Form -->
         <div class="card">
@@ -557,46 +561,46 @@ if (!function_exists('generateAdmissionNumber')) {
                 <form method="POST" class="form-container">
                     <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
                     <input type="hidden" name="action" value="promote">
-                    
+
                     <div class="form-row">
                         <div class="form-group">
                             <label for="from_class">From Class *</label>
                             <select id="from_class" name="from_class" class="form-control" required>
                                 <option value="">Select Class</option>
                                 <?php foreach ($classes as $class): ?>
-                                <option value="<?php echo $class['id']; ?>">
+                                <option value="<?php echo e($class['id']); ?>">
                                     <?php echo htmlspecialchars($class['class_name'] . ' ' . $class['section']); ?>
                                 </option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="to_class">To Class *</label>
                             <select id="to_class" name="to_class" class="form-control" required>
                                 <option value="">Select Class</option>
                                 <?php foreach ($classes as $class): ?>
-                                <option value="<?php echo $class['id']; ?>">
+                                <option value="<?php echo e($class['id']); ?>">
                                     <?php echo htmlspecialchars($class['class_name'] . ' ' . $class['section']); ?>
                                 </option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="academic_year">Academic Year *</label>
-                            <input type="text" id="academic_year" name="academic_year" class="form-control" 
-                                   value="<?php echo date('Y') . '-' . (date('Y') + 1); ?>" 
+                            <input type="text" id="academic_year" name="academic_year" class="form-control"
+                                   value="<?php echo currentAcademicYear(); ?>"
                                    placeholder="YYYY-YYYY" required>
                             <small class="form-text text-muted">Format: 2024-2025</small>
                         </div>
                     </div>
-                    
+
                     <div class="alert alert-warning">
                         <i class="fas fa-exclamation-triangle"></i>
                         <strong>Warning:</strong> This will promote all students from the selected class to the new class. This action cannot be undone.
                     </div>
-                    
+
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-arrow-up"></i> Promote Students
@@ -608,7 +612,7 @@ if (!function_exists('generateAdmissionNumber')) {
                 </form>
             </div>
         </div>
-        
+
         <?php else: ?>
         <!-- Students List -->
         <div class="card">
@@ -638,10 +642,10 @@ if (!function_exists('generateAdmissionNumber')) {
                         <tbody>
                             <?php foreach ($students as $student): ?>
                             <tr>
-                                <td><?php echo $student['id']; ?></td>
+                                <td><?php echo e($student['id']); ?></td>
                                 <td>
                                     <?php if (!empty($student['profile_image'])): ?>
-                                    <img src="<?php echo BASE_URL; ?>/uploads/students/<?php echo $student['profile_image']; ?>" 
+                                    <img src="<?php echo BASE_URL; ?>/uploads/students/<?php echo e($student['profile_image']); ?>"
                                          alt="Profile" class="table-avatar">
                                     <?php else: ?>
                                     <div class="avatar-placeholder">
@@ -668,24 +672,24 @@ if (!function_exists('generateAdmissionNumber')) {
                                 </td>
                                 <td>
                                     <div class="action-buttons">
-                                        <a href="?action=edit&id=<?php echo $student['id']; ?>" class="btn-icon" title="Edit">
+                                        <a href="?action=edit&id=<?php echo e($student['id']); ?>" class="btn-icon" title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <a href="view.php?id=<?php echo $student['id']; ?>" class="btn-icon" title="View">
+                                        <a href="view-student.php?id=<?php echo e($student['id']); ?>" class="btn-icon" title="View">
                                             <i class="fas fa-eye"></i>
                                         </a>
-                                        <a href="generate-login.php?id=<?php echo $student['id']; ?>" class="btn-icon" title="Generate Login">
+                                        <a href="generate-login.php?id=<?php echo e($student['id']); ?>" class="btn-icon" title="Generate Login">
                                             <i class="fas fa-key"></i>
                                         </a>
                                         <?php if ($student['is_active']): ?>
-                                        <button type="button" class="btn-icon text-danger" 
-                                                onclick="confirmDeactivate(<?php echo $student['id']; ?>, '<?php echo htmlspecialchars(addslashes($student['first_name'] . ' ' . $student['last_name'])); ?>')"
+                                        <button type="button" class="btn-icon text-danger"
+                                                onclick="confirmDeactivate(<?php echo e($student['id']); ?>, '<?php echo htmlspecialchars(addslashes($student['first_name'] . ' ' . $student['last_name'])); ?>')"
                                                 title="Deactivate">
                                             <i class="fas fa-ban"></i>
                                         </button>
                                         <?php else: ?>
-                                        <button type="button" class="btn-icon text-success" 
-                                                onclick="activateStudent(<?php echo $student['id']; ?>)"
+                                        <button type="button" class="btn-icon text-success"
+                                                onclick="activateStudent(<?php echo e($student['id']); ?>)"
                                                 title="Activate">
                                             <i class="fas fa-check-circle"></i>
                                         </button>
@@ -697,7 +701,7 @@ if (!function_exists('generateAdmissionNumber')) {
                         </tbody>
                     </table>
                 </div>
-                
+
                 <!-- Pagination -->
                 <?php if ($totalPages > 1): ?>
                 <div class="pagination">
@@ -706,13 +710,13 @@ if (!function_exists('generateAdmissionNumber')) {
                         <i class="fas fa-chevron-left"></i> Previous
                     </a>
                     <?php endif; ?>
-                    
+
                     <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                    <a href="?p=<?php echo $i; ?>" class="page-link <?php echo $i == $page ? 'active' : ''; ?>">
-                        <?php echo $i; ?>
+                    <a href="?p=<?php echo e($i); ?>" class="page-link <?php echo $i == $page ? 'active' : ''; ?>">
+                        <?php echo e($i); ?>
                     </a>
                     <?php endfor; ?>
-                    
+
                     <?php if ($page < $totalPages): ?>
                     <a href="?p=<?php echo $page + 1; ?>" class="page-link">
                         Next <i class="fas fa-chevron-right"></i>
@@ -720,7 +724,7 @@ if (!function_exists('generateAdmissionNumber')) {
                     <?php endif; ?>
                 </div>
                 <?php endif; ?>
-                
+
                 <?php else: ?>
                 <div class="alert alert-info">
                     <i class="fas fa-info-circle"></i>
@@ -881,11 +885,11 @@ if (!function_exists('generateAdmissionNumber')) {
         width: 100%;
         margin-top: 10px;
     }
-    
+
     #searchInput {
         width: 100% !important;
     }
-    
+
     .action-buttons {
         justify-content: center;
     }
@@ -915,14 +919,14 @@ document.getElementById('searchInput')?.addEventListener('keyup', function() {
     const searchTerm = this.value.toLowerCase();
     const table = document.getElementById('studentsTable');
     if (!table) return;
-    
+
     const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-    
+
     for (let row of rows) {
         const name = row.cells[2]?.textContent.toLowerCase() || '';
         const admission = row.cells[3]?.textContent.toLowerCase() || '';
         const email = row.cells[6]?.textContent.toLowerCase() || '';
-        
+
         if (name.includes(searchTerm) || admission.includes(searchTerm) || email.includes(searchTerm)) {
             row.style.display = '';
         } else {

@@ -1,13 +1,13 @@
 <?php
 // includes/Fee.php - Fee Management Model Class
 
-require_once __DIR__ . '/Database.php';
+require_once __DIR__ . '/../config/database.php';
 
 class Fee {
     private $db;
     private $id;
     private $data;
-    
+
     /**
      * Constructor
      * @param int|null $id Fee structure ID or payment ID
@@ -18,7 +18,7 @@ class Fee {
             $this->find($id);
         }
     }
-    
+
     /**
      * Find fee structure by ID
      * @param int $id Fee structure ID
@@ -26,20 +26,20 @@ class Fee {
      */
     public function find($id) {
         $this->data = $this->db->getRow(
-            "SELECT fs.*, c.class_name 
+            "SELECT fs.*, c.class_name
              FROM fee_structure fs
              JOIN classes c ON fs.class_id = c.id
              WHERE fs.id = ?",
             [$id]
         );
-        
+
         if ($this->data) {
             $this->id = $id;
         }
-        
+
         return $this->data;
     }
-    
+
     /**
      * Find payment by ID
      * @param int $id Payment ID
@@ -47,7 +47,7 @@ class Fee {
      */
     public function findPayment($id) {
         return $this->db->getRow(
-            "SELECT p.*, 
+            "SELECT p.*,
                     CONCAT(u.first_name, ' ', u.last_name) as student_name,
                     s.admission_number,
                     c.class_name,
@@ -63,44 +63,44 @@ class Fee {
             [$id]
         );
     }
-    
+
     /**
      * Get all fee structures with optional filters
      * @param array $filters Optional filters
      * @return array List of fee structures
      */
     public function getAllStructures($filters = []) {
-        $sql = "SELECT fs.*, c.class_name 
+        $sql = "SELECT fs.*, c.class_name
                 FROM fee_structure fs
                 JOIN classes c ON fs.class_id = c.id
                 WHERE 1=1";
         $params = [];
-        
+
         if (!empty($filters['class_id'])) {
             $sql .= " AND fs.class_id = ?";
             $params[] = $filters['class_id'];
         }
-        
+
         if (!empty($filters['academic_year'])) {
             $sql .= " AND fs.academic_year = ?";
             $params[] = $filters['academic_year'];
         }
-        
+
         if (!empty($filters['term'])) {
             $sql .= " AND fs.term = ?";
             $params[] = $filters['term'];
         }
-        
+
         if (isset($filters['is_mandatory'])) {
             $sql .= " AND fs.is_mandatory = ?";
             $params[] = $filters['is_mandatory'];
         }
-        
+
         $sql .= " ORDER BY fs.academic_year DESC, fs.term, c.class_name";
-        
+
         return $this->db->getRows($sql, $params);
     }
-    
+
     /**
      * Get fee structure for a specific class
      * @param int $classId Class ID
@@ -109,13 +109,13 @@ class Fee {
      */
     public function getClassStructure($classId, $academicYear) {
         return $this->db->getRows(
-            "SELECT * FROM fee_structure 
-             WHERE class_id = ? AND academic_year = ? 
+            "SELECT * FROM fee_structure
+             WHERE class_id = ? AND academic_year = ?
              ORDER BY term, is_mandatory DESC",
             [$classId, $academicYear]
         );
     }
-    
+
     /**
      * Create new fee structure
      * @param array $data Fee structure data
@@ -125,17 +125,17 @@ class Fee {
         try {
             // Check for duplicate
             $existing = $this->db->getRow(
-                "SELECT id FROM fee_structure 
+                "SELECT id FROM fee_structure
                  WHERE class_id = ? AND fee_type = ? AND term = ? AND academic_year = ?",
                 [$data['class_id'], $data['fee_type'], $data['term'], $data['academic_year']]
             );
-            
+
             if ($existing) {
                 throw new Exception("Fee structure already exists for this class, term and academic year");
             }
-            
+
             $id = $this->db->insert(
-                "INSERT INTO fee_structure (class_id, fee_type, amount, term, academic_year, due_date, is_mandatory, description) 
+                "INSERT INTO fee_structure (class_id, fee_type, amount, term, academic_year, due_date, is_mandatory, description)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 [
                     $data['class_id'],
@@ -148,17 +148,17 @@ class Fee {
                     $data['description'] ?? null
                 ]
             );
-            
+
             Security::logAudit('CREATED_FEE_STRUCTURE', 'fee_structure', $id, null, $data);
-            
+
             return $id;
-            
+
         } catch (Exception $e) {
             error_log("Error creating fee structure: " . $e->getMessage());
             return false;
         }
     }
-    
+
     /**
      * Update fee structure
      * @param int $id Fee structure ID
@@ -171,10 +171,10 @@ class Fee {
             if (!$structure) {
                 throw new Exception("Fee structure not found");
             }
-            
+
             $this->db->query(
-                "UPDATE fee_structure SET fee_type = ?, amount = ?, term = ?, 
-                 academic_year = ?, due_date = ?, is_mandatory = ?, description = ? 
+                "UPDATE fee_structure SET fee_type = ?, amount = ?, term = ?,
+                 academic_year = ?, due_date = ?, is_mandatory = ?, description = ?
                  WHERE id = ?",
                 [
                     $data['fee_type'] ?? $structure['fee_type'],
@@ -187,17 +187,17 @@ class Fee {
                     $id
                 ]
             );
-            
+
             Security::logAudit('UPDATED_FEE_STRUCTURE', 'fee_structure', $id, $structure, $data);
-            
+
             return true;
-            
+
         } catch (Exception $e) {
             error_log("Error updating fee structure: " . $e->getMessage());
             return false;
         }
     }
-    
+
     /**
      * Delete fee structure
      * @param int $id Fee structure ID
@@ -209,29 +209,29 @@ class Fee {
             if (!$structure) {
                 throw new Exception("Fee structure not found");
             }
-            
+
             // Check if structure has payments
             $paymentCount = $this->db->getRow(
                 "SELECT COUNT(*) as count FROM payments WHERE fee_structure_id = ?",
                 [$id]
             )['count'];
-            
+
             if ($paymentCount > 0) {
                 throw new Exception("Cannot delete fee structure with existing payments");
             }
-            
+
             $this->db->query("DELETE FROM fee_structure WHERE id = ?", [$id]);
-            
+
             Security::logAudit('DELETED_FEE_STRUCTURE', 'fee_structure', $id, $structure);
-            
+
             return true;
-            
+
         } catch (Exception $e) {
             error_log("Error deleting fee structure: " . $e->getMessage());
             return false;
         }
     }
-    
+
     /**
      * Record a payment
      * @param array $data Payment data
@@ -241,11 +241,11 @@ class Fee {
         try {
             // Generate receipt number
             $receiptNumber = $this->generateReceiptNumber();
-            
+
             $id = $this->db->insert(
-                "INSERT INTO payments (student_id, receipt_number, fee_structure_id, amount, 
-                 payment_date, payment_method, transaction_id, bank_name, cheque_number, 
-                 term, academic_year, remarks, recorded_by) 
+                "INSERT INTO payments (student_id, receipt_number, fee_structure_id, amount,
+                 payment_date, payment_method, transaction_id, bank_name, cheque_number,
+                 term, academic_year, remarks, recorded_by)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [
                     $data['student_id'],
@@ -263,17 +263,17 @@ class Fee {
                     $data['recorded_by']
                 ]
             );
-            
+
             Security::logAudit('RECORDED_PAYMENT', 'payments', $id, null, $data);
-            
+
             return $id;
-            
+
         } catch (Exception $e) {
             error_log("Error recording payment: " . $e->getMessage());
             return false;
         }
     }
-    
+
     /**
      * Update payment status
      * @param int $paymentId Payment ID
@@ -287,24 +287,24 @@ class Fee {
             if (!$payment) {
                 throw new Exception("Payment not found");
             }
-            
+
             $this->db->query(
-                "UPDATE payments SET status = ?, approved_by = ?, approved_at = NOW() 
+                "UPDATE payments SET status = ?, approved_by = ?, approved_at = NOW()
                  WHERE id = ?",
                 [$status, $approvedBy, $paymentId]
             );
-            
-            Security::logAudit('UPDATED_PAYMENT_STATUS', 'payments', $paymentId, $payment, 
+
+            Security::logAudit('UPDATED_PAYMENT_STATUS', 'payments', $paymentId, $payment,
                               ['status' => $status]);
-            
+
             return true;
-            
+
         } catch (Exception $e) {
             error_log("Error updating payment status: " . $e->getMessage());
             return false;
         }
     }
-    
+
     /**
      * Get payments for a student
      * @param int $studentId Student ID
@@ -312,22 +312,22 @@ class Fee {
      * @return array Payments
      */
     public function getStudentPayments($studentId, $academicYear = null) {
-        $sql = "SELECT p.*, fs.fee_type 
+        $sql = "SELECT p.*, fs.fee_type
                 FROM payments p
                 LEFT JOIN fee_structure fs ON p.fee_structure_id = fs.id
                 WHERE p.student_id = ?";
         $params = [$studentId];
-        
+
         if ($academicYear) {
             $sql .= " AND p.academic_year = ?";
             $params[] = $academicYear;
         }
-        
+
         $sql .= " ORDER BY p.payment_date DESC";
-        
+
         return $this->db->getRows($sql, $params);
     }
-    
+
     /**
      * Get fee summary for a student
      * @param int $studentId Student ID
@@ -340,7 +340,7 @@ class Fee {
             "SELECT class_id FROM students WHERE id = ?",
             [$studentId]
         );
-        
+
         if (!$student || !$student['class_id']) {
             return [
                 'total_fees' => 0,
@@ -351,21 +351,21 @@ class Fee {
                 'payments' => []
             ];
         }
-        
+
         // Get fee structure
         $feeStructure = $this->getClassStructure($student['class_id'], $academicYear);
-        
+
         // Get payments
         $payments = $this->getStudentPayments($studentId, $academicYear);
-        
+
         $totalFees = 0;
         $totalPaid = 0;
         $pendingAmount = 0;
-        
+
         foreach ($feeStructure as $fee) {
             $totalFees += $fee['amount'];
         }
-        
+
         foreach ($payments as $payment) {
             if ($payment['status'] === 'completed') {
                 $totalPaid += $payment['amount'];
@@ -373,7 +373,7 @@ class Fee {
                 $pendingAmount += $payment['amount'];
             }
         }
-        
+
         return [
             'total_fees' => $totalFees,
             'total_paid' => $totalPaid,
@@ -383,7 +383,7 @@ class Fee {
             'payments' => $payments
         ];
     }
-    
+
     /**
      * Get outstanding fees report
      * @param int|null $classId Class ID (optional)
@@ -392,16 +392,16 @@ class Fee {
      */
     public function getOutstanding($classId = null, $academicYear = null) {
         if (!$academicYear) {
-            $academicYear = date('Y') . '-' . (date('Y') + 1);
+            $academicYear = currentAcademicYear();
         }
-        
+
         $sql = "SELECT s.id, u.first_name, u.last_name, s.admission_number, c.class_name,
                        COALESCE((
-                           SELECT SUM(amount) FROM fee_structure 
+                           SELECT SUM(amount) FROM fee_structure
                            WHERE class_id = s.class_id AND academic_year = ?
                        ), 0) as expected,
                        COALESCE((
-                           SELECT SUM(amount) FROM payments 
+                           SELECT SUM(amount) FROM payments
                            WHERE student_id = s.id AND academic_year = ? AND status = 'completed'
                        ), 0) as paid
                 FROM students s
@@ -409,27 +409,27 @@ class Fee {
                 LEFT JOIN classes c ON s.class_id = c.id
                 WHERE u.is_active = 1 AND u.deleted_at IS NULL";
         $params = [$academicYear, $academicYear];
-        
+
         if ($classId) {
             $sql .= " AND s.class_id = ?";
             $params[] = $classId;
         }
-        
+
         $sql .= " HAVING expected > paid
                   ORDER BY (expected - paid) DESC";
-        
+
         $results = $this->db->getRows($sql, $params);
-        
+
         foreach ($results as &$result) {
             $result['balance'] = $result['expected'] - $result['paid'];
-            $result['payment_percentage'] = $result['expected'] > 0 
-                ? round(($result['paid'] / $result['expected']) * 100, 1) 
+            $result['payment_percentage'] = $result['expected'] > 0
+                ? round(($result['paid'] / $result['expected']) * 100, 1)
                 : 0;
         }
-        
+
         return $results;
     }
-    
+
     /**
      * Get payment report for date range
      * @param string $startDate Start date
@@ -438,7 +438,7 @@ class Fee {
      * @return array Payments
      */
     public function getPaymentReport($startDate, $endDate, $classId = null) {
-        $sql = "SELECT p.*, 
+        $sql = "SELECT p.*,
                        CONCAT(u.first_name, ' ', u.last_name) as student_name,
                        s.admission_number,
                        c.class_name,
@@ -450,17 +450,17 @@ class Fee {
                 LEFT JOIN users ru ON p.recorded_by = ru.id
                 WHERE p.payment_date BETWEEN ? AND ?";
         $params = [$startDate, $endDate];
-        
+
         if ($classId) {
             $sql .= " AND s.class_id = ?";
             $params[] = $classId;
         }
-        
+
         $sql .= " ORDER BY p.payment_date DESC";
-        
+
         return $this->db->getRows($sql, $params);
     }
-    
+
     /**
      * Get payment statistics
      * @param string|null $startDate Start date
@@ -474,20 +474,20 @@ class Fee {
         if (!$endDate) {
             $endDate = date('Y-m-t');
         }
-        
+
         $stats = $this->db->getRow(
-            "SELECT 
+            "SELECT
                 COUNT(*) as total_transactions,
                 SUM(amount) as total_amount,
                 SUM(CASE WHEN status = 'completed' THEN amount ELSE 0 END) as completed_amount,
                 SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END) as pending_amount,
                 COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_count,
                 COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_count
-             FROM payments 
+             FROM payments
              WHERE payment_date BETWEEN ? AND ?",
             [$startDate, $endDate]
         );
-        
+
         if (!$stats) {
             $stats = [
                 'total_transactions' => 0,
@@ -498,21 +498,21 @@ class Fee {
                 'pending_count' => 0
             ];
         }
-        
+
         // Get payment methods breakdown
         $methods = $this->db->getRows(
             "SELECT payment_method, COUNT(*) as count, SUM(amount) as total
-             FROM payments 
+             FROM payments
              WHERE payment_date BETWEEN ? AND ?
              GROUP BY payment_method",
             [$startDate, $endDate]
         );
-        
+
         $stats['methods'] = $methods;
-        
+
         return $stats;
     }
-    
+
     /**
      * Generate unique receipt number
      * @return string Receipt number
@@ -522,22 +522,22 @@ class Fee {
         $month = date('m');
         $day = date('d');
         $random = str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);
-        
+
         $receipt = "RCP-{$year}{$month}{$day}-{$random}";
-        
+
         // Check if exists
         $exists = $this->db->getRow(
             "SELECT id FROM payments WHERE receipt_number = ?",
             [$receipt]
         );
-        
+
         if ($exists) {
             return $this->generateReceiptNumber();
         }
-        
+
         return $receipt;
     }
-    
+
     /**
      * Get receipt details
      * @param string $receiptNumber Receipt number
@@ -545,7 +545,7 @@ class Fee {
      */
     public function getReceipt($receiptNumber) {
         return $this->db->getRow(
-            "SELECT p.*, 
+            "SELECT p.*,
                     CONCAT(u.first_name, ' ', u.last_name) as student_name,
                     s.admission_number,
                     c.class_name, c.section,
@@ -559,7 +559,7 @@ class Fee {
             [$receiptNumber]
         );
     }
-    
+
     /**
      * Delete payment
      * @param int $id Payment ID
@@ -571,19 +571,19 @@ class Fee {
             if (!$payment) {
                 throw new Exception("Payment not found");
             }
-            
+
             $this->db->query("DELETE FROM payments WHERE id = ?", [$id]);
-            
+
             Security::logAudit('DELETED_PAYMENT', 'payments', $id, $payment);
-            
+
             return true;
-            
+
         } catch (Exception $e) {
             error_log("Error deleting payment: " . $e->getMessage());
             return false;
         }
     }
-    
+
     /**
      * Get fee collection by month
      * @param string $year Year
@@ -591,18 +591,18 @@ class Fee {
      */
     public function getMonthlyCollection($year) {
         return $this->db->getRows(
-            "SELECT 
+            "SELECT
                 MONTH(payment_date) as month,
                 COUNT(*) as count,
                 SUM(amount) as total
-             FROM payments 
+             FROM payments
              WHERE YEAR(payment_date) = ? AND status = 'completed'
              GROUP BY MONTH(payment_date)
              ORDER BY month",
             [$year]
         );
     }
-    
+
     /**
      * Get current instance data
      * @return array|null Fee structure data
@@ -610,7 +610,7 @@ class Fee {
     public function getData() {
         return $this->data;
     }
-    
+
     /**
      * Get fee structure ID
      * @return int|null
