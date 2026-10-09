@@ -113,8 +113,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     . "<p style='font-size:20px;text-align:center;background:#ffd700;padding:12px'><strong>" . e($appNumber) . "</strong></p>"
                     . "<p><strong>Documents received:</strong></p><ul>$docList</ul>"
                     . "<ol><li>We will review your application within 3-5 working days.</li><li>You will be contacted to schedule an assessment.</li><li>You will then receive the admission decision.</li></ol>"
-                    . "<p>Questions? Call " . e(SCHOOL_PHONE) . ".</p><p><strong>Admissions Team</strong></p></div>");
-                sendEmail(SCHOOL_EMAIL, "New Admission Application - $appNumber",
+                    . "<p>Questions? Call " . e(school_phone()) . ".</p><p><strong>Admissions Team</strong></p></div>");
+                sendEmail(school_email(), "New Admission Application - $appNumber",
                     "<h2>New Admission Application</h2><p><strong>Number:</strong> " . e($appNumber) . "</p><p><strong>Child:</strong> " . e($fullName)
                     . " (" . e($dob) . ", " . e($gender) . ")</p><p><strong>Class:</strong> " . e($class) . "</p><p><strong>Parent:</strong> " . e($parentName)
                     . " &middot; " . e($parentEmail) . " &middot; " . e($parentPhone) . "</p><p><a href='" . e(BASE_URL) . "/admin/applications'>Review in the admin panel</a></p>");

@@ -91,6 +91,9 @@ $dashboardUrl = $isLoggedIn ? BASE_URL . '/' . $_SESSION['user_role'] . '/dashbo
                         <a href="<?php echo BASE_URL . $path; ?>"<?php echo $currentPage === $file ? ' aria-current="page"' : ''; ?>><?php echo e($label); ?></a>
                     </li>
                     <?php endforeach; ?>
+                    <?php foreach (cms_menu_pages() as $mp): $mpActive = $currentPage === 'page' && ($_GET['slug'] ?? '') === $mp['slug']; ?>
+                    <li class="<?php echo $mpActive ? 'active' : ''; ?>"><a href="<?php echo BASE_URL . '/public/page?slug=' . rawurlencode($mp['slug']); ?>"<?php echo $mpActive ? ' aria-current="page"' : ''; ?>><?php echo e($mp['title']); ?></a></li>
+                    <?php endforeach; ?>
 
                     <?php if ($isLoggedIn): ?>
                         <li class="nav-item dropdown">

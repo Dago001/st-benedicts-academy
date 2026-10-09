@@ -28,7 +28,7 @@ try {
         'students' => $db->getRow("SELECT COUNT(*) as count FROM students s JOIN users u ON s.user_id = u.id WHERE u.deleted_at IS NULL")['count'] ?? 0,
         'teachers' => $db->getRow("SELECT COUNT(*) as count FROM teachers t JOIN users u ON t.user_id = u.id WHERE u.deleted_at IS NULL AND u.is_active = 1")['count'] ?? 0,
         'classes' => $db->getRow("SELECT COUNT(*) as count FROM classes WHERE is_active = 1")['count'] ?? 0,
-        'years' => 14
+        'years' => max(1, (int)date('Y') - (int)cms('school.founded_year'))
     ];
 
     // Fetch latest news
@@ -1081,72 +1081,41 @@ try {
 <!-- ===== HERO SECTION WITH SLIDER ===== -->
 <section class="hero-section">
     <div class="hero-slider">
-        <!-- Slide 1 -->
-        <div class="hero-slide active" style="background-image: linear-gradient(135deg, rgba(0,40,85,0.85) 0%, rgba(196,30,58,0.85) 100%);">
+        <?php $heroSlides = cms_slides(); $gradients = [
+            'linear-gradient(135deg, rgba(0,40,85,0.85) 0%, rgba(196,30,58,0.85) 100%)',
+            'linear-gradient(135deg, rgba(196,30,58,0.85) 0%, rgba(255,215,0,0.85) 100%)',
+            'linear-gradient(135deg, rgba(255,215,0,0.85) 0%, rgba(0,40,85,0.85) 100%)']; ?>
+        <?php foreach ($heroSlides as $i => $sl):
+            $bg = $gradients[(int)$sl['grad'] % 3];
+            if (!empty($sl['image']) && is_file(UPLOAD_PATH . 'site/' . basename($sl['image']))) {
+                $bg = 'linear-gradient(135deg, rgba(0,40,85,0.62) 0%, rgba(0,26,58,0.55) 100%), url(\'' . BASE_URL . '/uploads/site/' . rawurlencode(basename($sl['image'])) . '\') center/cover no-repeat';
+            } ?>
+        <div class="hero-slide<?php echo $i === 0 ? ' active' : ''; ?>" style="background: <?php echo e($bg); ?>;">
             <div class="container">
                 <div class="hero-content">
-                    <span class="hero-subtitle">Welcome to</span>
-                    <h1 class="hero-title">ST. BENEDICT'S <span>EARLY YEARS</span> BRITISH ACADEMY</h1>
-                    <p class="hero-motto"><?php echo defined('SCHOOL_MOTTO') ? SCHOOL_MOTTO : 'Christo Duce, Una Sapientia et Virtute Crescimus'; ?></p>
-                    <p class="hero-translation">With Christ as our guide, together we grow in wisdom and virtue</p>
+                    <?php if ($sl['subtitle'] !== '' && $sl['subtitle'] !== null): ?><span class="hero-subtitle"><?php echo e($sl['subtitle']); ?></span><?php endif; ?>
+                    <h1 class="hero-title"><?php echo preg_replace('/\*([^*]+)\*/', '<span>$1</span>', e($sl['title'])); ?></h1>
+                    <?php if (!empty($sl['use_motto'])): ?>
+                        <p class="hero-motto"><?php echo e(school_motto()); ?></p>
+                        <p class="hero-translation"><?php echo cms_e('school.motto_translation'); ?></p>
+                    <?php elseif (!empty($sl['text'])): ?>
+                        <p class="hero-motto"><?php echo e($sl['text']); ?></p>
+                    <?php endif; ?>
                     <div class="hero-buttons">
-                        <a href="<?php echo BASE_URL; ?>/public/apply" class="btn btn-primary btn-large">
-                            <i class="fas fa-graduation-cap"></i> Apply Now
-                        </a>
-                        <a href="<?php echo BASE_URL; ?>/public/contact" class="btn btn-outline-light btn-large">
-                            <i class="fas fa-calendar-alt"></i> Schedule a Visit
-                        </a>
+                        <?php if (!empty($sl['btn1_label'])): ?><a href="<?php echo e(cms_link($sl['btn1_url'])); ?>" class="btn btn-primary btn-large"><?php echo e($sl['btn1_label']); ?></a><?php endif; ?>
+                        <?php if (!empty($sl['btn2_label'])): ?><a href="<?php echo e(cms_link($sl['btn2_url'])); ?>" class="btn btn-outline-light btn-large"><?php echo e($sl['btn2_label']); ?></a><?php endif; ?>
                     </div>
                 </div>
             </div>
         </div>
-
-        <!-- Slide 2 -->
-        <div class="hero-slide" style="background-image: linear-gradient(135deg, rgba(196,30,58,0.85) 0%, rgba(255,215,0,0.85) 100%);">
-            <div class="container">
-                <div class="hero-content">
-                    <span class="hero-subtitle">Quality Education</span>
-                    <h1 class="hero-title">British <span>Early Years</span> Curriculum</h1>
-                    <p class="hero-motto">Nurturing young minds with the best educational practices</p>
-                    <div class="hero-buttons">
-                        <a href="<?php echo BASE_URL; ?>/public/academics" class="btn btn-primary btn-large">
-                            <i class="fas fa-book-open"></i> Our Curriculum
-                        </a>
-                        <a href="<?php echo BASE_URL; ?>/public/about" class="btn btn-outline-light btn-large">
-                            <i class="fas fa-info-circle"></i> Learn More
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Slide 3 -->
-        <div class="hero-slide" style="background-image: linear-gradient(135deg, rgba(255,215,0,0.85) 0%, rgba(0,40,85,0.85) 100%);">
-            <div class="container">
-                <div class="hero-content">
-                    <span class="hero-subtitle">Faith-Based Learning</span>
-                    <h1 class="hero-title">Growing in <span>Wisdom & Virtue</span></h1>
-                    <p class="hero-motto">Building strong minds and kind hearts for the future</p>
-                    <div class="hero-buttons">
-                        <a href="<?php echo BASE_URL; ?>/public/gallery" class="btn btn-primary btn-large">
-                            <i class="fas fa-images"></i> View Gallery
-                        </a>
-                        <a href="<?php echo BASE_URL; ?>/public/contact" class="btn btn-outline-light btn-large">
-                            <i class="fas fa-map-marker-alt"></i> Find Us
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <?php endforeach; ?>
     </div>
 
     <!-- Slider Controls -->
     <div class="slider-controls">
         <button class="slider-prev"><i class="fas fa-chevron-left"></i></button>
         <div class="slider-dots">
-            <span class="dot active"></span>
-            <span class="dot"></span>
-            <span class="dot"></span>
+            <?php foreach ($heroSlides as $di => $_): ?><span class="dot<?php echo $di === 0 ? ' active' : ''; ?>"></span><?php endforeach; ?>
         </div>
         <button class="slider-next"><i class="fas fa-chevron-right"></i></button>
     </div>
@@ -1193,37 +1162,37 @@ try {
     <div class="container">
         <div class="welcome-grid">
             <div class="welcome-content">
-                <span class="section-tag">Welcome to St. Benedict's</span>
-                <h2 class="section-title">Nurturing <span class="text-highlight">Young Minds</span> with Faith & Excellence</h2>
-                <p class="welcome-text">At St. Benedict's Early Years British Academy, we believe that every child is a unique gift from God. Our approach combines the best of the British Early Years Foundation Stage curriculum with strong Christian values, creating an environment where children can flourish academically, socially, and spiritually.</p>
+                <span class="section-tag"><?php echo cms_e('home.welcome_tag'); ?></span>
+                <h2 class="section-title"><?php echo cms_hl('home.welcome_title'); ?></h2>
+                <p class="welcome-text"><?php echo cms_e('home.welcome_text'); ?></p>
 
                 <div class="features-list">
                     <div class="feature-item">
                         <div class="feature-icon"><i class="fas fa-check-circle"></i></div>
                         <div class="feature-text">
-                            <h4>British Curriculum</h4>
-                            <p>Internationally recognized Early Years Foundation Stage</p>
+                            <h4><?php echo cms_e('home.feat1_title'); ?></h4>
+                            <p><?php echo cms_e('home.feat1_text'); ?></p>
                         </div>
                     </div>
                     <div class="feature-item">
                         <div class="feature-icon"><i class="fas fa-check-circle"></i></div>
                         <div class="feature-text">
-                            <h4>Qualified Teachers</h4>
-                            <p>Experienced and caring early years educators</p>
+                            <h4><?php echo cms_e('home.feat2_title'); ?></h4>
+                            <p><?php echo cms_e('home.feat2_text'); ?></p>
                         </div>
                     </div>
                     <div class="feature-item">
                         <div class="feature-icon"><i class="fas fa-check-circle"></i></div>
                         <div class="feature-text">
-                            <h4>Safe Environment</h4>
-                            <p>Secure, child-friendly facilities with modern equipment</p>
+                            <h4><?php echo cms_e('home.feat3_title'); ?></h4>
+                            <p><?php echo cms_e('home.feat3_text'); ?></p>
                         </div>
                     </div>
                     <div class="feature-item">
                         <div class="feature-icon"><i class="fas fa-check-circle"></i></div>
                         <div class="feature-text">
-                            <h4>Faith-Based</h4>
-                            <p>Christian values integrated into daily learning</p>
+                            <h4><?php echo cms_e('home.feat4_title'); ?></h4>
+                            <p><?php echo cms_e('home.feat4_text'); ?></p>
                         </div>
                     </div>
                 </div>
@@ -1237,7 +1206,7 @@ try {
 
             <div class="welcome-image">
                 <div class="image-wrapper">
-                    <img src="<?php echo BASE_URL; ?>/assets/images/welcome-image.jpg" alt="Students learning at St. Benedict's" onerror="this.onerror=null; this.src='<?php echo BASE_URL; ?>/assets/images/placeholder.jpg';">
+                    <img src="<?php echo e(cms_img('home.welcome_image', BASE_URL . '/assets/images/welcome-image.jpg')); ?>" alt="Students learning at St. Benedict's" onerror="this.onerror=null; this.src='<?php echo BASE_URL; ?>/assets/images/placeholder.jpg';">
                     <div class="experience-badge">
                         <span class="years"><?php echo e($stats['years']); ?>+</span>
                         <span class="text">Years of Excellence</span>
@@ -1286,7 +1255,7 @@ try {
                     <i class="fas fa-cross"></i>
                 </div>
                 <h2>Our Mission</h2>
-                <p>Through Christ's guidance, we build strong minds and kind hearts for the future. As a family of God rooted in love and faith, we cherish every child as God's gift. We learn, play, and grow together in joy, peace, and love.</p>
+                <p><?php echo cms_e('home.mission'); ?></p>
             </div>
 
             <!-- Vision Slide -->
@@ -1295,7 +1264,7 @@ try {
                     <i class="fas fa-eye"></i>
                 </div>
                 <h2>Our Vision</h2>
-                <p>To nurture children who shine with wisdom, faith, and character, ready to shape a brighter, God-centred future.</p>
+                <p><?php echo cms_e('home.vision'); ?></p>
             </div>
 
             <!-- Goal Slide -->
@@ -1304,7 +1273,7 @@ try {
                     <i class="fas fa-bullseye"></i>
                 </div>
                 <h2>Our Goal</h2>
-                <p>To provide every child with a happy, safe, and faith-filled foundation for life, learning, and purpose.</p>
+                <p><?php echo cms_e('home.goal'); ?></p>
             </div>
         </div>
 
@@ -1324,17 +1293,17 @@ try {
 <!-- ===== PROGRAMS SECTION ===== -->
 <section class="programs-section">
     <div class="container">
-        <h2 class="section-title text-center">Our Programs</h2>
-        <p class="section-subtitle text-center">Age-appropriate learning pathways designed to nurture every child's potential</p>
+        <h2 class="section-title text-center"><?php echo cms_e('home.programs_title'); ?></h2>
+        <p class="section-subtitle text-center"><?php echo cms_e('home.programs_subtitle'); ?></p>
 
         <div class="programs-grid">
             <div class="program-card">
                 <div class="program-icon">
                     <i class="fas fa-baby"></i>
                 </div>
-                <h3>Nursery</h3>
-                <p class="program-age">Ages 2-3</p>
-                <p class="program-desc">Introduction to structured play, social interaction, and early communication skills.</p>
+                <h3><?php echo cms_e('home.prog1_title'); ?></h3>
+                <p class="program-age"><?php echo cms_e('home.prog1_age'); ?></p>
+                <p class="program-desc"><?php echo cms_e('home.prog1_text'); ?></p>
                 <a href="<?php echo BASE_URL; ?>/public/academics" class="btn-link">Learn More <i class="fas fa-arrow-right"></i></a>
             </div>
 
@@ -1342,9 +1311,9 @@ try {
                 <div class="program-icon">
                     <i class="fas fa-child"></i>
                 </div>
-                <h3>Reception</h3>
-                <p class="program-age">Ages 4-5</p>
-                <p class="program-desc">Preparation for formal learning with focus on early literacy, numeracy, and social skills.</p>
+                <h3><?php echo cms_e('home.prog2_title'); ?></h3>
+                <p class="program-age"><?php echo cms_e('home.prog2_age'); ?></p>
+                <p class="program-desc"><?php echo cms_e('home.prog2_text'); ?></p>
                 <a href="<?php echo BASE_URL; ?>/public/academics" class="btn-link">Learn More <i class="fas fa-arrow-right"></i></a>
             </div>
 
@@ -1352,9 +1321,9 @@ try {
                 <div class="program-icon">
                     <i class="fas fa-user-graduate"></i>
                 </div>
-                <h3>Year 1-2</h3>
-                <p class="program-age">Ages 5-7</p>
-                <p class="program-desc">Building solid foundations in core subjects following the British curriculum.</p>
+                <h3><?php echo cms_e('home.prog3_title'); ?></h3>
+                <p class="program-age"><?php echo cms_e('home.prog3_age'); ?></p>
+                <p class="program-desc"><?php echo cms_e('home.prog3_text'); ?></p>
                 <a href="<?php echo BASE_URL; ?>/public/academics" class="btn-link">Learn More <i class="fas fa-arrow-right"></i></a>
             </div>
 
@@ -1362,9 +1331,9 @@ try {
                 <div class="program-icon">
                     <i class="fas fa-music"></i>
                 </div>
-                <h3>Extra-Curricular</h3>
-                <p class="program-age">All Ages</p>
-                <p class="program-desc">Enrichment activities to discover and nurture individual talents.</p>
+                <h3><?php echo cms_e('home.prog4_title'); ?></h3>
+                <p class="program-age"><?php echo cms_e('home.prog4_age'); ?></p>
+                <p class="program-desc"><?php echo cms_e('home.prog4_text'); ?></p>
                 <a href="<?php echo BASE_URL; ?>/public/academics" class="btn-link">Learn More <i class="fas fa-arrow-right"></i></a>
             </div>
         </div>
@@ -1374,8 +1343,8 @@ try {
 <!-- ===== NEWS SECTION ===== -->
 <section class="news-section">
     <div class="container">
-        <h2 class="section-title text-center">Latest News & Events</h2>
-        <p class="section-subtitle text-center">Keep up with the exciting activities at our school</p>
+        <h2 class="section-title text-center"><?php echo cms_e('home.news_title'); ?></h2>
+        <p class="section-subtitle text-center"><?php echo cms_e('home.news_subtitle'); ?></p>
 
         <div class="news-grid">
             <?php if (!empty($news)): ?>
@@ -1468,8 +1437,8 @@ try {
 <section class="cta-section">
     <div class="container">
         <div class="cta-content">
-            <h2>Ready to Give Your Child the Best Start?</h2>
-            <p>Enroll today at St. Benedict's Early Years British Academy</p>
+            <h2><?php echo cms_e('home.cta_title'); ?></h2>
+            <p><?php echo cms_e('home.cta_text'); ?></p>
             <div class="cta-buttons">
                 <a href="<?php echo BASE_URL; ?>/public/apply" class="btn btn-primary btn-large">
                     <i class="fas fa-graduation-cap"></i> Apply Now

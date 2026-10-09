@@ -579,8 +579,8 @@ if ($db) {
         </div>
 
         <div class="overview-content">
-            <p class="lead"><?php echo e($curriculum['overview']); ?></p>
-            <p><?php echo e($curriculum['approach']); ?></p>
+            <p class="lead"><?php echo cms_e('academics.overview'); ?></p>
+            <p><?php echo cms_e('academics.approach'); ?></p>
         </div>
     </div>
 </section>
@@ -591,53 +591,34 @@ if ($db) {
         <div class="stages-grid">
             <!-- Nursery Stage -->
             <div class="stage-card">
-                <div class="stage-age">Ages 2-3</div>
-                <h3 class="stage-title">Nursery</h3>
+                <div class="stage-age"><?php echo cms_e('academics.stage1_age'); ?></div>
+                <h3 class="stage-title"><?php echo cms_e('academics.stage1_title'); ?></h3>
                 <div class="stage-content">
-                    <p>The Nursery stage focuses on developing independence, social skills, and early communication through structured play and exploration.</p>
+                    <p><?php echo cms_e('academics.stage1_text'); ?></p>
                     <h4>Key Learning Areas:</h4>
-                    <ul>
-                        <li>Communication and language</li>
-                        <li>Physical development</li>
-                        <li>Personal, social and emotional development</li>
-                        <li>Early literacy and numeracy</li>
-                        <li>Creative expression</li>
-                    </ul>
+                    <ul><?php foreach (cms_lines('academics.stage1_areas') as $li): ?><li><?php echo e($li); ?></li><?php endforeach; ?></ul>
                 </div>
             </div>
 
             <!-- Reception Stage -->
             <div class="stage-card">
-                <div class="stage-age">Ages 4-5</div>
-                <h3 class="stage-title">Reception</h3>
+                <div class="stage-age"><?php echo cms_e('academics.stage2_age'); ?></div>
+                <h3 class="stage-title"><?php echo cms_e('academics.stage2_title'); ?></h3>
                 <div class="stage-content">
-                    <p>Reception builds on Nursery learning with more structured activities preparing children for formal education.</p>
+                    <p><?php echo cms_e('academics.stage2_text'); ?></p>
                     <h4>Key Learning Areas:</h4>
-                    <ul>
-                        <li>Phonics and early reading</li>
-                        <li>Writing development</li>
-                        <li>Number concepts and problem-solving</li>
-                        <li>Understanding the world</li>
-                        <li>Expressive arts and design</li>
-                    </ul>
+                    <ul><?php foreach (cms_lines('academics.stage2_areas') as $li): ?><li><?php echo e($li); ?></li><?php endforeach; ?></ul>
                 </div>
             </div>
 
             <!-- Year 1-2 Stage -->
             <div class="stage-card">
-                <div class="stage-age">Ages 5-7</div>
-                <h3 class="stage-title">Year 1 & 2</h3>
+                <div class="stage-age"><?php echo cms_e('academics.stage3_age'); ?></div>
+                <h3 class="stage-title"><?php echo cms_e('academics.stage3_title'); ?></h3>
                 <div class="stage-content">
-                    <p>Years 1 and 2 introduce more formal learning while maintaining a hands-on, engaging approach.</p>
+                    <p><?php echo cms_e('academics.stage3_text'); ?></p>
                     <h4>Key Learning Areas:</h4>
-                    <ul>
-                        <li>Reading comprehension</li>
-                        <li>Creative writing</li>
-                        <li>Mathematics mastery</li>
-                        <li>Science investigation</li>
-                        <li>History and geography</li>
-                        <li>Computing skills</li>
-                    </ul>
+                    <ul><?php foreach (cms_lines('academics.stage3_areas') as $li): ?><li><?php echo e($li); ?></li><?php endforeach; ?></ul>
                 </div>
             </div>
         </div>
@@ -724,11 +705,11 @@ if ($db) {
             </div>
 
             <div class="approach-image">
-                <img src="<?php echo BASE_URL; ?>/assets/images/learning-approach.jpeg" alt="Children learning through play">
+                <img src="<?php echo e(cms_img('academics.approach_image', BASE_URL . '/assets/images/learning-approach.jpeg')); ?>" alt="Children learning through play">
                 <div class="approach-quote">
                     <i class="fas fa-quote-left"></i>
-                    <p>Play is the highest form of research.</p>
-                    <small>- Albert Einstein</small>
+                    <p><?php echo cms_e('academics.quote'); ?></p>
+                    <small><?php echo cms_e('academics.quote_by'); ?></small>
                 </div>
             </div>
         </div>
@@ -770,7 +751,7 @@ if ($db) {
 
             <div class="assessment-note">
                 <i class="fas fa-info-circle"></i>
-                <p>Parents receive detailed reports at the end of each term and are invited to discuss their child's progress with teachers.</p>
+                <p><?php echo cms_e('academics.assessment_note'); ?></p>
             </div>
         </div>
     </div>

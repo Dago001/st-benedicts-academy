@@ -13,7 +13,7 @@ class Mailer {
         if (preg_match('/[\r\n]/', $to . $subject) || !filter_var($to, FILTER_VALIDATE_EMAIL)) {
             return false;
         }
-        $from = defined('MAIL_FROM') ? MAIL_FROM : SCHOOL_EMAIL;
+        $from = defined('MAIL_FROM') ? MAIL_FROM : school_email();
         $m = new self();
         if (defined('SMTP_HOST') && SMTP_HOST !== '') {
             $ok = $m->viaSmtp($to, $subject, $html, $from);

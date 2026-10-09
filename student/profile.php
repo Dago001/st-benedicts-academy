@@ -313,7 +313,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="emergency-contact">
                         <h4>Emergency Contact</h4>
                         <p>In case of emergency, please contact the school office at:</p>
-                        <p class="emergency-phone"><i class="fas fa-phone-alt"></i> <?php echo SCHOOL_PHONE; ?></p>
+                        <p class="emergency-phone"><i class="fas fa-phone-alt"></i> <?php echo school_phone(); ?></p>
                     </div>
                 </div>
             </div>

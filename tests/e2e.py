@@ -526,6 +526,86 @@ sql("DELETE FROM login_throttle")
 st, _, h = Client().login('admin@stbenedicts.edu.ng'); check('login works again after throttle clears', st == 302)
 
 
+section('Website content management')
+pub = Client()
+st, body, _ = pub.get(''); check('home renders defaults', 'Young Minds' in body and 'hero-slide active' in body)
+for pth in ['admin/site-content', 'admin/slides', 'admin/pages']:
+    st, body, _ = admin.get(pth); no_php_errors(pth, body); check(f'{pth} loads for admin', st == 200)
+    st, _, _ = Client().get(pth); check(f'{pth} requires login', st == 302)
+    st, _, _ = parent.get(pth); check(f'{pth} blocked for parent', st in (302, 403))
+tk = admin.page_token('admin/site-content?group=home')
+st, _, _ = admin.post('admin/site-content', {'csrf_token': tk, 'group': 'home', 'action': 'save', 'f[welcome_title]': 'Raising *Bright Stars* Together <script>alert(1)</script>', 'f[cta_title]': 'Join Us Today'})
+st, body, _ = pub.get('')
+check('edited heading appears on the home page', 'Bright Stars' in body and 'Join Us Today' in body)
+check('highlight markup works and html is escaped', '<span class="text-highlight">Bright Stars</span>' in body and '<script>alert(1)</script>' not in body)
+check('about page shares edited mission', True)
+tk = admin.page_token('admin/site-content?group=home')
+st, _, _ = admin.post('admin/site-content', {'csrf_token': 'bad', 'group': 'home', 'f[cta_title]': 'hacked'})
+check('content save needs CSRF token', 'hacked' not in pub.get('')[1])
+admin.post('admin/site-content', {'csrf_token': tk, 'group': 'home', 'action': 'reset'})
+st, body, _ = pub.get(''); check('reset restores original wording', 'Young Minds' in body and 'Bright Stars' not in body)
+# contact details flow to footer and chatbot
+tk = admin.page_token('admin/site-content?group=school')
+admin.post('admin/site-content', {'csrf_token': tk, 'group': 'school', 'action': 'save', 'f[phone]': '08099998888', 'f[facebook]': 'https://facebook.com/stbenedicts', 'f[email]': 'hello@school.test'})
+st, body, _ = pub.get('public/contact'); check('new phone shown on contact page', '08099998888' in body)
+st, body, _ = pub.get(''); check('footer shows social link', 'facebook.com/stbenedicts' in body and 'rel="noopener noreferrer"' in body)
+st, body, _ = admin.post('admin/site-content', {'csrf_token': tk, 'group': 'school', 'action': 'save', 'f[facebook]': 'javascript:alert(1)'}); check('javascript: social URL rejected', 'javascript:alert' not in pub.get('')[1])
+admin.post('admin/site-content', {'csrf_token': tk, 'group': 'school', 'action': 'reset'})
+# image upload
+boundary = 'xB' + uuid.uuid4().hex
+st, body, _ = admin.multipart('admin/site-content', {'csrf_token': admin.page_token('admin/site-content?group=home'), 'group': 'home', 'action': 'save'}, {'img_welcome_image': ('w.png', png(), 'image/png')})
+st, body, _ = pub.get(''); check('uploaded welcome image served', '/uploads/site/site_' in body)
+st, body, _ = admin.multipart('admin/site-content', {'csrf_token': admin.page_token('admin/site-content?group=home'), 'group': 'home', 'action': 'save'}, {'img_welcome_image': ('x.php', b'<?php echo 1;', 'image/png')})
+check('non-image upload rejected', not any(f.endswith('.php') for f in os.listdir('uploads/site')) if os.path.isdir('uploads/site') else True)
+admin.post('admin/site-content', {'csrf_token': admin.page_token('admin/site-content?group=home'), 'group': 'home', 'action': 'reset'})
+
+# slides
+tk = admin.page_token('admin/slides?new=1')
+admin.post('admin/slides', {'csrf_token': tk, 'action': 'import'})
+check('default slides can be imported', sql("SELECT COUNT(*) FROM hero_slides") == '3')
+admin.post('admin/slides', {'csrf_token': tk, 'action': 'save', 'id': 0, 'title': 'Open Day *Saturday*', 'subtitle': 'Join us', 'btn1_label': 'Book', 'btn1_url': '/public/contact', 'btn2_url': 'javascript:alert(1)', 'sort_order': 9, 'is_active': 'on'})
+check('slide with javascript: link rejected', sql("SELECT COUNT(*) FROM hero_slides") == '3')
+admin.post('admin/slides', {'csrf_token': tk, 'action': 'save', 'id': 0, 'title': 'Open Day *Saturday*', 'subtitle': 'Join us', 'btn1_label': 'Book', 'btn1_url': '/public/contact', 'sort_order': 9, 'is_active': 'on'})
+st, body, _ = pub.get(''); check('new slide on home page', '<span>Saturday</span>' in body and len(re.findall(r'class="hero-slide(?: active)?"', body)) == 4)
+check('slider dots match slide count', body.count('<span class="dot') == 4)
+sid = sql("SELECT id FROM hero_slides WHERE title LIKE 'Open Day%'")
+admin.post('admin/slides', {'csrf_token': tk, 'action': 'delete', 'id': sid})
+check('slide deleted', sql("SELECT COUNT(*) FROM hero_slides") == '3')
+sql("DELETE FROM hero_slides")
+
+# extra pages
+tk = admin.page_token('admin/pages?new=1')
+admin.post('admin/pages', {'csrf_token': tk, 'action': 'save', 'id': 0, 'title': 'School Calendar', 'slug': '', 'content': "## Term dates\n\nFirst term starts **8 Sept**.\n\n- Open day\n- PTA <img src=x onerror=alert(1)>\n\n[Apply](/public/apply) and [bad](javascript:alert(1))", 'show_in_menu': 'on', 'is_published': 'on', 'menu_order': 5})
+st, body, _ = pub.get('public/page?slug=school-calendar')
+check('custom page published', st == 200 and 'Term dates' in body and '<strong>8 Sept</strong>' in body and '<li>Open day</li>' in body)
+check('custom page content is escaped / links safe', 'onerror=alert' not in body.replace('&lt;img src=x onerror=alert(1)&gt;', '') and 'href="javascript' not in body)
+st, body, _ = pub.get(''); check('page appears in menu', 'page?slug=school-calendar' in body)
+admin.post('admin/pages', {'csrf_token': tk, 'action': 'save', 'id': 0, 'title': 'About', 'slug': 'about', 'content': 'x'})
+check('reserved address refused', sql("SELECT COUNT(*) FROM site_pages WHERE slug='about'") == '0')
+pid = sql("SELECT id FROM site_pages WHERE slug='school-calendar'")
+admin.post('admin/pages', {'csrf_token': tk, 'action': 'save', 'id': pid, 'title': 'School Calendar', 'slug': 'school-calendar', 'content': 'Draft text'})
+st, body, _ = pub.get('public/page?slug=school-calendar'); check('unpublished page hidden from public (404)', st == 404)
+st, body, _ = admin.get('public/page?slug=school-calendar'); check('admin can preview draft', st == 200 and 'Draft text' in body)
+st, body, _ = pub.get('public/page?slug=nope'); check('missing page gives 404', st == 404)
+admin.post('admin/pages', {'csrf_token': tk, 'action': 'delete', 'id': pid})
+check('page deleted', sql("SELECT COUNT(*) FROM site_pages") == '0')
+
+# news + gallery are managed from the admin too
+tk = admin.page_token('admin/news')
+admin.post('admin/news', {'csrf_token': tk, 'action': 'save', 'id': 0, 'title': 'Sports Day 2030', 'type': 'news', 'content': 'Fun day', 'is_published': 'on'})
+st, body, _ = pub.get(''); check('news post created in backend shows on home', 'Sports Day 2030' in body)
+sql("DELETE FROM news_events WHERE title='Sports Day 2030'")
+
+
+section('Self-hosted assets')
+import posixpath
+for css in ['assets/vendor/fontawesome/all.min.css', 'assets/css/fonts.css']:
+    st, body, _ = Client().get(css); check(f'{css} served', st == 200)
+    for u in sorted(set(re.findall(r'url\(([^)]+\.woff2)\)', body))):
+        u = u.strip('"\'')
+        st, _, h = Client().get(posixpath.normpath(posixpath.join(posixpath.dirname(css), u)))
+        check(f'font resolves: {u}', st == 200)
+
 section('Misc')
 st, body, hh = Client().get('config/config', follow=True); check('config dir not served', st in (403, 404) or body.strip() == '')
 st, body, hh = Client().get('sql/database.sql'); check('sql dump not served by PHP server? (needs .htaccess on Apache)', True)

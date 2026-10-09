@@ -67,6 +67,7 @@ async function measure(page) {
     const ctx = await browser.newContext({ viewport: { width, height: 740 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
     const page = await ctx.newPage();
     const errors = [];
+    page.on('response', r => { if (r.status() >= 400 && r.url().startsWith(BASE)) errors.push('HTTP ' + r.status() + ' ' + r.url().replace(BASE, '')); });
     page.on('pageerror', e => errors.push('JS: ' + e.message));
     page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource|net::ERR/.test(m.text())) errors.push('console: ' + m.text()); });
     if (role) {

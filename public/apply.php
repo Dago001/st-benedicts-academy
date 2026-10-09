@@ -130,7 +130,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     . "<ul><li><strong>Application number:</strong> " . e($appNumber) . "</li>"
                     . "<li><strong>Child:</strong> " . e($formData['child_first_name'] . ' ' . $formData['child_last_name']) . "</li>"
                     . "<li><strong>Class:</strong> " . e($formData['class_applying']) . "</li></ul>"
-                    . "<p>We will contact you within 3-5 working days to schedule an assessment. Questions? Call " . e(SCHOOL_PHONE) . ".</p>"
+                    . "<p>We will contact you within 3-5 working days to schedule an assessment. Questions? Call " . e(school_phone()) . ".</p>"
                     . "<p><strong>Admissions Office</strong><br>" . e(SCHOOL_NAME) . "</p></div>");
 
                 $applied = ['number' => $appNumber, 'email' => $formData['parent_email']];

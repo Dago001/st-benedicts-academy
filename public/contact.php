@@ -60,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     "INSERT INTO contact_messages (name, email, phone, subject, message) VALUES (?, ?, ?, ?, ?)",
                     [$data['name'], $data['email'], $data['phone'], $data['subject'], $data['message']]
                 );
-                sendEmail(SCHOOL_EMAIL, 'New contact message from ' . $data['name'],
+                sendEmail(school_email(), 'New contact message from ' . $data['name'],
                     "<div style='font-family:Arial,sans-serif;max-width:600px'>"
                     . "<h2>New contact form submission</h2>"
                     . "<p><strong>Name:</strong> " . e($data['name']) . "</p>"
@@ -86,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Opening hours
-$businessHours = SCHOOL_HOURS;
+$businessHours = school_hours();
 ?>
 
 <!-- Page-Specific Styles -->
@@ -814,8 +814,8 @@ $businessHours = SCHOOL_HOURS;
                         </div>
                         <div class="info-content">
                             <h3>Visit Us</h3>
-                            <p><?php echo defined('SCHOOL_ADDRESS') ? SCHOOL_ADDRESS : 'Enugu, Nigeria'; ?></p>
-                            <a href="https://maps.google.com/?q=<?php echo urlencode(defined('SCHOOL_ADDRESS') ? SCHOOL_ADDRESS : 'Enugu, Nigeria'); ?>" target="_blank" class="map-link">
+                            <p><?php echo defined('SCHOOL_ADDRESS') ? school_address() : 'Enugu, Nigeria'; ?></p>
+                            <a href="https://maps.google.com/?q=<?php echo urlencode(defined('SCHOOL_ADDRESS') ? school_address() : 'Enugu, Nigeria'); ?>" target="_blank" class="map-link">
                                 <i class="fas fa-directions"></i> Get Directions
                             </a>
                         </div>
@@ -827,7 +827,7 @@ $businessHours = SCHOOL_HOURS;
                         </div>
                         <div class="info-content">
                             <h3>Call Us</h3>
-                            <p><a href="tel:<?php echo defined('SCHOOL_PHONE') ? SCHOOL_PHONE : '09044472688'; ?>"><?php echo defined('SCHOOL_PHONE') ? SCHOOL_PHONE : '09044472688'; ?></a></p>
+                            <p><a href="tel:<?php echo defined('SCHOOL_PHONE') ? school_phone() : '09044472688'; ?>"><?php echo defined('SCHOOL_PHONE') ? school_phone() : '09044472688'; ?></a></p>
                             <p class="small">Monday - Friday: 8:00 AM - 4:00 PM</p>
                         </div>
                     </div>
@@ -838,7 +838,7 @@ $businessHours = SCHOOL_HOURS;
                         </div>
                         <div class="info-content">
                             <h3>Email Us</h3>
-                            <p><a href="mailto:<?php echo defined('SCHOOL_EMAIL') ? SCHOOL_EMAIL : 'info@stbenedicts.edu.ng'; ?>"><?php echo defined('SCHOOL_EMAIL') ? SCHOOL_EMAIL : 'info@stbenedicts.edu.ng'; ?></a></p>
+                            <p><a href="mailto:<?php echo defined('SCHOOL_EMAIL') ? school_email() : 'info@stbenedicts.edu.ng'; ?>"><?php echo defined('SCHOOL_EMAIL') ? school_email() : 'info@stbenedicts.edu.ng'; ?></a></p>
                             <p class="small">We reply within 24 hours</p>
                         </div>
                     </div>

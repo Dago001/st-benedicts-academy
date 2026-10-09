@@ -28,6 +28,9 @@ Browser -> Apache (.htaccess: HTTPS redirect, clean URLs, blocked dirs)
 | `sql/database.sql` | Full schema for a fresh install |
 | `tests/` | Unit, end-to-end, crawl, chatbot, mobile audits |
 
+## Content management
+Admins edit the public site from **Site Content** (text/images registered in `includes/cms.php`, saved in `site_content`; blank = built-in default), **Home Slider** (`hero_slides`), **Extra Pages** (`site_pages`, rendered by `public/page`), **News & Events** and **Gallery**. To make another piece of text editable, add a field to `cms_registry()` and print it with `cms_e('group.key')`. Contact details come from `school_phone()/school_email()/school_address()/school_hours()`.
+
 ## Security model
 * **AuthN**: bcrypt (cost 12, rehash on login), per-account lockout, per-IP throttle (`login_throttle`), optional TOTP 2FA, session id regeneration on login, 2 h idle timeout, `HttpOnly` + `SameSite=Lax` (+ `Secure` on HTTPS) cookies.
 * **AuthZ**: role gate on every page/endpoint plus ownership checks (`Security::canAccessStudent/Class`, `currentTeacherId/ParentId/StudentId`) to prevent IDOR.

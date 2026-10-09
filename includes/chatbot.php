@@ -133,7 +133,7 @@ class SchoolBot
         if (!$top || $topScore < 3) {
             return ['intent' => null, 'matched' => false] + self::r(
                 ["I'm sorry, I don't have a reliable answer to that. I'd rather not guess, so please contact the school office and they will help you directly."],
-                [self::link('Contact the school', '/public/contact'), ['label' => 'Call ' . SCHOOL_PHONE, 'url' => 'tel:' . SCHOOL_PHONE]],
+                [self::link('Contact the school', '/public/contact'), ['label' => 'Call ' . school_phone(), 'url' => 'tel:' . school_phone()]],
                 ['Admission requirements', 'School fees', 'Our programmes', 'Contact details']
             );
         }
@@ -207,25 +207,25 @@ class SchoolBot
 
             case 'contact':
                 return self::r(['You can reach the school office here:'],
-                    [['label' => 'Call ' . SCHOOL_PHONE, 'url' => 'tel:' . SCHOOL_PHONE], ['label' => 'Email us', 'url' => 'mailto:' . SCHOOL_EMAIL], self::link('Contact form', '/public/contact')],
+                    [['label' => 'Call ' . school_phone(), 'url' => 'tel:' . school_phone()], ['label' => 'Email us', 'url' => 'mailto:' . school_email()], self::link('Contact form', '/public/contact')],
                     ['Opening hours', 'Where is the school?'])
-                    + ['list' => ['Phone: ' . SCHOOL_PHONE, 'Email: ' . SCHOOL_EMAIL, 'Address: ' . SCHOOL_ADDRESS]];
+                    + ['list' => ['Phone: ' . school_phone(), 'Email: ' . school_email(), 'Address: ' . school_address()]];
 
             case 'location':
-                return self::r(['We are located at ' . SCHOOL_ADDRESS . '.'],
-                    [['label' => 'Open in Maps', 'url' => 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode(SCHOOL_ADDRESS)], self::link('Contact page', '/public/contact')],
+                return self::r(['We are located at ' . school_address() . '.'],
+                    [['label' => 'Open in Maps', 'url' => 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode(school_address())], self::link('Contact page', '/public/contact')],
                     ['Opening hours', 'Schedule a visit']);
 
             case 'hours':
                 $list = [];
-                foreach (SCHOOL_HOURS as $day => $h) $list[] = "$day: $h";
-                $today = SCHOOL_HOURS[date('l')] ?? '';
+                foreach (school_hours() as $day => $h) $list[] = "$day: $h";
+                $today = school_hours()[date('l')] ?? '';
                 return self::r(['Our office hours are:'], [], ['Schedule a visit', 'Contact details'])
                     + ['list' => $list, 'note' => 'Today (' . date('l') . '): ' . $today . '. Times are West Africa Time.'];
 
             case 'visit':
                 return self::r(['We would love to show you around. Please contact the office to book a visit or an assessment, and mention the class you are interested in.'],
-                    [self::link('Request a visit', '/public/contact'), ['label' => 'Call ' . SCHOOL_PHONE, 'url' => 'tel:' . SCHOOL_PHONE]], ['Opening hours', 'Where is the school?']);
+                    [self::link('Request a visit', '/public/contact'), ['label' => 'Call ' . school_phone(), 'url' => 'tel:' . school_phone()]], ['Opening hours', 'Where is the school?']);
 
             case 'portal':
                 return self::r(['Parents, students and teachers sign in to the portal with the email address and password given by the school. There you can see results, attendance, fees, assignments and messages.',
@@ -250,7 +250,7 @@ class SchoolBot
                     [self::link('About us', '/public/about')], ['Facilities', 'Transport']);
 
             case 'faith':
-                return self::r(['We are a faith-based school guided by the Benedictine values of prayer, work and community. Our motto is "' . SCHOOL_MOTTO . '" (With Christ as our guide, together we grow in wisdom and virtue). Christian values are integrated into daily learning.'],
+                return self::r(['We are a faith-based school guided by the Benedictine values of prayer, work and community. Our motto is "' . school_motto() . '" (With Christ as our guide, together we grow in wisdom and virtue). Christian values are integrated into daily learning.'],
                     [self::link('About us', '/public/about')], ['Curriculum', 'How to apply']);
 
             case 'about':
@@ -271,15 +271,15 @@ class SchoolBot
 
             case 'term':
                 return self::r(['I do not have the term dates published here, and I would not want to give you the wrong ones. The office can confirm the current calendar, resumption dates and holidays.'],
-                    [self::link('Contact the office', '/public/contact'), ['label' => 'Call ' . SCHOOL_PHONE, 'url' => 'tel:' . SCHOOL_PHONE]], ['Opening hours']);
+                    [self::link('Contact the office', '/public/contact'), ['label' => 'Call ' . school_phone(), 'url' => 'tel:' . school_phone()]], ['Opening hours']);
 
             case 'uniform':
                 return self::r(['Details about uniforms, books, meals and any discounts or scholarships are not published online, so I cannot answer accurately. Please ask the school office.'],
-                    [self::link('Contact the office', '/public/contact'), ['label' => 'Call ' . SCHOOL_PHONE, 'url' => 'tel:' . SCHOOL_PHONE]], ['School fees']);
+                    [self::link('Contact the office', '/public/contact'), ['label' => 'Call ' . school_phone(), 'url' => 'tel:' . school_phone()]], ['School fees']);
 
             case 'human':
                 return self::r(['Of course. The school office will be glad to help you personally:'],
-                    [['label' => 'Call ' . SCHOOL_PHONE, 'url' => 'tel:' . SCHOOL_PHONE], ['label' => 'Email us', 'url' => 'mailto:' . SCHOOL_EMAIL], self::link('Contact form', '/public/contact')], ['Opening hours']);
+                    [['label' => 'Call ' . school_phone(), 'url' => 'tel:' . school_phone()], ['label' => 'Email us', 'url' => 'mailto:' . school_email()], self::link('Contact form', '/public/contact')], ['Opening hours']);
         }
         return self::r(['How can I help?'], [], ['School fees', 'How to apply']);
     }

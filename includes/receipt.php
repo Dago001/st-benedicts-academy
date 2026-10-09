@@ -36,7 +36,7 @@ table{width:100%;border-collapse:collapse}td{padding:9px 4px;border-bottom:1px s
 <div class="actions"><button type="button" onclick="window.print()">Print / Save as PDF</button><a class="alt" href="#" onclick="history.back();return false">Back</a></div>
 <div class="receipt">
     <h1><?php echo e(SCHOOL_NAME); ?></h1>
-    <p class="sub"><?php echo e(SCHOOL_ADDRESS); ?> &middot; <?php echo e(SCHOOL_PHONE); ?></p>
+    <p class="sub"><?php echo e(school_address()); ?> &middot; <?php echo e(school_phone()); ?></p>
     <h1 style="margin-bottom:12px">PAYMENT RECEIPT</h1>
     <table>
         <tr><td>Receipt No.</td><td><strong><?php echo e($p['receipt_number']); ?></strong></td></tr>

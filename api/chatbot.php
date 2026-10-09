@@ -32,7 +32,7 @@ try {
 } catch (Throwable $e) {
     error_log('chatbot: ' . $e->getMessage());
     api_ok(['reply' => ['Sorry, I ran into a problem. Please try again, or contact the school office directly.'],
-            'links' => [['label' => 'Call ' . SCHOOL_PHONE, 'url' => 'tel:' . SCHOOL_PHONE]], 'suggestions' => [], 'list' => [], 'note' => '']);
+            'links' => [['label' => 'Call ' . school_phone(), 'url' => 'tel:' . school_phone()]], 'suggestions' => [], 'list' => [], 'note' => '']);
 }
 
 api_ok([

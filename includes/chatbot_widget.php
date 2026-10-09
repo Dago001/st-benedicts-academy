@@ -1,7 +1,7 @@
 <?php
 // includes/chatbot_widget.php - floating assistant for public pages
 ?>
-<div class="chatbot-widget" id="chatbotWidget" data-phone="<?php echo e(SCHOOL_PHONE); ?>">
+<div class="chatbot-widget" id="chatbotWidget" data-phone="<?php echo e(school_phone()); ?>">
     <button type="button" class="chatbot-button" id="chatbotButton" aria-label="Open chat assistant" aria-expanded="false" aria-controls="chatbotContainer">
         <i class="fas fa-comment-dots" aria-hidden="true"></i>
         <span class="chatbot-notification" aria-hidden="true">1</span>
@@ -28,7 +28,7 @@
             <input type="text" id="chatbotInput" maxlength="300" placeholder="Ask about admissions, fees, programmes..." enterkeyhint="send">
             <button type="submit" id="chatbotSend" aria-label="Send message"><i class="fas fa-paper-plane"></i></button>
         </form>
-        <p class="chatbot-footer">For urgent matters call <a href="tel:<?php echo e(SCHOOL_PHONE); ?>"><?php echo e(SCHOOL_PHONE); ?></a></p>
+        <p class="chatbot-footer">For urgent matters call <a href="tel:<?php echo e(school_phone()); ?>"><?php echo e(school_phone()); ?></a></p>
     </section>
 </div>
 <link rel="stylesheet" href="<?php echo e(BASE_URL); ?>/assets/css/chatbot.css?v=3">

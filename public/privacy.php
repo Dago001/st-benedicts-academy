@@ -39,10 +39,10 @@ include __DIR__ . '/../includes/header.php';
     <p>Encrypted connections (HTTPS), hashed passwords, optional two-step verification, role-based access, activity audit logs, and regular backups.</p>
 
     <h2>Your rights</h2>
-    <p>You may ask to access, correct, export, restrict or erase your or your child's data, withdraw consent, or complain to the Nigeria Data Protection Commission. Contact us at <a href="mailto:<?php echo e(SCHOOL_EMAIL); ?>"><?php echo e(SCHOOL_EMAIL); ?></a> or <a href="tel:<?php echo e(SCHOOL_PHONE); ?>"><?php echo e(SCHOOL_PHONE); ?></a>; we respond within 30 days.</p>
+    <p>You may ask to access, correct, export, restrict or erase your or your child's data, withdraw consent, or complain to the Nigeria Data Protection Commission. Contact us at <a href="mailto:<?php echo e(school_email()); ?>"><?php echo e(school_email()); ?></a> or <a href="tel:<?php echo e(school_phone()); ?>"><?php echo e(school_phone()); ?></a>; we respond within 30 days.</p>
 
     <h2>Contact</h2>
-    <p><?php echo e(SCHOOL_NAME); ?>, <?php echo e(SCHOOL_ADDRESS); ?>.</p>
+    <p><?php echo e(SCHOOL_NAME); ?>, <?php echo e(school_address()); ?>.</p>
   </div>
 </section>
 </main>

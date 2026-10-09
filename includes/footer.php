@@ -9,10 +9,10 @@
                 <div class="footer-grid">
                     <div class="footer-info">
                         <h3><?php echo SCHOOL_NAME; ?></h3>
-                        <p><i class="fas fa-map-marker-alt"></i> <?php echo SCHOOL_ADDRESS; ?></p>
-                        <p><i class="fas fa-phone"></i> <?php echo SCHOOL_PHONE; ?></p>
-                        <p><i class="fas fa-envelope"></i> <?php echo SCHOOL_EMAIL; ?></p>
-                        <p class="motto"><?php echo SCHOOL_MOTTO; ?></p>
+                        <p><i class="fas fa-map-marker-alt"></i> <?php echo school_address(); ?></p>
+                        <p><i class="fas fa-phone"></i> <?php echo school_phone(); ?></p>
+                        <p><i class="fas fa-envelope"></i> <?php echo school_email(); ?></p>
+                        <p class="motto"><?php echo school_motto(); ?></p>
                     </div>
 
                     <div class="footer-links">
@@ -38,9 +38,15 @@
                     <div class="footer-social">
                         <h4>Connect With Us</h4>
                         <div class="social-icons">
-                            <a href="tel:<?php echo e(SCHOOL_PHONE); ?>" aria-label="Call us"><i class="fas fa-phone"></i></a>
-                            <a href="mailto:<?php echo e(SCHOOL_EMAIL); ?>" aria-label="Email us"><i class="fas fa-envelope"></i></a>
+                            <a href="tel:<?php echo e(school_phone()); ?>" aria-label="Call us"><i class="fas fa-phone"></i></a>
+                            <a href="mailto:<?php echo e(school_email()); ?>" aria-label="Email us"><i class="fas fa-envelope"></i></a>
                             <a href="<?php echo BASE_URL; ?>/public/contact" aria-label="Contact page"><i class="fas fa-map-marker-alt"></i></a>
+                            <?php foreach (['facebook' => 'fa-facebook-f', 'instagram' => 'fa-instagram', 'twitter' => 'fa-x-twitter', 'youtube' => 'fa-youtube'] as $net => $ico): $u = cms('school.' . $net); if ($u !== ''): ?>
+                            <a href="<?php echo e($u); ?>" target="_blank" rel="noopener noreferrer" aria-label="<?php echo e(ucfirst($net)); ?>"><i class="fab <?php echo $ico; ?>"></i></a>
+                            <?php endif; endforeach; ?>
+                            <?php $wa = preg_replace('/\D/', '', cms('school.whatsapp')); if ($wa !== ''): ?>
+                            <a href="https://wa.me/<?php echo e($wa); ?>" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp"><i class="fab fa-whatsapp"></i></a>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>

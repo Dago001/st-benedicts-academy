@@ -91,6 +91,9 @@ $tables = [
     id INT PRIMARY KEY AUTO_INCREMENT, ip_hash CHAR(64) NOT NULL, question VARCHAR(300) NOT NULL, intent VARCHAR(40),
     matched TINYINT(1) NOT NULL DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_chat_ip (ip_hash, created_at), INDEX idx_chat_matched (matched, created_at)) ENGINE=InnoDB",
+'site_content' => "CREATE TABLE site_content (   content_key VARCHAR(80) PRIMARY KEY,   content_value MEDIUMTEXT,   updated_by INT NULL,   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP ) ENGINE=InnoDB",
+'hero_slides' => "CREATE TABLE hero_slides (   id INT PRIMARY KEY AUTO_INCREMENT,   subtitle VARCHAR(120),   title VARCHAR(200) NOT NULL,   text VARCHAR(300),   image VARCHAR(255),   btn1_label VARCHAR(40), btn1_url VARCHAR(255),   btn2_label VARCHAR(40), btn2_url VARCHAR(255),   use_motto TINYINT(1) NOT NULL DEFAULT 0,   grad TINYINT NOT NULL DEFAULT 0,   sort_order INT NOT NULL DEFAULT 0,   is_active TINYINT(1) NOT NULL DEFAULT 1,   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ) ENGINE=InnoDB",
+'site_pages' => "CREATE TABLE site_pages (   id INT PRIMARY KEY AUTO_INCREMENT,   slug VARCHAR(80) NOT NULL UNIQUE,   title VARCHAR(150) NOT NULL,   summary VARCHAR(255),   content MEDIUMTEXT NOT NULL,   image VARCHAR(255),   show_in_menu TINYINT(1) NOT NULL DEFAULT 0,   menu_order INT NOT NULL DEFAULT 100,   is_published TINYINT(1) NOT NULL DEFAULT 1,   created_by INT NULL,   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP ) ENGINE=InnoDB",
 'login_throttle' => "CREATE TABLE login_throttle (
     id INT PRIMARY KEY AUTO_INCREMENT, ip_hash CHAR(64) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_throttle (ip_hash, created_at)) ENGINE=InnoDB",
