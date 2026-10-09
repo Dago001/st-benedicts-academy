@@ -22,6 +22,17 @@ PHP 8.1+ (pdo_mysql, mbstring, fileinfo, gd), MySQL 5.7+/MariaDB 10.3+, Apache w
 
 Mail (password resets, confirmations) uses PHP `mail()`; configure sendmail/SMTP relay on the host.
 
+## Upgrading the live site (stbenedictsacademy.com.ng)
+1. **Back up first**: export the database (phpMyAdmin or `mysqldump`) and download the whole `uploads/` folder. The new version stops tracking uploaded files in git, so a `git pull` on the server can remove tracked files from `uploads/` - restoring your backup afterwards puts them back.
+2. Put the new code on the server (git pull of this branch, or upload the files). Keep the existing `uploads/` contents.
+3. Create `config/local.php` from `config/local.php.example` with the live database details.
+4. Upgrade the database (adds the new tables/columns, keeps all data; safe to run twice):
+   `php scripts/migrate.php --dry-run` then `php scripts/migrate.php`
+   (no SSH? ask the host for a one-off cron job / "Run PHP script" in cPanel, or ask me for a phpMyAdmin SQL version).
+5. Make sure `uploads/`, `storage/` and `logs/` are writable, and that the host allows `.htaccess` overrides (`AllowOverride All`, `mod_rewrite`).
+6. Admission documents uploaded under the old version are in `uploads/admissions/`; new ones go to the private `storage/applications/`. Add `uploads/.htaccess` (already in the repo) so PHP can never run from `uploads/`.
+7. Check: `/login`, an admin page, `/public/apply`, and the chat assistant. Log in as admin and change any default passwords. Delete the old `test.php`/`hash.php` from the server if they still exist.
+
 ## Clean URLs (no `.php`)
 Pages are served without the extension (`/admin/students`, `/public/apply`, `/api/chatbot`). On Apache this is done by the rewrite rules in `.htaccess` (`mod_rewrite` and `AllowOverride All` required); old `.php` addresses redirect with a 301. For local development run `php -S 127.0.0.1:8080 router.php`, which applies the same rules.
 
