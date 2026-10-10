@@ -5,7 +5,7 @@ require_once __DIR__ . '/../config/security.php';
 
 $pageTitle = 'Admissions - Apply to ST. BENEDICT\'S EARLY YEARS BRITISH ACADEMY';
 $pageDescription = 'Apply for admission to ST. BENEDICT\'S EARLY YEARS BRITISH ACADEMY. Learn about our admission requirements, process, and start your child\'s educational journey with us.';
-$extraJS = ['admissions.js'];
+$extraJS = ['admissions.js', 'location-picker.js'];
 
 // Set meta tags for SEO
 $metaTags = [
@@ -69,7 +69,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($class === '') $errors[] = 'Class is required';
         if ($parentName === '') $errors[] = 'Parent name is required';
         if (!Security::validateEmail($parentEmail)) $errors[] = 'A valid parent email is required';
-        if (!Security::validatePhone($parentPhone)) $errors[] = 'A valid Nigerian phone number is required (e.g., 08012345678)';
+        $loc = location_resolve($_POST);
+        if (!$loc['ok']) $errors[] = $loc['error'];
+        $abroad = ($_POST['state'] ?? '') === LOC_OTHER;
+        if ($abroad ? !valid_phone_intl($parentPhone) : !Security::validatePhone($parentPhone)) {
+            $errors[] = $abroad ? 'A valid phone number with country code is required (e.g., +447911123456)' : 'A valid Nigerian phone number is required (e.g., 08012345678)';
+        }
         if ($address === '') $errors[] = 'Address is required';
 
         if (!$errors) {
@@ -97,9 +102,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 $appNumber = generateApplicationNumber();
                 $db->insert(
-                    "INSERT INTO admissions (application_number, first_name, middle_name, last_name, date_of_birth, gender, class_applying_for, parent_name, parent_email, parent_phone, address, previous_school, documents_path, status)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')",
-                    [$appNumber, $firstName, $middleName ?: null, $lastName, $dob, $gender, $class, $parentName, $parentEmail, $parentPhone, $address, $previousSchool ?: null, json_encode($stored)]
+                    "INSERT INTO admissions (application_number, first_name, middle_name, last_name, date_of_birth, gender, class_applying_for, parent_name, parent_email, parent_phone, address, state, lga, country, previous_school, documents_path, status)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')",
+                    [$appNumber, $firstName, $middleName ?: null, $lastName, $dob, $gender, $class, $parentName, $parentEmail, $parentPhone, $address, $loc['state'] ?? '', $loc['lga'] ?? '', $loc['country'] ?? 'Nigeria', $previousSchool ?: null, json_encode($stored)]
                 );
 
                 $fullName = trim($firstName . ' ' . $middleName . ' ' . $lastName);
@@ -902,13 +907,17 @@ if (empty($classes)) {
                         <input type="tel" id="parent_phone" name="parent_phone"
                                value="<?php echo htmlspecialchars($_POST['parent_phone'] ?? ''); ?>"
                                placeholder="08012345678" required>
-                        <small>Nigerian mobile number (e.g., 08012345678)</small>
+                        <small>Nigerian mobile number (e.g., 08012345678). Outside Nigeria? Add your country code, e.g. +447911123456</small>
                     </div>
 
                     <div class="form-group full-width">
                         <label for="address">Home Address *</label>
                         <textarea id="address" name="address" rows="3"
                                   placeholder="Enter your complete home address" required><?php echo htmlspecialchars($_POST['address'] ?? ''); ?></textarea>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <?php location_fields($_POST, 'Enugu'); ?>
                     </div>
                 </div>
             </div>

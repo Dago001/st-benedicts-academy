@@ -58,11 +58,11 @@ $filter = in_array($_GET['status'] ?? '', $statuses, true) ? $_GET['status'] : '
 $where = $filter ? 'WHERE status = ?' : '';
 $params = $filter ? [$filter] : [];
 $apps = $db->getRows("SELECT id, application_number, CONCAT(child_first_name, ' ', child_last_name) AS child, child_dob, child_gender, class_applying AS class_name,
-        CONCAT(parent_first_name, ' ', parent_last_name) AS parent_name, parent_email, parent_phone, address, city, state, previous_school,
+        CONCAT(parent_first_name, ' ', parent_last_name) AS parent_name, parent_email, parent_phone, address, city, state, lga, country, previous_school,
         reason_applying, birth_certificate_path, passport_photo_path, status, remarks, created_at
         FROM applications $where ORDER BY created_at DESC LIMIT 200", $params);
 $enquiries = $db->getRows("SELECT id, application_number, CONCAT(first_name, ' ', last_name) AS child, date_of_birth AS child_dob, gender AS child_gender,
-        class_applying_for AS class_name, parent_name, parent_email, parent_phone, address, previous_school, documents_path, status, remarks, submitted_at AS created_at
+        class_applying_for AS class_name, parent_name, parent_email, parent_phone, address, '' AS city, state, lga, country, previous_school, documents_path, status, remarks, submitted_at AS created_at
         FROM admissions $where ORDER BY submitted_at DESC LIMIT 200", $params);
 
 $pageTitle = 'Admission Applications';
@@ -90,7 +90,7 @@ foreach ($sections as [$title, $kind, $rows]): ?>
         </summary>
         <div class="detail-grid">
             <?php foreach (['Date of birth' => formatDate($a['child_dob'], 'd M Y'), 'Gender' => ucfirst((string)$a['child_gender']), 'Parent' => $a['parent_name'],
-                'Email' => $a['parent_email'], 'Phone' => $a['parent_phone'], 'Address' => trim($a['address'] . ' ' . ($a['city'] ?? '') . ' ' . ($a['state'] ?? '')),
+                'Email' => $a['parent_email'], 'Phone' => $a['parent_phone'], 'Address' => trim($a['address'] . ' ' . ($a['city'] ?? '')), 'Location' => location_label($a['country'] ?? '', $a['state'] ?? '', $a['lga'] ?? ''),
                 'Previous school' => $a['previous_school'], 'Reason' => $a['reason_applying'] ?? ''] as $l => $v): ?>
             <div class="detail-row"><span class="detail-label"><?php echo e($l); ?></span><span class="detail-value"><?php echo e($v !== '' && $v !== null ? $v : '-'); ?></span></div>
             <?php endforeach; ?>

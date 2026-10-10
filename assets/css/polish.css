@@ -191,3 +191,9 @@ body .table tbody tr:hover { background: #f8fafd; }
 body .table td.text-center, body .table th.text-center { text-align: center; }
 body .table td.text-right, body .table th.text-right { text-align: right; }
 body .table-responsive { width: 100%; max-width: 100%; overflow-x: auto; }
+
+[hidden] { display: none !important; }
+.location-picker .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 16px; }
+body .location-picker .form-row > .form-group { flex: none; min-width: 0; margin-bottom: 14px; }
+.location-picker > .form-group, .location-picker .loc-foreign > .form-group { margin-bottom: 14px; }
+.location-picker select, .location-picker input { width: 100%; box-sizing: border-box; }

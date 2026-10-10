@@ -37,6 +37,11 @@ $columns = [
     ['gallery', 'is_featured', 'ALTER TABLE gallery ADD COLUMN is_featured TINYINT(1) NOT NULL DEFAULT 0'],
     ['users', 'totp_secret', 'ALTER TABLE users ADD COLUMN totp_secret VARCHAR(64) NULL'],
     ['users', 'totp_enabled', 'ALTER TABLE users ADD COLUMN totp_enabled TINYINT(1) NOT NULL DEFAULT 0'],
+    ['applications', 'lga', 'ALTER TABLE applications ADD COLUMN lga VARCHAR(100) NULL AFTER state'],
+    ['applications', 'country', "ALTER TABLE applications ADD COLUMN country VARCHAR(100) NOT NULL DEFAULT 'Nigeria' AFTER lga"],
+    ['admissions', 'state', 'ALTER TABLE admissions ADD COLUMN state VARCHAR(100) NULL AFTER address'],
+    ['admissions', 'lga', 'ALTER TABLE admissions ADD COLUMN lga VARCHAR(100) NULL AFTER state'],
+    ['admissions', 'country', "ALTER TABLE admissions ADD COLUMN country VARCHAR(100) NOT NULL DEFAULT 'Nigeria' AFTER lga"],
     ['admissions', 'middle_name', 'ALTER TABLE admissions ADD COLUMN middle_name VARCHAR(50) NULL AFTER first_name'],
 ];
 foreach ($columns as [$t, $c, $sql]) {

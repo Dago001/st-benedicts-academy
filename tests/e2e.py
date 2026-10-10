@@ -400,7 +400,7 @@ st, body, _ = pub.post('public/contact', {'csrf_token': pub.page_token('public/c
 check('honeypot drops bot submissions', sql("SELECT COUNT(*) FROM contact_messages WHERE email='bot@test.com'") == '0')
 t = pub.page_token('public/apply')
 fields = {'csrf_token': t, 'child_first_name': 'Little', 'child_last_name': 'Applicant', 'child_dob': time.strftime('%Y-%m-%d', time.localtime(time.time() - 86400 * 365 * 4)), 'child_gender': 'male',
-          'class_applying': 'Nursery 1', 'parent_title': 'Mr', 'parent_first_name': 'Big', 'parent_last_name': 'Applicant', 'parent_email': 'applicant@test.com', 'parent_phone': '08031234567', 'address': '1 Test Road'}
+          'class_applying': 'Nursery 1', 'parent_title': 'Mr', 'parent_first_name': 'Big', 'parent_last_name': 'Applicant', 'parent_email': 'applicant@test.com', 'parent_phone': '08031234567', 'address': '1 Test Road', 'city': 'Enugu', 'state': 'Enugu', 'lga': 'Enugu North'}
 st, body, _ = pub.multipart('public/apply', fields, {'birth_certificate': ('bc.png', png(), 'image/png'), 'passport_photo': ('p.png', png(), 'image/png')})
 check('online application accepted', 'Application Submitted Successfully' in body and sql("SELECT COUNT(*) FROM applications WHERE parent_email='applicant@test.com'") == '1', re.sub(r'<[^>]+>', ' ', body)[-300:])
 files = sql("SELECT CONCAT(birth_certificate_path,'|',passport_photo_path) FROM applications WHERE parent_email='applicant@test.com'")
@@ -411,6 +411,38 @@ check('child age validated', 'between 2 and 7' in body)
 st, body, _ = pub.multipart('public/apply', dict(fields, csrf_token=pub.page_token('public/apply'), parent_email='evil@test.com'), {'birth_certificate': ('x', b'<?php echo 1;', 'application/x-php')})
 check('application with PHP upload rejected', sql("SELECT COUNT(*) FROM applications WHERE parent_email='evil@test.com'") == '0')
 st, body, _ = admin.get('admin/applications'); check('admin sees the application', 'Applicant' in body)
+check('application stores state, LGA and country', sql("SELECT CONCAT(state,'|',lga,'|',country) FROM applications WHERE parent_email='applicant@test.com'") == 'Enugu|Enugu North|Nigeria')
+check('admin sees the location', 'Enugu North, Enugu' in body)
+
+# Location picker: Nigerian states / LGAs, "other" for Nigeria LGAs not listed, and living abroad
+st, body, _ = pub.get('public/apply')
+check('apply form has 37 states + Other', body.count('<option value="') > 50 and 'Other (I live outside Nigeria)' in body and 'FCT (Abuja)' in body and 'name="lga"' in body)
+st, j = 0, None
+import json as _json
+_st, locjson, _ = pub.get('assets/data/ng-locations.json'); locs = _json.loads(locjson)
+check('location data: 37 states, 774 LGAs', len(locs) == 37 and sum(len(v) for v in locs.values()) == 774 and 'Nasarawa' in locs)
+def apply_as(email, **over):
+    c = Client()   # the form allows 5 submissions per browser session per hour
+    f = dict(fields, csrf_token=c.page_token('public/apply'), parent_email=email); f.update(over)
+    return c.multipart('public/apply', f, {'birth_certificate': ('bc.png', png(), 'image/png'), 'passport_photo': ('p.png', png(), 'image/png')})
+row = lambda e: sql(f"SELECT CONCAT(country,'|',state,'|',lga) FROM applications WHERE parent_email='{e}'")
+apply_as('ng2@test.com', state='Lagos', lga='Ikeja'); check('Lagos / Ikeja accepted', row('ng2@test.com') == 'Nigeria|Lagos|Ikeja')
+apply_as('ng3@test.com', state='Lagos', lga='Enugu North'); check('LGA from another state rejected', row('ng3@test.com') == '')
+apply_as('ng4@test.com', state='Atlantis', lga='x'); check('invalid state rejected', row('ng4@test.com') == '')
+apply_as('ng5@test.com', state='Lagos', lga=''); check('missing LGA rejected', row('ng5@test.com') == '')
+apply_as('ng6@test.com', state='Lagos', lga='__other', lga_other='Some New LGA'); check('LGA "other" typed manually', row('ng6@test.com') == 'Nigeria|Lagos|Some New LGA')
+apply_as('ng7@test.com', state='Lagos', lga='__other', lga_other=''); check('LGA "other" needs text', row('ng7@test.com') == '')
+apply_as('uk1@test.com', state='__other', lga='', country_other='United Kingdom', state_other='Greater London', area_other='Croydon', parent_phone='+44 7911 123456')
+check('living abroad: manual country/state/city + international phone', row('uk1@test.com') == 'United Kingdom|Greater London|Croydon')
+apply_as('uk2@test.com', state='__other', country_other='', state_other='X', parent_phone='+447911123456'); check('abroad needs a country', row('uk2@test.com') == '')
+apply_as('uk3@test.com', state='__other', country_other='Nigeria', state_other='X', parent_phone='08031234567'); check('"Nigeria" cannot be used under Other', row('uk3@test.com') == '')
+apply_as('uk4@test.com', state='__other', country_other='Ghana', state_other='Accra', parent_phone='abc'); check('abroad still validates phone', row('uk4@test.com') == '')
+apply_as('xss@test.com', state='__other', country_other='<script>alert(1)</script>', state_other='R', parent_phone='+447911123456')
+st, body, _ = admin.get('admin/applications'); check('foreign location shown escaped to admin', '<script>alert(1)</script>' not in body and '&lt;script&gt;' in body)
+_c = Client(); st, body, _ = _c.multipart('public/apply', dict(fields, csrf_token=_c.page_token('public/apply'), parent_email='keep@test.com', state='__other', country_other='Ghana', state_other='Accra', parent_phone='bad'), {})
+check('form keeps the "other" selection after an error', 'value="Ghana"' in body and 'value="Accra"' in body)
+sql("DELETE FROM applications WHERE parent_email NOT IN ('applicant@test.com')")
+
 aid = sql("SELECT id FROM applications WHERE parent_email='applicant@test.com'")
 st, body, hh = admin.get(f'admin/applications?file=app&id={aid}&doc=birth'); check('admin can open application document', st == 200 and body.startswith('\x89PNG') or hh.get('Content-Type', '').startswith('image/png'))
 st, body, _ = pub.get(f'admin/applications?file=app&id={aid}&doc=birth', follow=True); check('anonymous cannot open application documents', 'image/png' not in body[:20] and not body.startswith('\x89PNG'))
