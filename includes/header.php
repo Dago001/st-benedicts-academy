@@ -13,6 +13,10 @@ if (!function_exists('asset_exists')) {
 }
 $isLoggedIn = Security::isLoggedIn();
 $dashboardUrl = $isLoggedIn ? BASE_URL . '/' . $_SESSION['user_role'] . '/dashboard' : BASE_URL . '/login';
+
+if (function_exists('enforce_maintenance_mode')) {
+    enforce_maintenance_mode();
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -60,6 +64,7 @@ $dashboardUrl = $isLoggedIn ? BASE_URL . '/' . $_SESSION['user_role'] . '/dashbo
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/polish.css?v=<?php echo $assetVersion; ?>">
 </head>
 <body class="<?php echo $isLoggedIn ? 'is-auth role-' . e($_SESSION['user_role']) : 'is-public'; ?>">
+    <?php if (function_exists('maintenance_admin_banner')) maintenance_admin_banner(); ?>
     <a class="skip-link" href="#main-content">Skip to content</a>
     <div class="site-wrapper">
         <nav class="main-nav" aria-label="Main navigation">

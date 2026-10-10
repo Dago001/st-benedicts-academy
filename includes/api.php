@@ -25,6 +25,10 @@ function api_init(array $methods = ['GET', 'POST'], $roles = null) {
         }
     }
 
+    if (function_exists('is_maintenance_mode') && is_maintenance_mode() && (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin')) {
+        json_response(['success' => false, 'message' => 'System is currently undergoing scheduled maintenance. Please try again later.'], 503);
+    }
+
     $input = $_POST;
     if ($method === 'POST' && stripos($_SERVER['CONTENT_TYPE'] ?? '', 'application/json') !== false) {
         $json = json_decode(file_get_contents('php://input'), true);
