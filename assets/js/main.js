@@ -114,7 +114,7 @@ document.addEventListener('DOMContentLoaded', function() {
     checkNotifications();
 
     // Initialize data tables
-    initializeDataTables();
+    window.addEventListener("load", initializeDataTables);
 });
 
 // Tooltip functions
@@ -255,9 +255,13 @@ function updateNotificationBadge(count) {
 
 // DataTables initialization
 function initializeDataTables() {
+    if (typeof $ === 'undefined' || typeof $.fn.DataTable === 'undefined') return;
+    // Report DataTables problems in the console instead of popping an alert at visitors
+    $.fn.dataTable.ext.errMode = function (settings, helpPage, message) { console.warn(message); };
     const tables = document.querySelectorAll('.data-table');
     tables.forEach(table => {
-        if (typeof $.fn.DataTable !== 'undefined') {
+        // Pages that configure their own table have already initialised it by now
+        if (!$.fn.DataTable.isDataTable(table)) {
             $(table).DataTable({
                 pageLength: 10,
                 lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]],

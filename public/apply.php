@@ -49,7 +49,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'parent_occupation' => $text('parent_occupation', 100),
             'address' => $text('address', 500),
             'city' => $text('city', 100),
-            'state' => $text('state', 100),
             'previous_school' => $text('previous_school', 200),
             'reason_applying' => $text('reason_applying', 1000),
             'how_hear' => $text('how_hear', 100),
@@ -65,8 +64,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($formData['parent_first_name'] === '') $errors[] = "Parent's first name is required";
         if ($formData['parent_last_name'] === '') $errors[] = "Parent's last name is required";
         if (!Security::validateEmail($formData['parent_email'])) $errors[] = 'A valid parent email is required';
-        if (!Security::validatePhone($formData['parent_phone'])) $errors[] = 'A valid Nigerian parent phone number is required (e.g. 08012345678)';
-        if ($formData['emergency_phone'] !== '' && !Security::validatePhone($formData['emergency_phone'])) $errors[] = 'The emergency contact phone number is not valid';
+        $loc = location_resolve($_POST);
+        if (!$loc['ok']) $errors[] = $loc['error'];
+        $abroad = ($_POST['state'] ?? '') === LOC_OTHER;
+        if ($abroad ? !valid_phone_intl($formData['parent_phone']) : !Security::validatePhone($formData['parent_phone'])) {
+            $errors[] = $abroad ? 'A valid parent phone number with country code is required (e.g. +447911123456)' : 'A valid Nigerian parent phone number is required (e.g. 08012345678)';
+        }
+        if ($formData['emergency_phone'] !== '' && !Security::validatePhone($formData['emergency_phone']) && !valid_phone_intl($formData['emergency_phone'])) $errors[] = 'The emergency contact phone number is not valid';
         if ($formData['address'] === '') $errors[] = 'Address is required';
 
         $dob = valid_date($formData['child_dob']);
@@ -107,16 +111,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     "INSERT INTO applications (
                         application_number, child_first_name, child_last_name, child_dob, child_gender,
                         class_applying, parent_title, parent_first_name, parent_last_name,
-                        parent_email, parent_phone, parent_occupation, address, city, state,
+                        parent_email, parent_phone, parent_occupation, address, city, state, lga, country,
                         previous_school, reason_applying, how_hear,
                         emergency_name, emergency_phone, emergency_relationship,
                         birth_certificate_path, passport_photo_path
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     [
                         $appNumber, $formData['child_first_name'], $formData['child_last_name'], $dob, $formData['child_gender'],
                         $formData['class_applying'], $formData['parent_title'], $formData['parent_first_name'], $formData['parent_last_name'],
                         $formData['parent_email'], $formData['parent_phone'], $formData['parent_occupation'], $formData['address'],
-                        $formData['city'], $formData['state'], $formData['previous_school'], $formData['reason_applying'], $formData['how_hear'],
+                        $formData['city'], $loc['state'] ?? '', $loc['lga'] ?? '', $loc['country'] ?? 'Nigeria', $formData['previous_school'], $formData['reason_applying'], $formData['how_hear'],
                         $formData['emergency_name'], $formData['emergency_phone'], $formData['emergency_relationship'],
                         $stored['birth_certificate'], $stored['passport_photo'],
                     ]
@@ -330,6 +334,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <input type="tel" id="parent_phone" name="parent_phone"
                                    value="<?php echo htmlspecialchars($_POST['parent_phone'] ?? ''); ?>"
                                    class="form-control" placeholder="08012345678" required>
+                            <small class="form-text text-muted">Outside Nigeria? Include your country code, e.g. +447911123456</small>
                         </div>
                     </div>
 
@@ -347,21 +352,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <textarea id="address" name="address" class="form-control" rows="2" required><?php echo htmlspecialchars($_POST['address'] ?? ''); ?></textarea>
                     </div>
 
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="city">City *</label>
-                            <input type="text" id="city" name="city"
-                                   value="<?php echo htmlspecialchars($_POST['city'] ?? 'Enugu'); ?>"
-                                   class="form-control" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="state">State *</label>
-                            <input type="text" id="state" name="state"
-                                   value="<?php echo htmlspecialchars($_POST['state'] ?? 'Enugu'); ?>"
-                                   class="form-control" required>
-                        </div>
+                    <div class="form-group">
+                        <label for="city">City / Town *</label>
+                        <input type="text" id="city" name="city"
+                               value="<?php echo htmlspecialchars($_POST['city'] ?? 'Enugu'); ?>"
+                               class="form-control" required>
                     </div>
+                    <?php location_fields($_POST, 'Enugu'); ?>
 
                     <div class="form-group">
                         <label for="how_hear">How did you hear about us?</label>
@@ -802,7 +799,16 @@ function validateStep(step) {
             const parentPhone = document.getElementById('parent_phone').value;
             const address = document.getElementById('address').value;
             const city = document.getElementById('city').value;
-            const state = document.getElementById('state').value;
+            const state = document.getElementById('loc_state').value;
+            const abroad = state === '__other';
+            if (abroad && (!document.getElementById('loc_country').value.trim() || !document.getElementById('loc_state_other').value.trim())) {
+                alert('Please enter your country and state/province/region');
+                return false;
+            }
+            if (!abroad && !document.getElementById('loc_lga').value) {
+                alert('Please select your local government area');
+                return false;
+            }
 
             if (!parentFirst || !parentLast || !parentEmail || !parentPhone || !address || !city || !state) {
                 alert('Please fill in all required fields');
@@ -814,8 +820,8 @@ function validateStep(step) {
                 return false;
             }
 
-            if (!isValidPhone(parentPhone)) {
-                alert('Please enter a valid Nigerian phone number (e.g., 08012345678)');
+            if (abroad ? !/^\+?[0-9][0-9\s\-().]{5,22}$/.test(parentPhone) : !isValidPhone(parentPhone)) {
+                alert(abroad ? 'Please enter your phone number with country code (e.g., +447911123456)' : 'Please enter a valid Nigerian phone number (e.g., 08012345678)');
                 return false;
             }
             break;
@@ -892,5 +898,6 @@ document.getElementById('applicationForm')?.addEventListener('submit', function(
 </script>
 
 <?php
+$extraJS = ['location-picker.js'];
 include '../includes/footer.php';
 ?>

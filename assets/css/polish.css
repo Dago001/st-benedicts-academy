@@ -180,3 +180,20 @@ body .form-control:focus, body input:focus, body select:focus, body textarea:foc
     body .welcome-section .title-underline, body .welcome-section h2::after { margin-left: 0; }
 }
 @media (min-width:768px) and (max-width:991px){ body .stat-card, body .stat-content { min-width:0; } body .stats-grid { grid-template-columns: repeat(2, minmax(0,1fr)) !important; } }
+
+/* Tables: every table (including plain class="table") shares one look; headers align with their columns */
+body table { border-collapse: collapse; }
+body .table, body .data-table { width: 100%; border-collapse: collapse; }
+body table th, body table td { text-align: left; vertical-align: middle; }
+body .table th, body .table td { padding: 12px 14px; border-bottom: 1px solid var(--line, #e5e9f0); }
+body .table thead th { background: #f4f7fb; border-bottom: 2px solid var(--line, #e5e9f0); white-space: nowrap; }
+body .table tbody tr:hover { background: #f8fafd; }
+body .table td.text-center, body .table th.text-center { text-align: center; }
+body .table td.text-right, body .table th.text-right { text-align: right; }
+body .table-responsive { width: 100%; max-width: 100%; overflow-x: auto; }
+
+[hidden] { display: none !important; }
+.location-picker .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 16px; }
+body .location-picker .form-row > .form-group { flex: none; min-width: 0; margin-bottom: 14px; }
+.location-picker > .form-group, .location-picker .loc-foreign > .form-group { margin-bottom: 14px; }
+.location-picker select, .location-picker input { width: 100%; box-sizing: border-box; }

@@ -29,7 +29,8 @@ function setupSidebarToggle() {
 function initializeCharts() {
     // Attendance chart
     const attendanceCanvas = document.getElementById('attendanceChart');
-    if (attendanceCanvas && typeof Chart !== 'undefined') {
+    // Pages that draw their own chart inline (admin dashboard) or have no class selected are skipped
+    if (attendanceCanvas && typeof Chart !== 'undefined' && !Chart.getChart(attendanceCanvas) && getCurrentClassId()) {
         fetch(BASE_URL + '/api/attendance?action=get_report&class_id=' + getCurrentClassId())
             .then(response => response.json())
             .then(data => {

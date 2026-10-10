@@ -397,4 +397,5 @@ class Security {
 
 require_once dirname(__DIR__) . '/includes/helpers.php';
 require_once dirname(__DIR__) . '/includes/cms.php';
+require_once dirname(__DIR__) . '/includes/locations.php';
 require_once dirname(__DIR__) . '/includes/layout.php';

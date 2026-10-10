@@ -68,6 +68,7 @@ async function measure(page) {
     const page = await ctx.newPage();
     const errors = [];
     page.on('response', r => { if (r.status() >= 400 && r.url().startsWith(BASE)) errors.push('HTTP ' + r.status() + ' ' + r.url().replace(BASE, '')); });
+    page.on('dialog', d => { errors.push('dialog: ' + d.message().slice(0, 80)); d.dismiss(); });
     page.on('pageerror', e => errors.push('JS: ' + e.message));
     page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource|net::ERR/.test(m.text())) errors.push('console: ' + m.text()); });
     if (role) {
