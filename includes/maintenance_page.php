@@ -261,18 +261,6 @@ $schoolMotto = function_exists('school_motto') ? school_motto() : 'Christo Duce,
             color: var(--gold-alt);
             margin-bottom: 4px;
         }
-        .admin-link {
-            display: inline-block;
-            margin-top: 12px;
-            color: rgba(255, 255, 255, 0.45);
-            font-size: 0.75rem;
-            text-decoration: none;
-            padding: 4px 8px;
-        }
-        .admin-link:hover {
-            color: var(--gold);
-            text-decoration: underline;
-        }
 
         /* Mobile specific fixes */
         @media (max-width: 640px) {
@@ -373,9 +361,6 @@ $schoolMotto = function_exists('school_motto') ? school_motto() : 'Christo Duce,
         <div class="footer-note">
             <div class="motto">&ldquo;<?php echo e($schoolMotto); ?>&rdquo;</div>
             <p>&copy; <?php echo date('Y'); ?> <?php echo e($schoolName); ?>. All rights reserved.</p>
-            <a href="<?php echo BASE_URL; ?>/login" class="admin-link">
-                <i class="fas fa-lock"></i> Staff &amp; Administrator Login
-            </a>
         </div>
     </div>
 </body>
