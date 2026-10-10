@@ -99,6 +99,15 @@ dashboard_open(
 render_alert($message, $messageType);
 ?>
 
+<style>
+@media (max-width: 991px) {
+    .maintenance-control-grid {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+    }
+}
+</style>
+
 <div class="maintenance-control-grid" style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr); gap: 24px; align-items: start;">
 
     <!-- Left Column: Primary Controls & Settings -->
