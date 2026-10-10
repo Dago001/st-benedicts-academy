@@ -41,8 +41,80 @@ body .section-subtitle { color: var(--ink-soft); font-size: clamp(.98rem, 2.6vw,
 body .title-underline, body .section-title::after { height: 3px; width: 56px; border-radius: 3px; background: linear-gradient(90deg, var(--accent), var(--gold-ui)); }
 
 /* ---- Cards ------------------------------------------------------------------------ */
-body .program-card, body .news-card, body .stat-box, body .card { border-radius: var(--r-lg); border: 1px solid var(--line); box-shadow: var(--elev-1); background: var(--surface); }
+body .program-card, body .news-card, body.is-auth .stat-box, body .card { border-radius: var(--r-lg); border: 1px solid var(--line); box-shadow: var(--elev-1); background: var(--surface); }
 body .program-card:hover, body .news-card:hover { box-shadow: var(--elev-2); }
+
+/* ---- Quick Stats (Public landing page) -------------------------------- */
+body .quick-stats {
+    background: linear-gradient(135deg, var(--brand, #002855) 0%, var(--brand-deep, #001a3a) 100%) !important;
+    padding: 56px 0 !important;
+    margin: 0 !important;
+    color: #fff !important;
+    border-top: 3px solid var(--gold-ui, #ffd23f);
+    border-bottom: 3px solid var(--gold-ui, #ffd23f);
+}
+body .quick-stats .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+body .quick-stats .stats-container {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 24px !important;
+    text-align: center !important;
+    background: transparent !important;
+    padding: 0 !important;
+}
+body .quick-stats .stat-box {
+    background: rgba(255, 255, 255, 0.08) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-radius: var(--r-lg, 14px) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2) !important;
+    padding: 32px 20px !important;
+    text-align: center !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    transition: transform 0.25s ease, background 0.25s ease, box-shadow 0.25s ease !important;
+}
+body .quick-stats .stat-box:hover {
+    transform: translateY(-5px) !important;
+    background: rgba(255, 255, 255, 0.14) !important;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3) !important;
+}
+body .quick-stats .stat-box i {
+    font-size: 2.2rem !important;
+    color: var(--gold-ui, #ffd23f) !important;
+    margin-bottom: 12px !important;
+    display: inline-block !important;
+    background: none !important;
+    width: auto !important;
+    height: auto !important;
+}
+body .quick-stats .stat-box .number {
+    font-size: 2.4rem !important;
+    font-weight: 800 !important;
+    color: #ffffff !important;
+    line-height: 1.1 !important;
+    margin-bottom: 6px !important;
+    display: block !important;
+}
+body .quick-stats .stat-box .label {
+    font-size: 0.85rem !important;
+    letter-spacing: 0.12em !important;
+    text-transform: uppercase !important;
+    color: rgba(255, 255, 255, 0.85) !important;
+    display: block !important;
+    font-weight: 600 !important;
+    margin: 0 !important;
+}
+
+@media (max-width: 991px) {
+    body .quick-stats .stats-container {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 16px !important;
+    }
+}
 
 /* ---- Footer ---------------------------------------------------------------------------- */
 body .main-footer { background: var(--brand-deep); }
