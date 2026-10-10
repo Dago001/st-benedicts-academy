@@ -131,7 +131,7 @@ if (!function_exists('dashboard_open')) {
     function dashboard_open($role, $title, $actionsHtml = '') {
         echo '<div class="dashboard-container">';
         render_sidebar($role);
-        echo '<main class="dashboard-main"><div class="dashboard-header"><h1>' . e($title) . '</h1>';
+        echo '<main class="dashboard-main"><div class="dashboard-header' . ($title === 'Dashboard' ? ' is-home' : '') . '"><h1>' . e($title) . '</h1>';
         if ($actionsHtml !== '') echo '<div class="header-actions">' . $actionsHtml . '</div>';
         echo '</div>';
     }

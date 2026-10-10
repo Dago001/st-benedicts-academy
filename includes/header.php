@@ -2,7 +2,7 @@
 // includes/header.php
 // Expects config/config.php + config/security.php to be loaded by the page.
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
-$assetVersion = '13';
+$assetVersion = '15';
 
 /** <link>/<script nonce="<?php echo CSP_NONCE; ?>"> only for assets that actually exist, so a missing file never causes a 404. */
 if (!function_exists('asset_exists')) {
@@ -76,6 +76,22 @@ $dashboardUrl = $isLoggedIn ? BASE_URL . '/' . $_SESSION['user_role'] . '/dashbo
                 </button>
 
                 <ul class="nav-menu" id="navMenu">
+                    <?php
+                    // Phones: the portal menu (what the sidebar offers on desktop) lives inside this one hamburger menu
+                    $portalRole = $isLoggedIn ? ($_SESSION['user_role'] ?? '') : '';
+                    $portalItems = $portalRole ? nav_items($portalRole) : [];
+                    if ($portalItems):
+                        $portalCurrent = $currentPage;
+                        $portalAlias = ['mark-attendance' => 'attendance', 'view-student' => 'students', 'teacher-profile' => 'teachers', 'view-parent' => 'parents', 'student-fees' => 'fees', 'print-receipt' => 'fees', 'assign-subjects' => 'teachers', 'attendance-detail' => 'attendance', 'generate-login' => 'students', 'student-data' => 'students'];
+                        $portalActive = $portalAlias[$portalCurrent] ?? $portalCurrent;
+                        $inPortal = strpos($_SERVER['SCRIPT_NAME'] ?? '', '/' . $portalRole . '/') !== false;
+                    ?>
+                    <li class="nav-portal-label" aria-hidden="true"><?php echo e(ucfirst($portalRole)); ?> menu</li>
+                    <?php foreach ($portalItems as [$pf, $pl, $pi]): ?>
+                    <li class="nav-portal<?php echo ($inPortal && $portalActive === $pf) ? ' active' : ''; ?>"><a href="<?php echo e(BASE_URL . '/' . $portalRole . '/' . $pf); ?>"<?php echo ($inPortal && $portalActive === $pf) ? ' aria-current="page"' : ''; ?>><i class="fas <?php echo e($pi); ?>"></i> <?php echo e($pl); ?></a></li>
+                    <?php endforeach; ?>
+                    <li class="nav-portal-label" aria-hidden="true">Website</li>
+                    <?php endif; ?>
                     <?php
                     $links = [
                         'index'      => ['/', 'Home'],
