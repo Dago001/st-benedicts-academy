@@ -6,6 +6,7 @@
         <!-- Footer -->
         <footer class="main-footer">
             <div class="footer-container">
+                <?php if (!Security::isLoggedIn()): ?>
                 <div class="footer-grid">
                     <div class="footer-info">
                         <h3><?php echo SCHOOL_NAME; ?></h3>
@@ -50,6 +51,7 @@
                         </div>
                     </div>
                 </div>
+                <?php endif; ?>
 
                 <div class="footer-bottom">
                     <p>&copy; <?php echo date('Y'); ?> <?php echo SCHOOL_NAME; ?>. All rights reserved.

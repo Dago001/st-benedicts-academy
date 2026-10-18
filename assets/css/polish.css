@@ -119,6 +119,9 @@ body .quick-stats .stat-box .label {
 /* ---- Footer ---------------------------------------------------------------------------- */
 body .main-footer { background: var(--brand-deep); }
 body .footer-bottom { border-top: 1px solid rgba(255,255,255,.1); }
+body.is-auth .main-footer { padding: 18px 0; }
+body.is-auth .footer-grid { display: none !important; }
+body.is-auth .footer-bottom { border-top: none; padding-top: 0; }
 
 /* ==========================================================================
    Phones
