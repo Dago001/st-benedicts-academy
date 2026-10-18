@@ -73,6 +73,29 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // Dashboard User Profile Dropdown
+    const userDropdownWrapper = document.getElementById('userDropdownWrapper');
+    const userDropdownToggle = document.getElementById('userDropdownToggle');
+    if (userDropdownWrapper && userDropdownToggle) {
+        userDropdownToggle.addEventListener('click', function (e) {
+            e.stopPropagation();
+            const isOpen = userDropdownWrapper.classList.toggle('open');
+            userDropdownToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        });
+        document.addEventListener('click', function (e) {
+            if (!userDropdownWrapper.contains(e.target)) {
+                userDropdownWrapper.classList.remove('open');
+                userDropdownToggle.setAttribute('aria-expanded', 'false');
+            }
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && userDropdownWrapper.classList.contains('open')) {
+                userDropdownWrapper.classList.remove('open');
+                userDropdownToggle.setAttribute('aria-expanded', 'false');
+            }
+        });
+    }
+
     // aria-expanded for the main menu toggle
     if (mobileToggle && navMenu) {
         mobileToggle.addEventListener('click', function () {

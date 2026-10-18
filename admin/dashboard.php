@@ -169,10 +169,38 @@ if (!function_exists('timeAgo')) {
     <main class="dashboard-main">
         <div class="dashboard-header">
             <h1>Dashboard</h1>
-            <div class="user-info">
-                <i class="fas fa-user-circle"></i>
-                <span><?php echo isset($_SESSION['user_name']) ? htmlspecialchars($_SESSION['user_name']) : 'Admin'; ?></span>
-                <small>Administrator</small>
+            <div class="user-dropdown-wrapper" id="userDropdownWrapper">
+                <button type="button" class="user-dropdown-toggle" id="userDropdownToggle" aria-haspopup="true" aria-expanded="false">
+                    <span class="user-avatar-circle">
+                        <i class="fas fa-user-circle"></i>
+                    </span>
+                    <span class="user-meta-info">
+                        <span class="user-display-name"><?php echo e($_SESSION['user_name'] ?? 'Admin'); ?></span>
+                        <small class="user-display-role"><?php echo e(ucfirst($_SESSION['user_role'] ?? 'Administrator')); ?></small>
+                    </span>
+                    <i class="fas fa-chevron-down user-dropdown-caret"></i>
+                </button>
+                <div class="user-dropdown-popover" id="userDropdownPopover" role="menu">
+                    <div class="user-popover-header">
+                        <div class="popover-avatar">
+                            <i class="fas fa-user-circle"></i>
+                        </div>
+                        <div class="popover-details">
+                            <span class="popover-name"><?php echo e($_SESSION['user_name'] ?? 'Admin'); ?></span>
+                            <span class="popover-role"><?php echo e(ucfirst($_SESSION['user_role'] ?? 'Administrator')); ?></span>
+                        </div>
+                    </div>
+                    <div class="user-popover-divider"></div>
+                    <a href="<?php echo BASE_URL; ?>/admin/profile" class="user-popover-link" role="menuitem">
+                        <i class="fas fa-user-cog"></i>
+                        <span>Profile &amp; Settings</span>
+                    </a>
+                    <div class="user-popover-divider"></div>
+                    <a href="<?php echo BASE_URL; ?>/logout" class="user-popover-link logout" role="menuitem">
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span>Logout</span>
+                    </a>
+                </div>
             </div>
         </div>
 

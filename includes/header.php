@@ -2,7 +2,7 @@
 // includes/header.php
 // Expects config/config.php + config/security.php to be loaded by the page.
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
-$assetVersion = '18';
+$assetVersion = '19';
 
 /** <link>/<script nonce="<?php echo CSP_NONCE; ?>"> only for assets that actually exist, so a missing file never causes a 404. */
 if (!function_exists('asset_exists')) {
@@ -126,7 +126,7 @@ if (function_exists('enforce_maintenance_mode')) {
                     <?php endforeach; ?>
                     <?php endif; ?>
 
-                    <?php if ($isLoggedIn): ?>
+                    <?php if ($isLoggedIn && !$inPortal): ?>
                         <li class="nav-item dropdown">
                             <a href="#" class="nav-link dropdown-toggle" aria-haspopup="true">
                                 <i class="fas fa-user"></i> <?php echo e($_SESSION['user_name']); ?>
@@ -136,7 +136,7 @@ if (function_exists('enforce_maintenance_mode')) {
                                 <li><a href="<?php echo BASE_URL; ?>/logout">Logout</a></li>
                             </ul>
                         </li>
-                    <?php else: ?>
+                    <?php elseif (!$isLoggedIn): ?>
                         <li class="nav-buttons">
                             <a href="<?php echo BASE_URL; ?>/login" class="btn btn-primary">Login</a>
                             <a href="<?php echo BASE_URL; ?>/public/apply" class="btn btn-accent">Apply Now</a>

@@ -278,13 +278,13 @@ body .stats-grid { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); 
     body .stats-grid.six, body .stats-grid:has(> :nth-child(6):last-child) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (min-width: 1501px) {
-    body .stats-grid:has(> :nth-child(6):last-child) { grid-template-columns: repeat(6, 1fr); }
+    body .stats-grid:has(> :nth-child(6):last-child) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 .footer-bottom a { color: var(--gold, #ffd700); text-decoration: underline; }
 
 body .stat-card, body .stat-content { min-width: 0; }
-body .stat-content h3, body .stat-content p { overflow-wrap: anywhere; }
+body .stat-content h3, body .stat-content p { overflow-wrap: normal; word-break: normal; }
 
 /* ---- Phones & tablets (up to 991px): one hamburger menu, no second "Menu" bar, no dashboard title block ---- */
 .nav-portal-label, .nav-portal { display: none; }
