@@ -203,6 +203,40 @@ if (!function_exists('timeAgo')) {
                 </div>
             </div>
         </div>
+        <script nonce="<?php echo CSP_NONCE; ?>">
+        (function() {
+            function initUserDropdown() {
+                var w = document.getElementById('userDropdownWrapper');
+                var btn = document.getElementById('userDropdownToggle');
+                if (!w || !btn) return;
+                if (btn.dataset.dropdownBound) return;
+                btn.dataset.dropdownBound = '1';
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var isOpen = w.classList.toggle('open');
+                    btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                });
+                document.addEventListener('click', function(e) {
+                    if (!w.contains(e.target)) {
+                        w.classList.remove('open');
+                        btn.setAttribute('aria-expanded', 'false');
+                    }
+                });
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape' && w.classList.contains('open')) {
+                        w.classList.remove('open');
+                        btn.setAttribute('aria-expanded', 'false');
+                    }
+                });
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initUserDropdown);
+            } else {
+                initUserDropdown();
+            }
+        })();
+        </script>
 
         <!-- Stats Cards -->
         <div class="stats-grid">

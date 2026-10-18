@@ -76,8 +76,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Dashboard User Profile Dropdown
     const userDropdownWrapper = document.getElementById('userDropdownWrapper');
     const userDropdownToggle = document.getElementById('userDropdownToggle');
-    if (userDropdownWrapper && userDropdownToggle) {
+    if (userDropdownWrapper && userDropdownToggle && !userDropdownToggle.dataset.dropdownBound) {
+        userDropdownToggle.dataset.dropdownBound = '1';
         userDropdownToggle.addEventListener('click', function (e) {
+            e.preventDefault();
             e.stopPropagation();
             const isOpen = userDropdownWrapper.classList.toggle('open');
             userDropdownToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');

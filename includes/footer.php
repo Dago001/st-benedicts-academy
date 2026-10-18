@@ -63,9 +63,9 @@
 
     <?php if (!Security::isLoggedIn() && !defined('NO_CHATBOT')) { include __DIR__ . '/chatbot_widget.php'; } ?>
     <!-- JavaScript -->
-    <script src="<?php echo BASE_URL; ?>/assets/js/main.js"></script>
+    <script src="<?php echo BASE_URL; ?>/assets/js/main.js?v=<?php echo $assetVersion ?? '20'; ?>"></script>
     <?php foreach (($extraJS ?? []) as $js): if (is_file(ROOT_PATH . '/assets/js/' . basename($js))): ?>
-        <script src="<?php echo BASE_URL; ?>/assets/js/<?php echo e(basename($js)); ?>"></script>
+        <script src="<?php echo BASE_URL; ?>/assets/js/<?php echo e(basename($js)); ?>?v=<?php echo $assetVersion ?? '20'; ?>"></script>
     <?php endif; endforeach; ?>
 </body>
 </html>
