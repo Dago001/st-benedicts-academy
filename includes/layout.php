@@ -96,8 +96,17 @@ if (!function_exists('render_sidebar')) {
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
     <aside class="sidebar" id="appSidebar">
         <div class="sidebar-header">
-            <h3><?php echo e($titles[$role] ?? 'Menu'); ?></h3>
-            <button type="button" class="sidebar-close" id="sidebarClose" aria-label="Close menu"><i class="fas fa-times"></i></button>
+            <a href="<?php echo BASE_URL . '/' . $role . '/dashboard'; ?>" class="sidebar-brand">
+                <img src="<?php echo BASE_URL; ?>/assets/images/logo.png" alt="<?php echo e(SITE_NAME); ?>" class="sidebar-logo">
+                <span class="sidebar-brand-text">
+                    <span class="school-name">ST. BENEDICT'S</span>
+                    <small>Early Years British Academy</small>
+                </span>
+            </a>
+            <div class="sidebar-title-row">
+                <h3><?php echo e($titles[$role] ?? 'Menu'); ?></h3>
+                <button type="button" class="sidebar-close" id="sidebarClose" aria-label="Close menu"><i class="fas fa-times"></i></button>
+            </div>
         </div>
         <nav class="sidebar-nav" aria-label="<?php echo e($titles[$role] ?? 'Menu'); ?>">
             <ul>

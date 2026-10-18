@@ -2,7 +2,7 @@
 // includes/header.php
 // Expects config/config.php + config/security.php to be loaded by the page.
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
-$assetVersion = '17';
+$assetVersion = '18';
 
 /** <link>/<script nonce="<?php echo CSP_NONCE; ?>"> only for assets that actually exist, so a missing file never causes a 404. */
 if (!function_exists('asset_exists')) {
@@ -12,7 +12,14 @@ if (!function_exists('asset_exists')) {
     }
 }
 $isLoggedIn = Security::isLoggedIn();
-$dashboardUrl = $isLoggedIn ? BASE_URL . '/' . $_SESSION['user_role'] . '/dashboard' : BASE_URL . '/login';
+$portalRole = $isLoggedIn ? ($_SESSION['user_role'] ?? '') : '';
+$inPortal = $isLoggedIn && !empty($portalRole) && (
+    strpos($_SERVER['SCRIPT_NAME'] ?? '', '/' . $portalRole . '/') !== false ||
+    strpos($_SERVER['PHP_SELF'] ?? '', '/' . $portalRole . '/') !== false ||
+    preg_match('#/(admin|teacher|parent|student)/#i', $_SERVER['SCRIPT_NAME'] ?? '') ||
+    preg_match('#/(admin|teacher|parent|student)/#i', $_SERVER['PHP_SELF'] ?? '')
+);
+$dashboardUrl = $isLoggedIn ? BASE_URL . '/' . $portalRole . '/dashboard' : BASE_URL . '/login';
 
 if (function_exists('enforce_maintenance_mode')) {
     enforce_maintenance_mode();
@@ -63,7 +70,7 @@ if (function_exists('enforce_maintenance_mode')) {
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/mobile.css?v=<?php echo $assetVersion; ?>">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/polish.css?v=<?php echo $assetVersion; ?>">
 </head>
-<body class="<?php echo $isLoggedIn ? 'is-auth role-' . e($_SESSION['user_role']) : 'is-public'; ?>">
+<body class="<?php echo $isLoggedIn ? 'is-auth role-' . e($_SESSION['user_role']) . ($inPortal ? ' in-portal' : '') : 'is-public'; ?>">
     <?php if (function_exists('maintenance_admin_banner')) maintenance_admin_banner(); ?>
     <a class="skip-link" href="#main-content">Skip to content</a>
     <div class="site-wrapper">
@@ -83,20 +90,22 @@ if (function_exists('enforce_maintenance_mode')) {
                 <ul class="nav-menu" id="navMenu">
                     <?php
                     // Phones: the portal menu (what the sidebar offers on desktop) lives inside this one hamburger menu
-                    $portalRole = $isLoggedIn ? ($_SESSION['user_role'] ?? '') : '';
                     $portalItems = $portalRole ? nav_items($portalRole) : [];
                     if ($portalItems):
                         $portalCurrent = $currentPage;
                         $portalAlias = ['mark-attendance' => 'attendance', 'view-student' => 'students', 'teacher-profile' => 'teachers', 'view-parent' => 'parents', 'student-fees' => 'fees', 'print-receipt' => 'fees', 'assign-subjects' => 'teachers', 'attendance-detail' => 'attendance', 'generate-login' => 'students', 'student-data' => 'students'];
                         $portalActive = $portalAlias[$portalCurrent] ?? $portalCurrent;
-                        $inPortal = strpos($_SERVER['SCRIPT_NAME'] ?? '', '/' . $portalRole . '/') !== false;
                     ?>
                     <li class="nav-portal-label" aria-hidden="true"><?php echo e(ucfirst($portalRole)); ?> menu</li>
                     <?php foreach ($portalItems as [$pf, $pl, $pi]): ?>
                     <li class="nav-portal<?php echo ($inPortal && $portalActive === $pf) ? ' active' : ''; ?>"><a href="<?php echo e(BASE_URL . '/' . $portalRole . '/' . $pf); ?>"<?php echo ($inPortal && $portalActive === $pf) ? ' aria-current="page"' : ''; ?>><i class="fas <?php echo e($pi); ?>"></i> <?php echo e($pl); ?></a></li>
                     <?php endforeach; ?>
+                    <?php if (!$inPortal): ?>
                     <li class="nav-portal-label" aria-hidden="true">Website</li>
                     <?php endif; ?>
+                    <?php endif; ?>
+
+                    <?php if (!$inPortal): ?>
                     <?php
                     $links = [
                         'index'      => ['/', 'Home'],
@@ -115,6 +124,7 @@ if (function_exists('enforce_maintenance_mode')) {
                     <?php foreach (cms_menu_pages() as $mp): $mpActive = $currentPage === 'page' && ($_GET['slug'] ?? '') === $mp['slug']; ?>
                     <li class="<?php echo $mpActive ? 'active' : ''; ?>"><a href="<?php echo BASE_URL . '/public/page?slug=' . rawurlencode($mp['slug']); ?>"<?php echo $mpActive ? ' aria-current="page"' : ''; ?>><?php echo e($mp['title']); ?></a></li>
                     <?php endforeach; ?>
+                    <?php endif; ?>
 
                     <?php if ($isLoggedIn): ?>
                         <li class="nav-item dropdown">
