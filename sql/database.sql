@@ -502,6 +502,50 @@ CREATE TABLE sessions (
     INDEX idx_token (session_token)
 );
 
+-- Job Vacancies
+CREATE TABLE job_vacancies (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    title VARCHAR(150) NOT NULL,
+    department VARCHAR(100) NOT NULL,
+    job_type VARCHAR(50) NOT NULL DEFAULT 'Full-time',
+    location VARCHAR(100) NOT NULL DEFAULT 'Main Campus, Abuja',
+    experience_level VARCHAR(50) NULL,
+    description TEXT NOT NULL,
+    requirements TEXT NULL,
+    deadline DATE NULL,
+    status ENUM('published', 'draft', 'closed') NOT NULL DEFAULT 'published',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_vacancy_status (status)
+);
+
+-- Career Applications
+CREATE TABLE career_applications (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    vacancy_id INT NULL,
+    reference_no VARCHAR(50) NOT NULL UNIQUE,
+    full_name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL,
+    phone VARCHAR(30) NOT NULL,
+    position_applied VARCHAR(150) NOT NULL,
+    qualification VARCHAR(100) NULL,
+    experience_years VARCHAR(50) NULL,
+    cover_letter TEXT NULL,
+    resume_path VARCHAR(255) NOT NULL,
+    additional_doc_path VARCHAR(255) NULL,
+    status ENUM('pending', 'reviewing', 'shortlisted', 'interviewed', 'rejected', 'hired') NOT NULL DEFAULT 'pending',
+    admin_notes TEXT NULL,
+    reviewed_by INT NULL,
+    reviewed_at DATETIME NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_app_vacancy (vacancy_id),
+    INDEX idx_app_status (status),
+    INDEX idx_app_created (created_at),
+    FOREIGN KEY (vacancy_id) REFERENCES job_vacancies(id) ON DELETE SET NULL,
+    FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
 -- Insert default admin user (password: Admin@123 - CHANGE IT after first login)
 INSERT INTO users (username, email, password_hash, first_name, last_name, role, is_active) VALUES
 ('admin', 'admin@stbenedicts.edu.ng', '$2y$12$hKB4juxd/P4AT7RSNDZVhO.M3bQax5S6m6U9DsrbxkpsH6WxoRyg6', 'System', 'Administrator', 'admin', 1);

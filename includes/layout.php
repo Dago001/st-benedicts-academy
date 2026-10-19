@@ -16,6 +16,7 @@ if (!function_exists('nav_items')) {
                 ['fees', 'Fees', 'fa-money-bill'],
                 ['results', 'Results', 'fa-chart-line'],
                 ['applications', 'Applications', 'fa-file-signature'],
+                ['careers', 'Careers', 'fa-briefcase'],
                 ['announcements', 'Announcements', 'fa-bullhorn'],
                 ['site-content', 'Site Content', 'fa-edit'],
                 ['slides', 'Home Slider', 'fa-film'],
@@ -85,10 +86,11 @@ if (!function_exists('render_sidebar')) {
             'view-parent' => 'parents', 'student-fees' => 'fees', 'print-receipt' => 'fees',
             'view-receipt' => 'fees', 'attendance-report' => 'attendance', 'submissions' => 'assignments',
             'timetable' => 'classes', 'assign-subjects' => 'teachers', 'attendance-detail' => 'attendance',
-            'generate-login' => 'students',
+            'generate-login' => 'students', 'career-applications' => 'careers', 'vacancies' => 'careers',
         ];
         $active = $alias[$current] ?? $current;
         $unread = unread_message_count();
+        $pendingCareers = ($role === 'admin' && class_exists('Career')) ? Career::pendingCount() : 0;
         ?>
     <button type="button" class="sidebar-toggle-mobile" id="sidebarToggle" aria-label="Open menu" aria-expanded="false" aria-controls="appSidebar">
         <i class="fas fa-bars"></i><span>Menu</span>
@@ -115,6 +117,7 @@ if (!function_exists('render_sidebar')) {
                     <a href="<?php echo e(BASE_URL . '/' . $role . '/' . $file); ?>"<?php echo $active === $file ? ' aria-current="page"' : ''; ?>>
                         <i class="fas <?php echo e($icon); ?>"></i> <?php echo e($label); ?>
                         <?php if ($file === 'messages' && $unread > 0): ?><span class="badge badge-danger"><?php echo $unread; ?></span><?php endif; ?>
+                        <?php if ($file === 'careers' && $pendingCareers > 0): ?><span class="badge badge-warning"><?php echo $pendingCareers; ?></span><?php endif; ?>
                     </a>
                 </li>
                 <?php endforeach; ?>

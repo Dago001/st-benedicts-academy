@@ -22,6 +22,7 @@
                             <li><a href="<?php echo BASE_URL; ?>/public/about">About Us</a></li>
                             <li><a href="<?php echo BASE_URL; ?>/public/admissions">Admissions</a></li>
                             <li><a href="<?php echo BASE_URL; ?>/public/academics">Academics</a></li>
+                            <li><a href="<?php echo BASE_URL; ?>/public/careers">Career</a></li>
                             <li><a href="<?php echo BASE_URL; ?>/public/contact">Contact</a></li>
                         </ul>
                     </div>
