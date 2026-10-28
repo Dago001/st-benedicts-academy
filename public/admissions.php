@@ -41,7 +41,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stored = [];
     if (!Security::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
         $errors[] = 'Your session expired. Please reload the page and try again.';
-    } elseif (!empty($_POST['website'])) {
+    } else {
+        $ts = turnstile_verify();
+        if (!$ts['success']) {
+            $errors[] = $ts['error'];
+        }
+    }
+    if (!empty($_POST['website'])) {
         $messageType = 'success'; // honeypot: bots get a fake success and nothing is stored
     } elseif (($_SESSION['admission_attempts'][date('YmdH')] ?? 0) >= 5) {
         $errors[] = 'Too many submissions from this device. Please try again later or call the school office.';
@@ -980,6 +986,7 @@ if (empty($classes)) {
                 </label>
             </div>
 
+            <?php if (function_exists('turnstile_widget')) echo turnstile_widget('auto', 'admissions'); ?>
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary btn-large" id="submitBtn">
                     <i class="fas fa-paper-plane"></i> Submit Application

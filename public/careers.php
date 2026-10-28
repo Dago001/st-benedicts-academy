@@ -22,7 +22,13 @@ $successData = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!Security::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
         $errors[] = 'Your session expired. Please reload the page and try again.';
-    } elseif (!empty($_POST['website'])) {
+    } else {
+        $ts = turnstile_verify();
+        if (!$ts['success']) {
+            $errors[] = $ts['error'];
+        }
+    }
+    if (!empty($_POST['website'])) {
         // Honeypot field filled by bot: pretend success
         $successData = [
             'reference_no' => 'STB-JOB-' . date('Y') . '-0000',
@@ -791,7 +797,10 @@ include __DIR__ . '/../includes/header.php';
                             </div>
                         </div>
 
-                        <div style="margin-top: 30px; text-align: right;">
+                        <div style="margin-top: 20px;">
+                            <?php if (function_exists('turnstile_widget')) echo turnstile_widget('auto', 'careers'); ?>
+                        </div>
+                        <div style="margin-top: 20px; text-align: right;">
                             <button type="submit" class="btn btn-primary" style="padding: 14px 32px; font-size: 1.05rem; font-weight: 700; border-radius: 8px;">
                                 <i class="fas fa-paper-plane"></i> Submit Application
                             </button>

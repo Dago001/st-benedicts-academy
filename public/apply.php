@@ -22,7 +22,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $errors = [];
     if (!Security::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
         $errors[] = 'Your session expired. Please reload the page and try again.';
-    } elseif (!empty($_POST['website'])) {
+    } else {
+        $ts = turnstile_verify();
+        if (!$ts['success']) {
+            $errors[] = $ts['error'];
+        }
+    }
+    if (!empty($_POST['website'])) {
         // Honeypot field filled in: pretend success, store nothing
         $message = 'Thank you.';
         $messageType = 'success';
@@ -468,6 +474,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <button type="button" class="btn btn-outline" onclick="prevStep(4)">
                             <i class="fas fa-arrow-left"></i> Previous
                         </button>
+                        <?php if (function_exists('turnstile_widget')) echo turnstile_widget('auto', 'apply'); ?>
                         <button type="submit" class="btn btn-success">
                             <i class="fas fa-paper-plane"></i> Submit Application
                         </button>

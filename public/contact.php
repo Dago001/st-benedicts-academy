@@ -34,7 +34,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $errors = [];
     if (!Security::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
         $errors[] = 'Your session expired. Please reload the page and try again.';
-    } elseif (!empty($_POST['website'])) {
+    } else {
+        $ts = turnstile_verify();
+        if (!$ts['success']) {
+            $errors[] = $ts['error'];
+        }
+    }
+    if (!empty($_POST['website'])) {
         $sent = true; // honeypot: silently drop bot submissions
     } elseif (($_SESSION['contact_attempts'][date('YmdH')] ?? 0) >= 5) {
         $errors[] = 'Too many messages from this device. Please try again later or call the school office.';
@@ -934,6 +940,7 @@ $businessHours = school_hours();
                                       placeholder="Type your message here..." required><?php echo htmlspecialchars($_POST['message'] ?? ''); ?></textarea>
                         </div>
 
+                        <?php if (function_exists('turnstile_widget')) echo turnstile_widget('auto', 'contact'); ?>
                         <button type="submit" class="btn btn-primary btn-block">
                             <i class="fas fa-paper-plane"></i> Send Message
                         </button>

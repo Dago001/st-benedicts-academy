@@ -15,7 +15,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!Security::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
         $error = 'Invalid security token. Please refresh and try again.';
     } else {
-        $email = Security::sanitize($_POST['email'] ?? '');
+        $ts = turnstile_verify();
+        if (!$ts['success']) {
+            $error = $ts['error'];
+        } else {
+            $email = Security::sanitize($_POST['email'] ?? '');
         if (!Security::validateEmail($email)) {
             $error = 'Please enter a valid email address.';
         } else {
@@ -42,6 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Same response whether or not the account exists
             $sent = true;
         }
+        }
     }
 }
 auth_page_start('Forgot Password'); ?>
@@ -57,6 +62,7 @@ auth_page_start('Forgot Password'); ?>
         <label for="email">Email address</label>
         <input type="email" id="email" name="email" required autofocus autocomplete="username" inputmode="email" value="<?php echo e($_POST['email'] ?? ''); ?>">
     </div>
+    <?php echo turnstile_widget('auto', 'forgot_password'); ?>
     <button type="submit" class="btn btn-primary">Send reset link</button>
 </form>
 <?php endif; ?>

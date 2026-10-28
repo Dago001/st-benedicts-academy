@@ -87,6 +87,11 @@ function cms_registry() {
             'approach_image' => ['Approach image', 'image', '', ''],
             'assessment_note' => ['Assessment note', 'textarea', "Parents receive detailed reports at the end of each term and are invited to discuss their child's progress with teachers.", ''],
         ]],
+        'turnstile' => ['Cloudflare Turnstile', 'fa-shield-alt', [
+            'enabled'    => ['Turnstile Status', 'select', '0', 'Set to Enabled to activate Cloudflare Turnstile anti-bot checks on login, contact, and application forms.'],
+            'site_key'   => ['Site Key', 'text', '', 'Public Site Key from Cloudflare Turnstile dashboard (e.g. 0x4AAAAAA...)'],
+            'secret_key' => ['Secret Key', 'password', '', 'Secret Key from Cloudflare Turnstile dashboard (e.g. 0x4AAAAAA...)'],
+        ]],
     ];
     return $r;
 }

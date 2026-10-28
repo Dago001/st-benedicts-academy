@@ -24,6 +24,7 @@ function auth_page_start($title) { ?>
         .alert { padding: 12px 14px; border-radius: 8px; margin-bottom: 16px; font-size: .92rem; }
         .alert-error { background: #fdecea; color: #b71c1c; } .alert-success { background: #e8f5e9; color: #1b5e20; }
     </style>
+    <?php if (function_exists('turnstile_script')) echo turnstile_script(); ?>
 </head>
 <body class="auth-page"><div class="auth-card">
 <?php }

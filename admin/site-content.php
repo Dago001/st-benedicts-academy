@@ -75,6 +75,15 @@ render_alert($message, $messageType);
             <?php if ($cur): ?><div style="margin-bottom:8px"><img src="<?php echo e($cur); ?>" alt="" style="max-width:220px;max-height:140px;border-radius:8px"></div>
             <label class="checkbox-label"><input type="checkbox" name="clear_<?php echo e($k); ?>" value="1"> Remove this image (go back to the original)</label><?php endif; ?>
             <input type="file" class="form-control" id="<?php echo e($id); ?>" name="img_<?php echo e($k); ?>" accept="image/*">
+
+
+        <?php elseif ($type === 'password'): ?>
+            <input type="password" class="form-control" id="<?php echo e($id); ?>" name="f[<?php echo e($k); ?>]" value="<?php echo e($val); ?>" placeholder="Enter <?php echo e(strtolower($label)); ?>" autocomplete="new-password">
+        <?php elseif ($type === 'select'): ?>
+            <select class="form-control" id="<?php echo e($id); ?>" name="f[<?php echo e($k); ?>]">
+                <option value="0" <?php echo ($val === '0' || empty($val)) ? 'selected' : ''; ?>>Disabled</option>
+                <option value="1" <?php echo $val === '1' ? 'selected' : ''; ?>>Enabled</option>
+            </select>
         <?php else: ?>
             <input class="form-control" id="<?php echo e($id); ?>" name="f[<?php echo e($k); ?>]" value="<?php echo e($val); ?>">
         <?php endif; ?>

@@ -1,6 +1,7 @@
 <?php
 // tests/unit_test.php - dependency-free unit tests for pure logic. Run: php tests/unit_test.php
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
+define('TESTING', true);
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/security.php';
 require_once __DIR__ . '/../includes/helpers.php';
@@ -51,6 +52,13 @@ $msg = (new Mailer())->buildMessage('p@x.com', "Résumé", '<p>Hello <b>World</b
 t('mime subject encoded', strpos($msg, 'Subject: =?UTF-8?B?') !== false);
 t('mime has both parts', strpos($msg, 'text/plain') !== false && strpos($msg, 'text/html') !== false);
 t('mime text part stripped', strpos(base64_decode(explode("\r\n\r\n", $msg)[1] ?? ''), '<b>') === false);
+
+// Turnstile
+require_once __DIR__ . '/../includes/turnstile.php';
+t('turnstile disabled by default', turnstile_enabled() === false);
+t('turnstile widget empty when disabled', turnstile_widget() === '');
+t('turnstile verify passes when disabled', turnstile_verify()['success'] === true);
+t('turnstile script returns tag', strpos(turnstile_script(), 'challenges.cloudflare.com/turnstile') !== false);
 
 echo "\n$pass passed, $fail failed\n";
 exit($fail ? 1 : 0);

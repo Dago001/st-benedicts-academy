@@ -2,7 +2,7 @@
 // includes/header.php
 // Expects config/config.php + config/security.php to be loaded by the page.
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
-$assetVersion = '22';
+$assetVersion = '23';
 
 /** <link>/<script nonce="<?php echo CSP_NONCE; ?>"> only for assets that actually exist, so a missing file never causes a 404. */
 if (!function_exists('asset_exists')) {
@@ -69,6 +69,7 @@ if (function_exists('enforce_maintenance_mode')) {
     <?php endif; endforeach; ?>
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/mobile.css?v=<?php echo $assetVersion; ?>">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/polish.css?v=<?php echo $assetVersion; ?>">
+    <?php if (function_exists('turnstile_script')) echo turnstile_script(); ?>
 </head>
 <body class="<?php echo $isLoggedIn ? 'is-auth role-' . e($_SESSION['user_role']) . ($inPortal ? ' in-portal' : '') : 'is-public'; ?>">
     <?php if (function_exists('maintenance_admin_banner')) maintenance_admin_banner(); ?>

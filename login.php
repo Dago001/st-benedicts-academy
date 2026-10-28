@@ -21,16 +21,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $auth = new Auth();
         if (isset($_POST['otp'])) {
             $result = $auth->completeTwoFactor($_POST['otp']);
+            if ($result['success']) {
+                header('Location: ' . $result['redirect']);
+                exit;
+            }
+            $error = $result['message'];
         } else {
-            unset($_SESSION['pending_2fa']);
-            $result = $auth->login(Security::sanitize($_POST['email'] ?? ''), $_POST['password'] ?? '');
+            $ts = turnstile_verify();
+            if (!$ts['success']) {
+                $error = $ts['error'];
+            } else {
+                unset($_SESSION['pending_2fa']);
+                $result = $auth->login(Security::sanitize($_POST['email'] ?? ''), $_POST['password'] ?? '');
+                if ($result['success']) {
+                    header('Location: ' . $result['redirect']);
+                    exit;
+                }
+                // needs_2fa is a prompt, not an error
+                $error = !empty($result['needs_2fa']) && !isset($_POST['otp']) ? '' : $result['message'];
+            }
         }
-        if ($result['success']) {
-            header('Location: ' . $result['redirect']);
-            exit;
-        }
-        // needs_2fa is a prompt, not an error
-        $error = !empty($result['needs_2fa']) && !isset($_POST['otp']) ? '' : $result['message'];
     }
 }
 
@@ -49,6 +59,7 @@ $csrf_token = Security::generateCSRFToken();
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/vendor/fontawesome/all.min.css">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/mobile.css">
+    <?php if (function_exists('turnstile_script')) echo turnstile_script(); ?>
     <style>
         /* Page-specific styles */
         .login-page {
@@ -330,6 +341,7 @@ $csrf_token = Security::generateCSRFToken();
                     </div>
                 </div>
 
+                <?php if (function_exists('turnstile_widget')) echo turnstile_widget('auto', 'login'); ?>
                 <div class="form-group">
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-sign-in-alt"></i> Sign In
