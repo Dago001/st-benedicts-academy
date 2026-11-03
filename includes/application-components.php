@@ -79,7 +79,7 @@ function renderSequentialDocumentsUploader(): void
             <div id="seqUploadedList" class="seq-uploaded-list">
                 <div class="seq-empty-state" id="seqEmptyState">
                     <i class="fas fa-file-upload"></i>
-                    <span>No document uploaded yet. Pick a document from the dropdown above and click <strong>"Pick &amp; Upload Selected Document"</strong>.</span>
+                    <span>No document uploaded yet. Pick a document from the dropdown above and click <strong>Pick &amp; Upload Selected Document</strong>.</span>
                 </div>
             </div>
         </div>
@@ -120,7 +120,7 @@ function renderOnlinePaymentSection(): void
             <div>
                 <span class="payment-pill-tag"><i class="fas fa-shield-alt"></i> Paystack &amp; Official School Bank Checkout</span>
                 <h4>Application &amp; Entrance Assessment Fee</h4>
-                <p>Pay online via <strong>Paystack</strong> (routes you to Paystack and returns you here automatically) or via direct transfer to the School's <strong><?php echo htmlspecialchars($bankName); ?></strong> account.</p>
+                <p>Pay online via <strong>Paystack</strong> or via direct transfer to the School's <strong><?php echo htmlspecialchars($bankName); ?></strong> account.</p>
             </div>
             <div class="payment-amount-box">
                 <span class="amt-label">Payable Amount</span>
@@ -161,7 +161,7 @@ function renderOnlinePaymentSection(): void
                 <div class="pm-icon"><i class="fas fa-bolt"></i></div>
                 <div class="pm-text">
                     <strong>Pay Online with Paystack (Card / Transfer / USSD)</strong>
-                    <span>Routes to Paystack checkout &amp; returns you to this application</span>
+                    <span>Instant online verification &amp; official receipt</span>
                 </div>
             </label>
 
@@ -180,7 +180,7 @@ function renderOnlinePaymentSection(): void
             <div class="gateway-action-row" id="gatewayUnpaidState" style="<?php echo $isPreVerified ? 'display:none;' : ''; ?>">
                 <div class="gateway-info">
                     <i class="fas fa-lock" style="color:#002147;"></i>
-                    <span>Click <strong>Pay &#8358;<?php echo number_format($fee, 2); ?> on Paystack</strong> to proceed to the official Paystack payment page. Your form progress is saved automatically and you will be routed back here immediately after payment.</span>
+                    <span>Click <strong>Pay &#8358;<?php echo number_format($fee, 2); ?> on Paystack</strong> to complete your application fee payment securely.</span>
                 </div>
                 <button type="button" id="openPaymentModalBtn" class="btn-pay-online">
                     <i class="fas fa-external-link-alt"></i> Pay &#8358;<?php echo number_format($fee, 2); ?> on Paystack
@@ -191,7 +191,7 @@ function renderOnlinePaymentSection(): void
                 <div class="gv-left">
                     <div class="gv-check"><i class="fas fa-check-circle"></i></div>
                     <div>
-                        <div class="gv-title">Paystack Payment Verified &amp; Returned to Application!</div>
+                        <div class="gv-title">Paystack Payment Verified</div>
                         <div class="gv-meta">
                             <span>Ref: <strong id="displayPaidRef"><?php echo htmlspecialchars($defaultRef); ?></strong></span> &bull;
                             <span>Channel: <strong id="displayPaidChannel"><?php echo htmlspecialchars($verifiedChannel); ?></strong></span> &bull;
@@ -888,7 +888,7 @@ function renderApplicationComponentsAssets(): void
                 if (uploadedCountEl) uploadedCountEl.textContent = String(count);
 
                 if (count === 0) {
-                    uploadedList.innerHTML = '<div class="seq-empty-state"><i class="fas fa-file-upload"></i><span>No document uploaded yet. Pick a document from the dropdown above and click <strong>"Pick &amp; Upload Selected Document"</strong>.</span></div>';
+                    uploadedList.innerHTML = '<div class="seq-empty-state"><i class="fas fa-file-upload"></i><span>No document uploaded yet. Pick a document from the dropdown above and click <strong>Pick &amp; Upload Selected Document</strong>.</span></div>';
                 } else {
                     uploadedList.innerHTML = html;
                 }
