@@ -401,3 +401,5 @@ require_once dirname(__DIR__) . '/includes/locations.php';
 require_once dirname(__DIR__) . '/includes/layout.php';
 require_once dirname(__DIR__) . '/includes/maintenance.php';
 require_once dirname(__DIR__) . '/includes/turnstile.php';
+
+require_once dirname(__DIR__) . '/includes/paystack.php';

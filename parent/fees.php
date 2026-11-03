@@ -324,10 +324,10 @@ if ($selectedChildId) {
                 <div class="row">
                     <div class="col-md-6">
                         <h5>Bank Transfer</h5>
-                        <p><strong>Bank:</strong> First Bank of Nigeria</p>
+                        <p><strong>Bank Name:</strong> <?php echo htmlspecialchars(school_bank_name()); ?></p>
                         <p><strong>Account Name:</strong> St. Benedict's Early Years British Academy</p>
-                        <p><strong>Account Number:</strong> 1234567890</p>
-                        <p><strong>Sort Code:</strong> 011234567</p>
+                        <p><strong>Account Number:</strong> <span style="color:#c8102e; font-weight:800; font-size:1.05rem;"><?php echo htmlspecialchars(school_account_number()); ?></span></p>
+                        <p><strong>Online Gateway:</strong> Paystack (Instant Card / Bank Transfer / USSD)</p>
                     </div>
                     <div class="col-md-6">
                         <h5>Important Notes</h5>

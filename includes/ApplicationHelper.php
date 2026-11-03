@@ -158,12 +158,16 @@ class ApplicationHelper
     public static function formatPaymentMethod(?string $method): string
     {
         $map = [
-            'online_card'     => 'Online Card Payment (Debit / Credit Card)',
-            'online_transfer' => 'Instant Online Bank Transfer',
-            'online_ussd'     => 'Online USSD Instant Channel',
-            'bank_transfer'   => 'Direct Bank Deposit / Transfer'
+            'paystack'          => 'Paystack Online Checkout',
+            'paystack_card'     => 'Paystack Online Card Payment (Debit / Credit Card)',
+            'paystack_transfer' => 'Paystack Instant Bank Transfer',
+            'paystack_ussd'     => 'Paystack USSD Instant Channel',
+            'online_card'       => 'Paystack Online Card Payment (Debit / Credit Card)',
+            'online_transfer'   => 'Paystack Instant Bank Transfer',
+            'online_ussd'       => 'Paystack USSD Instant Channel',
+            'bank_transfer'     => 'Direct Bank Transfer (' . SCHOOL_BANK_NAME . ' - ' . SCHOOL_ACCOUNT_NUMBER . ')'
         ];
-        return $map[$method ?? 'online_card'] ?? ucwords(str_replace('_', ' ', (string)$method));
+        return $map[$method ?? 'paystack_card'] ?? ucwords(str_replace('_', ' ', (string)$method));
     }
 
     /**

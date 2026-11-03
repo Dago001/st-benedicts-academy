@@ -588,6 +588,11 @@ $docCatalog = ApplicationHelper::getDocumentCatalog();
                 </tbody>
             </table>
 
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px 16px; margin-bottom:24px; font-size:0.84rem; color:#334155; display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+                <span><i class="fas fa-university" style="color:#002147;"></i> <strong>Official School Account:</strong> <?php echo htmlspecialchars(school_bank_name()); ?> &mdash; <strong><?php echo htmlspecialchars(school_account_number()); ?></strong> (<?php echo htmlspecialchars(school_account_name()); ?>)</span>
+                <span><i class="fas fa-shield-alt" style="color:#16a34a;"></i> Gateway: <strong>Paystack / Bursary Verified</strong></span>
+            </div>
+
             <div class="section-heading"><i class="fas fa-folder-open"></i> Submitted Application Documents</div>
             <div class="docs-chips">
                 <?php foreach ($docCatalog as $docKey => $docMeta):

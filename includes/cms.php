@@ -92,6 +92,14 @@ function cms_registry() {
             'site_key'   => ['Site Key', 'text', '', 'Public Site Key from Cloudflare Turnstile dashboard (e.g. 0x4AAAAAA...)'],
             'secret_key' => ['Secret Key', 'password', '', 'Secret Key from Cloudflare Turnstile dashboard (e.g. 0x4AAAAAA...)'],
         ]],
+        'paystack' => ['Paystack & School Bank Account', 'fa-credit-card', [
+            'enabled'        => ['Paystack Online Payment', 'select', '1', 'Enable Paystack online payment for Admissions and School Fees.'],
+            'public_key'     => ['Paystack Public Key', 'text', '', 'Public Key from Paystack Dashboard (pk_live_... or pk_test_...)'],
+            'secret_key'     => ['Paystack Secret Key', 'password', '', 'Secret Key from Paystack Dashboard (sk_live_... or sk_test_...)'],
+            'bank_name'      => ['School Bank Name', 'text', 'Zenith Bank', 'Official school bank name displayed for bank transfers'],
+            'account_name'   => ['School Account Name', 'text', "St. Benedict's Early Years British Academy", 'Official school bank account name'],
+            'account_number' => ['School Account Number', 'text', '1310057496', 'Official 10-digit NUBAN bank account number'],
+        ]],
     ];
     return $r;
 }

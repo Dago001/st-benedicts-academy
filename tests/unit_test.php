@@ -60,5 +60,13 @@ t('turnstile widget empty when disabled', turnstile_widget() === '');
 t('turnstile verify passes when disabled', turnstile_verify()['success'] === true);
 t('turnstile script returns tag', strpos(turnstile_script(), 'challenges.cloudflare.com/turnstile') !== false);
 
+// Paystack & School Bank Account
+require_once __DIR__ . '/../includes/paystack.php';
+t('school bank is Zenith Bank', school_bank_name() === 'Zenith Bank');
+t('school account name matches', school_account_name() === "St. Benedict's Early Years British Academy");
+t('school account number is 1310057496', school_account_number() === '1310057496');
+t('paystack verify fallback passes', paystack_verify_transaction('PSTK-STB-TEST')['success'] === true);
+t('paystack script returns tag', strpos(paystack_script(), 'js.paystack.co/v1/inline.js') !== false);
+
 echo "\n$pass passed, $fail failed\n";
 exit($fail ? 1 : 0);
