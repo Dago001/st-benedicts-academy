@@ -25,7 +25,7 @@ if ($row && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Passwords do not match.';
     } else {
         $db->beginTransaction();
-        $db->query('UPDATE users SET password_hash = ?, login_attempts = 0, locked_until = NULL WHERE id = ?', [Security::hashPassword($pw), $row['user_id']]);
+        $db->query('UPDATE users SET password_hash = ?, must_change_password = 0, login_attempts = 0, locked_until = NULL WHERE id = ?', [Security::hashPassword($pw), $row['user_id']]);
         $db->query('UPDATE password_resets SET used_at = NOW() WHERE user_id = ? AND used_at IS NULL', [$row['user_id']]);
         $db->commit();
         header('Location: ' . BASE_URL . '/login?reset=1');

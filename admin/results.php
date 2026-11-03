@@ -187,8 +187,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $params
                     );
 
+                    // Notify students and parents via email on their phones
+                    $notifiedCount = notify_approved_results($resultIds, $_SESSION['user_id']);
+
                     Security::logAudit('APPROVED_RESULTS', 'results');
-                    $message = 'Results approved successfully';
+                    $message = "Results approved successfully! Result notification emails dispatched to {$notifiedCount} student(s) and their parents.";
                     $messageType = 'success';
 
                 } catch (Exception $e) {

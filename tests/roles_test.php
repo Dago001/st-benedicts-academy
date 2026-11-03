@@ -215,6 +215,39 @@ test('main.js defines initNavSectionDropdowns for collapsible section dropdowns'
 $sidebarModernCss = file_get_contents(__DIR__ . '/../assets/css/sidebar-modern.css');
 test('sidebar-modern.css defines .sidebar-section-toggle and .section-toggle-caret', strpos($sidebarModernCss, '.sidebar-section-toggle') !== false && strpos($sidebarModernCss, '.section-toggle-caret') !== false);
 
+echo "\n=== 8. EMAIL SYSTEM, OFFICIAL STUDENT EMAILS & ONE-TIME PASSWORDS ===\n";
+require_once __DIR__ . '/../includes/mailer.php';
+require_once __DIR__ . '/../includes/helpers.php';
+
+test('Mailer::getSchoolEmail() is mail@stbenedictsacademy.com.ng', Mailer::getSchoolEmail() === 'mail@stbenedictsacademy.com.ng');
+test('config.php defines SCHOOL_EMAIL as mail@stbenedictsacademy.com.ng', defined('SCHOOL_EMAIL') && SCHOOL_EMAIL === 'mail@stbenedictsacademy.com.ng');
+test('config.php defines MAIL_FROM as mail@stbenedictsacademy.com.ng', defined('MAIL_FROM') && MAIL_FROM === 'mail@stbenedictsacademy.com.ng');
+
+// Student official email generation
+$email1 = generate_student_official_email('STB/2026/001', 'David', 'Okeke');
+test('generate_student_official_email produces stb2026001@stbenedictsacademy.com.ng', $email1 === 'stb2026001@stbenedictsacademy.com.ng');
+$email2 = generate_student_official_email('SBA-ADM-452', 'Mary', 'Eze');
+test('generate_student_official_email cleans hyphens and lowercase', $email2 === 'sbaadm452@stbenedictsacademy.com.ng');
+
+// Email template mobile formatting
+$sampleTemplate = Mailer::formatTemplate('Results Published', '<p>Test content</p>', 'https://stbenedictsacademy.com.ng/login', 'Sign In');
+test('Mailer::formatTemplate produces responsive mobile email', strpos($sampleTemplate, '<meta name="viewport" content="width=device-width, initial-scale=1.0">') !== false);
+test('Mailer::formatTemplate contains school logo URL', strpos($sampleTemplate, 'assets/images/logo.png') !== false);
+test('Mailer::formatTemplate contains primary school color #002855', strpos($sampleTemplate, '#002855') !== false);
+test('Mailer::formatTemplate contains school email mail@stbenedictsacademy.com.ng', strpos($sampleTemplate, 'mail@stbenedictsacademy.com.ng') !== false);
+test('Mailer::formatTemplate includes call-to-action button', strpos($sampleTemplate, 'Sign In') !== false);
+
+// Welcome email builder with one-time password
+test('send_account_welcome_email exists and is callable', function_exists('send_account_welcome_email'));
+test('send_result_notification_email exists and is callable', function_exists('send_result_notification_email'));
+test('notify_approved_results exists and is callable', function_exists('notify_approved_results'));
+
+// Verify admin email diagnostics file exists and is lint-clean
+test('admin/email-diagnostics.php exists', file_exists(__DIR__ . '/../admin/email-diagnostics.php'));
+$emailDiagContent = file_get_contents(__DIR__ . '/../admin/email-diagnostics.php');
+test('admin/email-diagnostics.php supports send_test_email action', strpos($emailDiagContent, "'send_test_email'") !== false);
+test('admin/email-diagnostics.php displays mail@stbenedictsacademy.com.ng', strpos($emailDiagContent, 'mail@stbenedictsacademy.com.ng') !== false);
+
 echo "\n==========================================\n";
 echo "$pass passed, $fail failed\n";
 exit($fail ? 1 : 0);

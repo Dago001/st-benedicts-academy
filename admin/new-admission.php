@@ -116,40 +116,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $db->beginTransaction();
 
-            // Generate clean username & student user account
+            // Generate official student email & clean username
+            $officialEmail = generate_student_official_email($admNo, $firstName, $lastName);
             $usernameBase = strtolower(preg_replace('/[^a-z0-9]/i', '', $firstName . '.' . $lastName));
             $username = $usernameBase ?: 'student.' . mt_rand(100, 999);
-            $userEmail = $email ?: ('student.' . strtolower($admNo) . '@stbenedicts.edu.ng');
+            $userEmail = $officialEmail;
 
             // Ensure unique username
             $uExists = $db->getRow("SELECT id FROM users WHERE username = ? OR email = ?", [$username, $userEmail]);
             if ($uExists) {
                 $username .= '.' . mt_rand(10, 99);
-                if ($email === '') {
-                    $userEmail = $username . '@stbenedicts.edu.ng';
-                }
             }
 
-            $hashedPassword = Security::hashPassword('Student@123'); // Default initial password
+            $rawDefaultPassword = 'Student@123';
+            $hashedPassword = Security::hashPassword($rawDefaultPassword); // Default initial password
             $userId = $db->insert(
-                "INSERT INTO users (username, email, password_hash, first_name, last_name, phone, role, is_active)
-                 VALUES (?, ?, ?, ?, ?, ?, 'student', ?)",
+                "INSERT INTO users (username, email, password_hash, first_name, last_name, phone, role, is_active, must_change_password)
+                 VALUES (?, ?, ?, ?, ?, ?, 'student', ?, 1)",
                 [$username, $userEmail, $hashedPassword, $firstName, $lastName, $phone, ($status === 'active' ? 1 : 0)]
             );
 
             // Handle parent linkage
             $parentId = null;
             $parentFullName = $fatherName ?: ($motherName ?: ($prefill['parent_name'] ?? ''));
+            $parentEmail = $email ?: ('parent.' . $username . '@stbenedictsacademy.com.ng');
+            $pUserId = null;
             if ($parentFullName !== '') {
-                $parentEmail = $email ?: ('parent.' . $username . '@stbenedicts.edu.ng');
                 $pUser = $db->getRow("SELECT id FROM users WHERE email = ? AND role = 'parent'", [$parentEmail]);
                 if ($pUser) {
                     $pRec = $db->getRow("SELECT id FROM parents WHERE user_id = ?", [$pUser['id']]);
                     $parentId = $pRec['id'] ?? null;
+                    $pUserId = $pUser['id'];
                 } else {
                     $pUserId = $db->insert(
-                        "INSERT INTO users (username, email, password_hash, first_name, last_name, phone, role, is_active)
-                         VALUES (?, ?, ?, ?, 'Parent', ?, 'parent', 1)",
+                        "INSERT INTO users (username, email, password_hash, first_name, last_name, phone, role, is_active, must_change_password)
+                         VALUES (?, ?, ?, ?, 'Parent', ?, 'parent', 1, 1)",
                         ['p.' . $username, $parentEmail, $hashedPassword, $parentFullName, $phone]
                     );
                     $parentId = $db->insert(
@@ -160,17 +161,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
-            // Insert Student Record
+            // Insert Student Record with official_email
             $studentId = $db->insert(
                 "INSERT INTO students (
-                    user_id, admission_number, class_id, parent_id, date_of_birth, gender,
+                    user_id, admission_number, official_email, class_id, parent_id, date_of_birth, gender,
                     admission_date, address, blood_group, medical_notes,
                     status, category, religion, nationality, medium,
                     national_id_number, pen_number, father_name, mother_name, father_occupation,
                     previous_school, last_class_studied, tc_number, transport_fee, alt_phone, postal_code, lga, state
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [
-                    $userId, $admNo, $classId, $parentId, $dob, $gender,
+                    $userId, $admNo, $officialEmail, $classId, $parentId, $dob, $gender,
                     $admDate, $address, $bloodGroup, '',
                     $status, $category, $religion, $nationality, $medium,
                     $ninNumber, $penNumber, $fatherName, $motherName, $fatherOcc,
@@ -184,6 +185,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $db->commit();
+
+            // Dispatch welcome & one-time password emails to Student and Parent
+            send_account_welcome_email([
+                'id'             => $userId,
+                'first_name'     => $firstName,
+                'last_name'      => $lastName,
+                'email'          => $userEmail,
+                'official_email' => $officialEmail,
+                'username'       => $username,
+                'role'           => 'student'
+            ], $rawDefaultPassword, 'student');
+
+            if (!empty($parentEmail) && filter_var($parentEmail, FILTER_VALIDATE_EMAIL)) {
+                send_account_welcome_email([
+                    'id'         => $pUserId,
+                    'first_name' => $parentFullName,
+                    'last_name'  => '',
+                    'email'      => $parentEmail,
+                    'username'   => 'p.' . $username,
+                    'role'       => 'parent'
+                ], $rawDefaultPassword, 'parent');
+            }
             Security::logAudit('NEW_STUDENT_ADMISSION', 'students', $studentId, null, [
                 'admission_number' => $admNo,
                 'name'             => $firstName . ' ' . $lastName,

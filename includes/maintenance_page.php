@@ -3,7 +3,7 @@
 $settings = maintenance_get_settings();
 $schoolName = defined('SITE_NAME') ? SITE_NAME : "ST. BENEDICT'S EARLY YEARS BRITISH ACADEMY";
 $schoolPhone = function_exists('school_phone') ? school_phone() : '09044472688';
-$schoolEmail = function_exists('school_email') ? school_email() : 'info@stbenedicts.edu.ng';
+$schoolEmail = function_exists('school_email') ? school_email() : 'mail@stbenedictsacademy.com.ng';
 $schoolMotto = function_exists('school_motto') ? school_motto() : 'Christo Duce, Una Sapientia et Virtute Crescimus';
 ?>
 <!DOCTYPE html>

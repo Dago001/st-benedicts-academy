@@ -10,7 +10,7 @@ function cms_registry() {
     $r = [
         'school' => ['School details & footer', 'fa-school', [
             'phone'    => ['Phone number', 'text', '09044472688', 'Shown in the footer, contact page and chat assistant'],
-            'email'    => ['Email address', 'text', 'info@stbenedicts.edu.ng', ''],
+            'email'    => ['Email address', 'text', 'mail@stbenedictsacademy.com.ng', ''],
             'address'  => ['Address', 'textarea', 'No 560 A A New G.R.A TRANS-EKULU, ENUGU', ''],
             'hours'    => ['Opening hours (one per line: Day: time)', 'textarea', "Monday: 8:00 AM - 4:00 PM\nTuesday: 8:00 AM - 4:00 PM\nWednesday: 8:00 AM - 4:00 PM\nThursday: 8:00 AM - 4:00 PM\nFriday: 8:00 AM - 2:00 PM\nSaturday: Closed\nSunday: Closed", ''],
             'founded_year' => ['Year founded (used for "years of excellence")', 'text', '2010', ''],

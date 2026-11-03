@@ -65,6 +65,7 @@ if (!function_exists('nav_sections')) {
 
             $sections['COMMUNICATION'] = [
                 ['announcements', 'Notices', 'fa-bullhorn', ''],
+                ['email-diagnostics', 'Email System & Test', 'fa-paper-plane', ''],
             ];
 
             if ($isAdmin) {
@@ -342,6 +343,13 @@ if (!function_exists('dashboard_open')) {
         echo '<main class="dashboard-main"><div class="dashboard-header' . ($title === 'Dashboard' ? ' is-home' : '') . '"><h1>' . e($title) . '</h1>';
         if ($actionsHtml !== '') echo '<div class="header-actions">' . $actionsHtml . '</div>';
         echo '</div>';
+        if (!empty($_SESSION['must_change_password'])) {
+            $profUrl = BASE_URL . '/profile';
+            echo '<div class="alert alert-warning" style="margin: 14px 0 20px 0; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px 18px; background: #fffbeb; color: #92400e; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                    <div><i class="fas fa-key" style="margin-right: 8px; color: #d97706;"></i> <strong>One-Time Password Notice:</strong> You are currently signed in with a temporary password. Please update your password to a secure personal password.</div>
+                    <a href="' . $profUrl . '" class="btn btn-sm btn-primary" style="white-space: nowrap;"><i class="fas fa-lock"></i> Change Password Now</a>
+                  </div>';
+        }
     }
 }
 

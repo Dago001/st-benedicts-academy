@@ -30,7 +30,7 @@ class SystemSchema
                 $db->exec("ALTER TABLE users MODIFY COLUMN role VARCHAR(30) NOT NULL DEFAULT 'student'");
             } catch (Throwable $e) {}
 
-            // Ensure deleted_at and profile_image exist on users
+            // Ensure deleted_at, profile_image and must_change_password exist on users
             $userCols = self::getTableColumns($db, 'users');
             if (!in_array('deleted_at', $userCols, true)) {
                 $db->exec("ALTER TABLE users ADD COLUMN deleted_at TIMESTAMP NULL DEFAULT NULL");
@@ -38,10 +38,14 @@ class SystemSchema
             if (!in_array('profile_image', $userCols, true)) {
                 $db->exec("ALTER TABLE users ADD COLUMN profile_image VARCHAR(255) NULL DEFAULT NULL");
             }
+            if (!in_array('must_change_password', $userCols, true)) {
+                $db->exec("ALTER TABLE users ADD COLUMN must_change_password TINYINT(1) NOT NULL DEFAULT 0");
+            }
 
             // 2. Expand students table with extra fields from the New Admission form
             $studentCols = self::getTableColumns($db, 'students');
             $newStudentFields = [
+                'official_email'     => "VARCHAR(150) NULL DEFAULT NULL",
                 'status'             => "VARCHAR(20) NOT NULL DEFAULT 'active'",
                 'admission_date'     => "DATE NULL DEFAULT NULL",
                 'category'           => "VARCHAR(50) NULL DEFAULT 'General'",
@@ -165,9 +169,55 @@ class SystemSchema
                 ApplicationHelper::ensureSchema();
             }
 
+            // 9. Backfill Student Official School Emails (@stbenedictsacademy.com.ng)
+            self::backfillStudentOfficialEmails($db);
+
         } catch (Throwable $e) {
             error_log("SystemSchema::ensureAll error: " . $e->getMessage());
         }
+    }
+
+    /**
+     * Ensures all students have a valid official email in the domain @stbenedictsacademy.com.ng
+     */
+    public static function backfillStudentOfficialEmails(PDO $db): int
+    {
+        $updated = 0;
+        try {
+            $stmt = $db->query(
+                "SELECT s.id, s.admission_number, s.official_email, u.id AS user_id, u.first_name, u.last_name, u.email
+                 FROM students s
+                 JOIN users u ON s.user_id = u.id
+                 WHERE s.official_email IS NULL OR s.official_email = '' OR s.official_email LIKE '%@stbenedicts.edu.ng'"
+            );
+            $students = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
+            foreach ($students as $st) {
+                $adm = trim((string)($st['admission_number'] ?? ''));
+                $clean = strtolower(preg_replace('/[^a-z0-9]/i', '', $adm));
+                if ($clean === '') {
+                    $clean = strtolower(preg_replace('/[^a-z0-9]/i', '', ($st['first_name'] ?? '') . '.' . ($st['last_name'] ?? ''))) . $st['id'];
+                }
+                $officialEmail = $clean . '@stbenedictsacademy.com.ng';
+
+                $uStmt = $db->prepare("UPDATE students SET official_email = ? WHERE id = ?");
+                $uStmt->execute([$officialEmail, $st['id']]);
+
+                // Update users.email if it is empty or placeholder domain
+                $currentEmail = (string)($st['email'] ?? '');
+                if (empty($currentEmail) || strpos($currentEmail, '@stbenedicts.edu.ng') !== false || strpos($currentEmail, 'student.') === 0) {
+                    $chk = $db->prepare("SELECT id FROM users WHERE email = ? AND id <> ?");
+                    $chk->execute([$officialEmail, $st['user_id']]);
+                    if (!$chk->fetch()) {
+                        $upU = $db->prepare("UPDATE users SET email = ? WHERE id = ?");
+                        $upU->execute([$officialEmail, $st['user_id']]);
+                    }
+                }
+                $updated++;
+            }
+        } catch (Throwable $e) {
+            error_log("backfillStudentOfficialEmails error: " . $e->getMessage());
+        }
+        return $updated;
     }
 
     private static function getTableColumns(PDO $db, string $table): array

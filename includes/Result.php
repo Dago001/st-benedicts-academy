@@ -184,6 +184,9 @@ class Result {
                 [$approvedBy, $id]
             );
 
+            if (function_exists('notify_approved_results')) {
+                notify_approved_results([$id], $approvedBy);
+            }
             Security::logAudit('APPROVED_RESULT', 'results', $id, $result);
 
             return true;
@@ -217,6 +220,10 @@ class Result {
             );
 
             $count = $this->db->rowCount();
+
+            if (function_exists('notify_approved_results')) {
+                notify_approved_results($resultIds, $approvedBy);
+            }
 
             Security::logAudit('APPROVED_BULK_RESULTS', 'results', null, null,
                               ['count' => $count, 'ids' => $resultIds]);

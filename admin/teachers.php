@@ -106,8 +106,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         // Create user
                         $userId = $db->insert(
-                            "INSERT INTO users (username, email, password_hash, first_name, last_name, phone, role, is_active)
-                             VALUES (?, ?, ?, ?, ?, ?, 'teacher', ?)",
+                            "INSERT INTO users (username, email, password_hash, first_name, last_name, phone, role, is_active, must_change_password)
+                             VALUES (?, ?, ?, ?, ?, ?, 'teacher', ?, 1)",
                             [
                                 $username,
                                 $email,
@@ -138,8 +138,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             ]
                         );
 
+                        // Dispatch welcome email with credentials & one-time password
+                        $teacherUser = [
+                            'id'         => $userId,
+                            'first_name' => $firstName,
+                            'last_name'  => $lastName,
+                            'email'      => $email,
+                            'username'   => $username,
+                            'role'       => 'teacher',
+                        ];
+                        send_account_welcome_email($teacherUser, $password, 'teacher');
+
                         Security::logAudit('ADDED_TEACHER', 'teachers', $teacherId);
-                        $message = 'Teacher added successfully';
+                        $message = 'Teacher added successfully and welcome email dispatched with login credentials.';
                         $messageType = 'success';
 
                     } else {

@@ -95,8 +95,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         // Create user
                         $userId = $db->insert(
-                            "INSERT INTO users (username, email, password_hash, first_name, last_name, phone, role, is_active)
-                             VALUES (?, ?, ?, ?, ?, ?, 'parent', ?)",
+                            "INSERT INTO users (username, email, password_hash, first_name, last_name, phone, role, is_active, must_change_password)
+                             VALUES (?, ?, ?, ?, ?, ?, 'parent', ?, 1)",
                             [
                                 $username,
                                 $email,
@@ -115,7 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         // Create parent record
                         $parentId = $db->insert(
                             "INSERT INTO parents (user_id, occupation, address, emergency_contact, relationship)
-                             VALUES (?, ?, ?, ?, ?)",
+                              VALUES (?, ?, ?, ?, ?)",
                             [
                                 $userId,
                                 $occupation,
@@ -125,8 +125,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             ]
                         );
 
+                        // Send welcome & one-time password email
+                        send_account_welcome_email([
+                            'id'         => $userId,
+                            'first_name' => $firstName,
+                            'last_name'  => $lastName,
+                            'email'      => $email,
+                            'username'   => $username,
+                            'role'       => 'parent'
+                        ], $password, 'parent');
+
                         Security::logAudit('ADDED_PARENT', 'parents', $parentId);
-                        $message = 'Parent added successfully';
+                        $message = 'Parent added successfully and credentials sent to their email.';
                         $messageType = 'success';
 
                     } else {

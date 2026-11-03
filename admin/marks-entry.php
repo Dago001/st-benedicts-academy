@@ -68,6 +68,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'term'    => $t
     ]);
 
+    // Notify students and parents of updated results via email
+    foreach (array_keys($scores) as $studentId) {
+        if ((int)$studentId > 0 && function_exists('send_result_notification_email')) {
+            send_result_notification_email((int)$studentId, $t, $session);
+        }
+    }
+
     flash_redirect("Successfully saved marks for {$savedCount} student(s)!", 'success', "marks-entry?class_id={$cId}&subject_id={$subId}&term=" . urlencode($t) . "&type=" . urlencode($aType));
 }
 

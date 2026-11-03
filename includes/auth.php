@@ -31,9 +31,14 @@ class Auth {
         }
 
         $user = $this->db->getRow(
-            'SELECT id, username, email, password_hash, first_name, last_name, role, is_active, totp_enabled, totp_secret
-             FROM users WHERE email = ? AND deleted_at IS NULL',
-            [$email]
+            'SELECT u.id, u.username, u.email, u.password_hash, u.first_name, u.last_name, u.role, u.is_active, u.totp_enabled, u.totp_secret,
+                    COALESCE(u.must_change_password, 0) AS must_change_password
+             FROM users u
+             LEFT JOIN students s ON s.user_id = u.id
+             WHERE (u.email = ? OR u.username = ? OR s.official_email = ? OR s.admission_number = ?)
+               AND u.deleted_at IS NULL
+             LIMIT 1',
+            [$email, $email, $email, $email]
         );
 
         // Always run a hash comparison to keep timing similar for unknown users
@@ -104,6 +109,7 @@ class Auth {
         $_SESSION['user_name'] = $user['first_name'] . ' ' . $user['last_name'];
         $_SESSION['user_email'] = $user['email'];
         $_SESSION['user_role'] = $user['role'];
+        $_SESSION['must_change_password'] = (int)($user['must_change_password'] ?? 0);
         $_SESSION['logged_in'] = true;
         $_SESSION['login_time'] = time();
         $_SESSION['last_activity'] = time();
@@ -188,7 +194,10 @@ class Auth {
         if (strlen($newPassword) < 8) {
             return ['success' => false, 'message' => 'New password must be at least 8 characters'];
         }
-        $this->db->query('UPDATE users SET password_hash = ? WHERE id = ?', [Security::hashPassword($newPassword), $userId]);
+        $this->db->query('UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?', [Security::hashPassword($newPassword), $userId]);
+        if (isset($_SESSION['must_change_password'])) {
+            $_SESSION['must_change_password'] = 0;
+        }
         Security::logAudit('PASSWORD_CHANGE', 'users', $userId);
         return ['success' => true, 'message' => 'Password changed successfully'];
     }

@@ -114,13 +114,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             throw new Exception("Username or email already exists");
                         }
 
-                        // Create user
+                        // Generate admission number if not provided
+                        if (empty($studentData['admission_number'])) {
+                            $studentData['admission_number'] = generateAdmissionNumber();
+                        } elseif ($db->getRow('SELECT id FROM students WHERE admission_number = ?', [$studentData['admission_number']])) {
+                            throw new Exception('Admission number already exists');
+                        }
+
+                        $officialEmail = generate_student_official_email($studentData['admission_number'], $firstName, $lastName);
+                        $userLoginEmail = !empty($email) ? $email : $officialEmail;
+
+                        // Create user with must_change_password flag
                         $userId = $db->insert(
-                            "INSERT INTO users (username, email, password_hash, first_name, last_name, phone, role, is_active)
-                             VALUES (?, ?, ?, ?, ?, ?, 'student', 1)",
+                            "INSERT INTO users (username, email, password_hash, first_name, last_name, phone, role, is_active, must_change_password)
+                             VALUES (?, ?, ?, ?, ?, ?, 'student', 1, 1)",
                             [
                                 $username,
-                                $email,
+                                $userLoginEmail,
                                 Security::hashPassword($password),
                                 $firstName,
                                 $lastName,
@@ -132,21 +142,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             throw new Exception("Failed to create user");
                         }
 
-                        // Generate admission number if not provided
-                        if (empty($studentData['admission_number'])) {
-                            $studentData['admission_number'] = generateAdmissionNumber();
-                        } elseif ($db->getRow('SELECT id FROM students WHERE admission_number = ?', [$studentData['admission_number']])) {
-                            throw new Exception('Admission number already exists');
-                        }
-
-                        // Create student
+                        // Create student with official_email
                         $studentId = $db->insert(
-                            "INSERT INTO students (user_id, admission_number, class_id, parent_id, date_of_birth,
+                            "INSERT INTO students (user_id, admission_number, official_email, class_id, parent_id, date_of_birth,
                              gender, admission_date, address, blood_group, medical_notes)
-                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                             [
                                 $userId,
                                 $studentData['admission_number'],
+                                $officialEmail,
                                 $studentData['class_id'],
                                 $studentData['parent_id'],
                                 $studentData['date_of_birth'],
@@ -158,8 +162,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             ]
                         );
 
+                        // Send welcome & one-time password email
+                        send_account_welcome_email([
+                            'id'             => $userId,
+                            'first_name'     => $firstName,
+                            'last_name'      => $lastName,
+                            'email'          => $userLoginEmail,
+                            'official_email' => $officialEmail,
+                            'username'       => $username,
+                            'role'           => 'student'
+                        ], $password, 'student');
+
                         Security::logAudit('ADDED_STUDENT', 'students', $studentId);
-                        $message = 'Student added successfully';
+                        $message = 'Student added successfully and credentials dispatched via email.';
                         $messageType = 'success';
 
                     } else {
