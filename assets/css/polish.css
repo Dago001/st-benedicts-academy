@@ -119,9 +119,9 @@ body .quick-stats .stat-box .label {
 /* ---- Footer ---------------------------------------------------------------------------- */
 body .main-footer { background: var(--brand-deep); }
 body .footer-bottom { border-top: 1px solid rgba(255,255,255,.1); }
-body.in-portal .main-footer { padding: 18px 0; }
-body.in-portal .footer-grid { display: none !important; }
-body.in-portal .footer-bottom { border-top: none; padding-top: 0; }
+body.in-portal .main-footer, body .main-footer.footer-minimal { padding: 18px 0 !important; }
+body.in-portal .footer-grid, body .main-footer.footer-minimal .footer-grid { display: none !important; }
+body.in-portal .footer-bottom, body .main-footer.footer-minimal .footer-bottom { border-top: none !important; padding-top: 0 !important; }
 
 /* ---- Portal Header & Sidebar ------------------------------------------- */
 body .sidebar .sidebar-header {

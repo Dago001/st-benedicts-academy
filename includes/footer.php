@@ -1,12 +1,16 @@
 <?php
 // includes/footer.php
+$isLandingPage = empty($inPortal) && (
+    ($currentPage ?? basename($_SERVER['PHP_SELF'] ?? '', '.php')) === 'index' &&
+    !preg_match('#/(admin|teacher|parent|student|public)/#i', $_SERVER['SCRIPT_NAME'] ?? '')
+);
 ?>
         </main>
 
         <!-- Footer -->
-        <footer class="main-footer">
+        <footer class="main-footer<?php echo $isLandingPage ? '' : ' footer-minimal'; ?>">
             <div class="footer-container">
-                <?php if (empty($inPortal)): ?>
+                <?php if ($isLandingPage): ?>
                 <div class="footer-grid">
                     <div class="footer-info">
                         <h3><?php echo SCHOOL_NAME; ?></h3>
@@ -47,7 +51,7 @@
                     <div class="footer-links">
                         <h4>School Policies</h4>
                         <ul>
-                            <li><a href="<?php echo BASE_URL; ?>/public/policies#safeguarding"><i class="fas fa-shield-alt" style="font-size:0.75rem; margin-right:4px; color:var(--gold, #ffd700);"></i> Child Safeguarding</a></li>
+                            <li><a href="<?php echo BASE_URL; ?>/public/policies#safeguarding">Child Safeguarding</a></li>
                             <li><a href="<?php echo BASE_URL; ?>/public/policies#admissions">Admissions Policy</a></li>
                             <li><a href="<?php echo BASE_URL; ?>/public/policies#behavior">Code of Conduct</a></li>
                             <li><a href="<?php echo BASE_URL; ?>/public/policies#health-safety">Health &amp; Safety</a></li>
@@ -81,13 +85,7 @@
 
                 <div class="footer-bottom">
                     <p>&copy; <?php echo date('Y'); ?> <?php echo SCHOOL_NAME; ?>. All rights reserved.
-                       <span class="footer-bottom-links">
-                           | <a href="<?php echo BASE_URL; ?>/public/privacy">Privacy Notice</a>
-                           <?php if (empty($inPortal)): ?>
-                           | <a href="<?php echo BASE_URL; ?>/public/policies">School Policies</a>
-                           | <a href="<?php echo BASE_URL; ?>/public/policies#terms">Terms</a>
-                           <?php endif; ?>
-                       </span>
+                       <br class="mobile-only"> <a href="<?php echo BASE_URL; ?>/public/privacy">Privacy Notice</a>
                     </p>
                 </div>
             </div>
