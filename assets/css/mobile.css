@@ -223,7 +223,7 @@ body .data-table, body .table { width: 100%; }
    Top navigation: collapse into the hamburger menu up to 1279px so tablets
    (and narrow laptop windows) never overflow horizontally.
    ========================================================================== */
-@media (max-width: 1279px) {
+@media (max-width: 1120px) {
     body .mobile-menu-toggle { display: inline-flex; align-items: center; justify-content: center; min-width: 48px; min-height: 48px; background: none; border: 0; color: #fff; font-size: 1.5rem; cursor: pointer; }
     body .nav-menu {
         display: none; position: absolute; top: var(--header-height, 60px); left: 0; right: 0;
@@ -253,13 +253,13 @@ body input[type="file"] { width: 100%; }
     body .header-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 }
 
-@media (min-width: 1280px) {
+@media (min-width: 1121px) {
     body .nav-item.dropdown { position: relative; }
     body .nav-menu .dropdown-menu { right: 0; left: auto; min-width: 180px; }
 }
 
-body .stats-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
-@media (max-width: 767px) { body .stats-grid { grid-template-columns: 1fr !important; } }
+body.in-portal .stats-grid, .dashboard-main .stats-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
+@media (max-width: 767px) { body.in-portal .stats-grid, .dashboard-main .stats-grid { grid-template-columns: 1fr !important; } }
 
 /* Desktop dashboard: sidebar sticks beside the content and stops at the footer (it used to be fixed and covered the footer) */
 @media (min-width: 992px) {
@@ -273,12 +273,12 @@ body .stats-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220p
 }
 
 /* Stat cards: equal columns that never leave a lone card on its own row */
-body .stats-grid { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+body.in-portal .stats-grid, .dashboard-main .stats-grid { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
 @media (min-width: 992px) and (max-width: 1500px) {
-    body .stats-grid.six, body .stats-grid:has(> :nth-child(6):last-child) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    body.in-portal .stats-grid.six, .dashboard-main .stats-grid.six, body.in-portal .stats-grid:has(> :nth-child(6):last-child), .dashboard-main .stats-grid:has(> :nth-child(6):last-child) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (min-width: 1501px) {
-    body .stats-grid:has(> :nth-child(6):last-child) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    body.in-portal .stats-grid:has(> :nth-child(6):last-child), .dashboard-main .stats-grid:has(> :nth-child(6):last-child) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 .footer-bottom a { color: var(--gold, #ffd700); text-decoration: underline; }
@@ -288,7 +288,7 @@ body .stat-content h3, body .stat-content p { overflow-wrap: normal; word-break:
 
 /* ---- Phones & tablets (up to 991px): one hamburger menu, no second "Menu" bar, no dashboard title block ---- */
 .nav-portal-label, .nav-portal { display: none; }
-@media (max-width: 1279px) {
+@media (max-width: 1120px) {
     /* account items (Dashboard / Logout) are always visible in the hamburger menu */
     body .nav-menu .dropdown-toggle { pointer-events: none; opacity: .75; font-size: .85rem; text-transform: uppercase; letter-spacing: .06em; justify-content: flex-start; min-height: 36px; }
     body .nav-menu .dropdown .dropdown-menu { display: block !important; padding: 0; margin: 0; list-style: none; }
