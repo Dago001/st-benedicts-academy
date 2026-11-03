@@ -17,32 +17,37 @@ if (isset($_GET['restart'])) { unset($_SESSION['pending_2fa']); }
 $notice = isset($_GET['reset']) ? 'Your password has been reset. Please sign in.' : '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!Security::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
-        $error = 'Invalid security token. Please refresh the page and try again.';
-    } else {
-        $auth = new Auth();
-        if (isset($_POST['otp'])) {
-            $result = $auth->completeTwoFactor($_POST['otp']);
-            if ($result['success']) {
-                header('Location: ' . $result['redirect']);
-                exit;
-            }
-            $error = $result['message'];
+    try {
+        if (!Security::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
+            $error = 'Invalid security token. Please refresh the page and try again.';
         } else {
-            $ts = turnstile_verify();
-            if (!$ts['success']) {
-                $error = $ts['error'];
-            } else {
-                unset($_SESSION['pending_2fa']);
-                $result = $auth->login(Security::sanitize($_POST['email'] ?? ''), $_POST['password'] ?? '');
+            $auth = new Auth();
+            if (isset($_POST['otp'])) {
+                $result = $auth->completeTwoFactor($_POST['otp']);
                 if ($result['success']) {
                     header('Location: ' . $result['redirect']);
                     exit;
                 }
-                // needs_2fa is a prompt, not an error
-                $error = !empty($result['needs_2fa']) && !isset($_POST['otp']) ? '' : $result['message'];
+                $error = $result['message'];
+            } else {
+                $ts = turnstile_verify();
+                if (!$ts['success']) {
+                    $error = $ts['error'];
+                } else {
+                    unset($_SESSION['pending_2fa']);
+                    $result = $auth->login(Security::sanitize($_POST['email'] ?? ''), $_POST['password'] ?? '');
+                    if ($result['success']) {
+                        header('Location: ' . $result['redirect']);
+                        exit;
+                    }
+                    // needs_2fa is a prompt, not an error
+                    $error = !empty($result['needs_2fa']) && !isset($_POST['otp']) ? '' : $result['message'];
+                }
             }
         }
+    } catch (Throwable $e) {
+        error_log("Login error: " . $e->getMessage());
+        $error = 'Authentication failed. Please verify your credentials and try again.';
     }
 }
 

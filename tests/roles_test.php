@@ -248,6 +248,14 @@ $emailDiagContent = file_get_contents(__DIR__ . '/../admin/email-diagnostics.php
 test('admin/email-diagnostics.php supports send_test_email action', strpos($emailDiagContent, "'send_test_email'") !== false);
 test('admin/email-diagnostics.php displays mail@stbenedictsacademy.com.ng', strpos($emailDiagContent, 'mail@stbenedictsacademy.com.ng') !== false);
 
+// Resilience: Auth::login & login.php error handling
+$loginFile = file_get_contents(__DIR__ . '/../login.php');
+test('login.php wraps POST processing in try-catch to prevent 500 error', strpos($loginFile, 'catch (Throwable $e)') !== false);
+$authFile = file_get_contents(__DIR__ . '/../includes/auth.php');
+test('auth.php uses safe user query without breaking joins', strpos($authFile, 'SELECT id, username, email, password_hash') !== false);
+test('scripts/migrate.php includes must_change_password column', strpos(file_get_contents(__DIR__ . '/../scripts/migrate.php'), "'must_change_password'") !== false);
+test('scripts/migrate.php includes official_email column', strpos(file_get_contents(__DIR__ . '/../scripts/migrate.php'), "'official_email'") !== false);
+
 echo "\n==========================================\n";
 echo "$pass passed, $fail failed\n";
 exit($fail ? 1 : 0);

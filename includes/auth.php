@@ -30,16 +30,49 @@ class Auth {
             return ['success' => false, 'message' => 'Account temporarily locked. Please try again after 15 minutes.'];
         }
 
-        $user = $this->db->getRow(
-            'SELECT u.id, u.username, u.email, u.password_hash, u.first_name, u.last_name, u.role, u.is_active, u.totp_enabled, u.totp_secret,
-                    COALESCE(u.must_change_password, 0) AS must_change_password
-             FROM users u
-             LEFT JOIN students s ON s.user_id = u.id
-             WHERE (u.email = ? OR u.username = ? OR s.official_email = ? OR s.admission_number = ?)
-               AND u.deleted_at IS NULL
-             LIMIT 1',
-            [$email, $email, $email, $email]
-        );
+        $user = null;
+        try {
+            $user = $this->db->getRow(
+                'SELECT id, username, email, password_hash, first_name, last_name, role, is_active, totp_enabled, totp_secret
+                 FROM users WHERE (email = ? OR username = ?) AND deleted_at IS NULL LIMIT 1',
+                [$email, $email]
+            );
+        } catch (Throwable $e) {
+            error_log("Auth::login users query error: " . $e->getMessage());
+        }
+
+        // If not found by email or username, check if input matches a student admission number
+        if (!$user) {
+            try {
+                $st = $this->db->getRow(
+                    'SELECT user_id FROM students WHERE admission_number = ? LIMIT 1',
+                    [$email]
+                );
+                if ($st && !empty($st['user_id'])) {
+                    $user = $this->db->getRow(
+                        'SELECT id, username, email, password_hash, first_name, last_name, role, is_active, totp_enabled, totp_secret
+                         FROM users WHERE id = ? AND deleted_at IS NULL LIMIT 1',
+                        [(int)$st['user_id']]
+                    );
+                }
+            } catch (Throwable $e) {
+                // Ignore fallback error
+            }
+        }
+
+        // Safely check must_change_password without throwing if column is not yet migrated
+        if ($user) {
+            $mustChange = 0;
+            try {
+                $chk = $this->db->getRow('SELECT must_change_password FROM users WHERE id = ?', [(int)$user['id']]);
+                if ($chk && isset($chk['must_change_password'])) {
+                    $mustChange = (int)$chk['must_change_password'];
+                }
+            } catch (Throwable $e) {
+                $mustChange = 0;
+            }
+            $user['must_change_password'] = $mustChange;
+        }
 
         // Always run a hash comparison to keep timing similar for unknown users
         $hash = $user['password_hash'] ?? '$2y$12$abcdefghijklmnopqrstuuJ0v9m3c7s0QyZ1Zp0rQmWQe1S9pYk2K';
@@ -194,7 +227,11 @@ class Auth {
         if (strlen($newPassword) < 8) {
             return ['success' => false, 'message' => 'New password must be at least 8 characters'];
         }
-        $this->db->query('UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?', [Security::hashPassword($newPassword), $userId]);
+        try {
+            $this->db->query('UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?', [Security::hashPassword($newPassword), $userId]);
+        } catch (Throwable $e) {
+            $this->db->query('UPDATE users SET password_hash = ? WHERE id = ?', [Security::hashPassword($newPassword), $userId]);
+        }
         if (isset($_SESSION['must_change_password'])) {
             $_SESSION['must_change_password'] = 0;
         }

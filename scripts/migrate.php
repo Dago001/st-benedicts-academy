@@ -43,6 +43,8 @@ $columns = [
     ['admissions', 'lga', 'ALTER TABLE admissions ADD COLUMN lga VARCHAR(100) NULL AFTER state'],
     ['admissions', 'country', "ALTER TABLE admissions ADD COLUMN country VARCHAR(100) NOT NULL DEFAULT 'Nigeria' AFTER lga"],
     ['admissions', 'middle_name', 'ALTER TABLE admissions ADD COLUMN middle_name VARCHAR(50) NULL AFTER first_name'],
+    ['users', 'must_change_password', 'ALTER TABLE users ADD COLUMN must_change_password TINYINT(1) NOT NULL DEFAULT 0'],
+    ['students', 'official_email', 'ALTER TABLE students ADD COLUMN official_email VARCHAR(150) NULL DEFAULT NULL'],
 ];
 foreach ($columns as [$t, $c, $sql]) {
     if (has_table($pdo, $db, $t) && !has_col($pdo, $db, $t, $c)) run($pdo, $dry, "add column $t.$c", $sql);
@@ -118,5 +120,9 @@ if (!$dry && has_table($pdo, $db, 'assignments') && has_table($pdo, $db, 'homewo
 // Users: make sure an installation that still has the placeholder admin hash cannot be logged into
 $bad = $pdo->query("SELECT COUNT(*) FROM users WHERE password_hash LIKE '%YourHashedPasswordHere%'")->fetchColumn();
 if ($bad) echo "WARNING: $bad account(s) still have the placeholder password hash - reset them from the admin panel.\n";
+
+// Run SystemSchema to ensure all extra columns, tables and backfills are applied
+require_once __DIR__ . '/../includes/SystemSchema.php';
+SystemSchema::ensureAll();
 
 echo $done ? "\n$done change(s) " . ($dry ? 'would be applied' : 'applied') . ".\n" : "Database is already up to date.\n";
