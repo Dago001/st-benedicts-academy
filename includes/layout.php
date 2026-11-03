@@ -70,6 +70,7 @@ if (!function_exists('nav_sections')) {
 
             if ($isAdmin) {
                 $sections['ADMIN'] = [
+                    ['administrators', 'Admin & System Roles', 'fa-user-shield', ''],
                     ['site-content', 'Admin Settings', 'fa-sliders-h', ''],
                     ['site-content', 'Settings', 'fa-cog', ''],
                 ];

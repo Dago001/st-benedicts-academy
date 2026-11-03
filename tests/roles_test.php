@@ -256,6 +256,23 @@ test('auth.php uses safe user query without breaking joins', strpos($authFile, '
 test('scripts/migrate.php includes must_change_password column', strpos(file_get_contents(__DIR__ . '/../scripts/migrate.php'), "'must_change_password'") !== false);
 test('scripts/migrate.php includes official_email column', strpos(file_get_contents(__DIR__ . '/../scripts/migrate.php'), "'official_email'") !== false);
 
+echo "\n=== 9. ADMIN & SYSTEM ADMINISTRATOR ROLE CREATION ===\n";
+test('admin/administrators.php exists', file_exists(__DIR__ . '/../admin/administrators.php'));
+test('admin/users.php exists as alias', file_exists(__DIR__ . '/../admin/users.php'));
+$adminSections = nav_sections('super_admin');
+$allAdminItems = [];
+foreach ($adminSections as $sec => $items) {
+    foreach ($items as $it) {
+        $allAdminItems[$it[0]] = $it[1];
+    }
+}
+test('sidebar ADMIN section has Admin & System Roles', isset($allAdminItems['administrators']));
+$adminPageContent = file_get_contents(__DIR__ . '/../admin/administrators.php');
+test('admin/administrators.php handles super_admin creation', strpos($adminPageContent, "'super_admin'") !== false);
+test('admin/administrators.php handles admin creation', strpos($adminPageContent, "'admin'") !== false);
+test('admin/administrators.php dispatches welcome email with one-time password', strpos($adminPageContent, 'send_account_welcome_email') !== false);
+test('admin/administrators.php sets must_change_password', strpos($adminPageContent, 'must_change_password') !== false);
+
 echo "\n==========================================\n";
 echo "$pass passed, $fail failed\n";
 exit($fail ? 1 : 0);
