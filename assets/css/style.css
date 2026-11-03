@@ -3864,3 +3864,54 @@ textarea.form-control {
         display: table-footer-group;
     }
 }
+
+/* ==========================================================================
+   GLOBAL MODAL SYSTEM
+   ========================================================================== */
+.modal,
+.admin-modal,
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(10, 25, 47, 0.72);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index: 99999;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 20px;
+    box-sizing: border-box;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal[style*="display: block"],
+.modal[style*="display: flex"],
+.modal.show,
+.modal.active,
+.modal.open,
+.modal-overlay.open,
+.admin-modal.active {
+    display: flex !important;
+}
+
+.modal-content,
+.modal-dialog,
+.modal-content-card {
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 25px 60px -12px rgba(0, 20, 50, 0.45);
+    width: 100%;
+    max-width: 500px;
+    margin: auto;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}

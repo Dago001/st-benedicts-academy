@@ -211,33 +211,37 @@ if ($selectedClass) {
 </div>
 
 <!-- Student Details Modal -->
-<div id="studentModal" class="modal">
+<div id="studentModal" class="modal" role="dialog" aria-modal="true" style="display: none;">
     <div class="modal-content modal-lg">
         <div class="modal-header">
-            <h3>Student Details</h3>
-            <button type="button" class="close" onclick="closeModal()">&times;</button>
+            <h3><i class="fas fa-user-graduate" style="color: #0066ff;"></i> Student Details</h3>
+            <button type="button" class="close" onclick="closeModal()" aria-label="Close">&times;</button>
         </div>
         <div class="modal-body" id="studentDetails">
             <!-- Loaded via AJAX -->
         </div>
         <div class="modal-footer">
-            <button type="button" class="btn btn-outline" onclick="closeModal()">Close</button>
+            <button type="button" class="btn btn-outline" onclick="closeModal()">
+                <i class="fas fa-times"></i> Close
+            </button>
         </div>
     </div>
 </div>
 
 <!-- Medical Notes Modal -->
-<div id="medicalModal" class="modal">
+<div id="medicalModal" class="modal" role="dialog" aria-modal="true" style="display: none;">
     <div class="modal-content">
         <div class="modal-header">
-            <h3>Medical Notes</h3>
-            <button type="button" class="close" onclick="closeMedicalModal()">&times;</button>
+            <h3><i class="fas fa-heartbeat" style="color: #dc2626;"></i> Medical Notes</h3>
+            <button type="button" class="close" onclick="closeMedicalModal()" aria-label="Close">&times;</button>
         </div>
         <div class="modal-body" id="medicalNotes">
             <!-- Content will be inserted here -->
         </div>
         <div class="modal-footer">
-            <button type="button" class="btn btn-outline" onclick="closeMedicalModal()">Close</button>
+            <button type="button" class="btn btn-outline" onclick="closeMedicalModal()">
+                <i class="fas fa-times"></i> Close
+            </button>
         </div>
     </div>
 </div>

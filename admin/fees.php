@@ -1080,7 +1080,7 @@ function getPaymentStatus($paid, $total) {
 </div>
 
 <!-- Add Fee Structure Modal -->
-<div id="addFeeModal" class="modal">
+<div id="addFeeModal" class="modal" role="dialog" aria-modal="true" style="display: none;">
     <div class="modal-content">
         <div class="modal-header">
             <h3>Add Fee Structure</h3>
@@ -1162,7 +1162,7 @@ function getPaymentStatus($paid, $total) {
 </div>
 
 <!-- Record Payment Modal -->
-<div id="paymentModal" class="modal">
+<div id="paymentModal" class="modal" role="dialog" aria-modal="true" style="display: none;">
     <div class="modal-content">
         <div class="modal-header">
             <h3>Record Payment</h3>

@@ -191,7 +191,7 @@ function render_messages_page($role) {
     </div>
     <?php dashboard_close(); ?>
 
-    <div id="composeModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="composeTitle">
+    <div id="composeModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="composeTitle" style="display: none;">
         <div class="modal-content">
             <div class="modal-header">
                 <h3 id="composeTitle">New Message</h3>

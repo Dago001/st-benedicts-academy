@@ -372,7 +372,7 @@ $pendingGrading = $db->getRows(
 </div>
 
 <!-- Assignment Modal -->
-<div id="assignmentModal" class="modal">
+<div id="assignmentModal" class="modal" role="dialog" aria-modal="true" style="display: none;">
     <div class="modal-content modal-lg">
         <div class="modal-header">
             <h3 id="modalTitle">Create New Assignment</h3>
@@ -459,7 +459,7 @@ $pendingGrading = $db->getRows(
 </div>
 
 <!-- Grade Modal -->
-<div id="gradeModal" class="modal">
+<div id="gradeModal" class="modal" role="dialog" aria-modal="true" style="display: none;">
     <div class="modal-content">
         <div class="modal-header">
             <h3>Grade Submission</h3>

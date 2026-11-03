@@ -1026,11 +1026,13 @@ if (!function_exists('generateSubjectCode')) {
 </div>
 
 <!-- Bulk Assign Modal -->
-<div id="bulkAssignModal" class="modal">
+<div id="bulkAssignModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="bulkAssignModalTitle" style="display: none;">
     <div class="modal-content">
         <div class="modal-header">
-            <h3>Bulk Assign Subjects</h3>
-            <button type="button" class="close" onclick="closeModal('bulkAssignModal')">&times;</button>
+            <h3 id="bulkAssignModalTitle">
+                <i class="fas fa-layer-group" style="color: #0066ff;"></i> Bulk Assign Subjects
+            </h3>
+            <button type="button" class="close" onclick="closeModal('bulkAssignModal')" aria-label="Close modal">&times;</button>
         </div>
         <form method="POST" id="bulkAssignForm">
             <div class="modal-body">
@@ -1062,36 +1064,46 @@ if (!function_exists('generateSubjectCode')) {
                     </select>
                 </div>
 
-                <div class="alert alert-info" id="selectedSubjectsInfo">
-                    <span id="modalSelectedCount">0</span> subjects will be assigned
+                <div class="alert alert-info" id="selectedSubjectsInfo" style="border-left: none;">
+                    <i class="fas fa-info-circle"></i> <span id="modalSelectedCount">0</span> subjects will be assigned
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('bulkAssignModal')">Cancel</button>
-                <button type="submit" class="btn btn-primary">Assign Subjects</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal('bulkAssignModal')">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-check"></i> Assign Subjects
+                </button>
             </div>
         </form>
     </div>
 </div>
 
 <!-- Delete Confirmation Modal -->
-<div id="deleteModal" class="modal">
+<div id="deleteModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="deleteSubjectModalTitle" style="display: none;">
     <div class="modal-content">
         <div class="modal-header">
-            <h3>Confirm Delete</h3>
-            <button type="button" class="close" onclick="closeModal('deleteModal')">&times;</button>
+            <h3 id="deleteSubjectModalTitle">
+                <i class="fas fa-trash-alt" style="color: #dc2626;"></i> Confirm Deletion
+            </h3>
+            <button type="button" class="close" onclick="closeModal('deleteModal')" aria-label="Close modal">&times;</button>
         </div>
         <div class="modal-body">
-            <p>Are you sure you want to delete subject: <strong id="subjectName"></strong>?</p>
-            <p class="text-danger">This action cannot be undone.</p>
+            <p style="margin: 0; font-size: 1rem; color: #1e293b;">Are you sure you want to delete subject: <strong id="subjectName" style="color: #0f172a;">this subject</strong>?</p>
+            <div class="text-danger">This action cannot be undone. Associated teacher assignments and syllabus data may be removed.</div>
         </div>
         <div class="modal-footer">
             <form method="POST" id="deleteForm">
                 <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="id" id="deleteId">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('deleteModal')">Cancel</button>
-                <button type="submit" class="btn btn-danger">Delete</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal('deleteModal')">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+                <button type="submit" class="btn btn-danger">
+                    <i class="fas fa-trash-alt"></i> Delete Subject
+                </button>
             </form>
         </div>
     </div>

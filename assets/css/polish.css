@@ -813,3 +813,302 @@ body .footer-grid {
         padding-bottom: 0 !important;
     }
 }
+
+/* ==========================================================================
+   GLOBAL ACCESSIBLE MODAL SYSTEM (Clean, Modern, Centered Dialogs)
+   - Guaranteed hidden by default: NEVER dumps inline into document flow!
+   - Fixed full-screen overlay with smooth dark backdrop blur
+   - Elegant rounded dialog card with shadow, animations & high contrast
+   - ZERO border-left colors anywhere (strict compliance)
+   ========================================================================== */
+.modal,
+.admin-modal,
+.modal-overlay {
+    display: none;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(10, 25, 47, 0.72) !important;
+    backdrop-filter: blur(6px) !important;
+    -webkit-backdrop-filter: blur(6px) !important;
+    z-index: 99999 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    padding: 20px !important;
+    box-sizing: border-box !important;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Modal activation states */
+.modal[style*="display: block"],
+.modal[style*="display: flex"],
+.modal.show,
+.modal.active,
+.modal.open,
+.modal-overlay.open,
+.admin-modal.active {
+    display: flex !important;
+    animation: modalBackdropFadeIn 0.2s ease forwards;
+}
+
+/* Modal Dialog Card */
+.modal-content,
+.modal-dialog,
+.modal-content-card {
+    background: #ffffff !important;
+    border-radius: 16px !important;
+    box-shadow: 0 25px 60px -12px rgba(0, 20, 50, 0.45), 0 0 0 1px rgba(15, 27, 45, 0.08) !important;
+    width: 100% !important;
+    max-width: 500px !important;
+    margin: auto !important;
+    overflow: hidden !important;
+    position: relative !important;
+    display: flex !important;
+    flex-direction: column !important;
+    animation: modalScaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+    border: none !important;
+}
+
+.modal-content.modal-lg,
+.modal-dialog.lg,
+.modal-content-card.modal-lg {
+    max-width: 860px !important;
+}
+
+.modal-content.modal-sm,
+.modal-dialog.sm,
+.modal-content-card.modal-sm {
+    max-width: 380px !important;
+}
+
+/* Modal Header */
+.modal-header,
+.modal-header-bar {
+    padding: 18px 24px !important;
+    background: #f8fafc !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    border-left: none !important;
+    border-top: none !important;
+    border-right: none !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+}
+
+.modal-header h2,
+.modal-header h3,
+.modal-header h4,
+.modal-header-bar h3 {
+    margin: 0 !important;
+    font-size: 1.18rem !important;
+    font-weight: 700 !important;
+    color: #002855 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    letter-spacing: -0.01em !important;
+}
+
+/* Modal Close Button */
+.modal-header .close,
+.modal-header button.close,
+.modal-close,
+.modal-close-btn,
+button.close {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    min-height: 34px !important;
+    border-radius: 50% !important;
+    border: 1px solid #e2e8f0 !important;
+    background: #ffffff !important;
+    color: #64748b !important;
+    font-size: 1.35rem !important;
+    line-height: 1 !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    transition: all 0.18s ease !important;
+    outline: none !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+}
+
+.modal-header .close:hover,
+.modal-close:hover,
+.modal-close-btn:hover,
+button.close:hover {
+    background: #fee2e2 !important;
+    color: #dc2626 !important;
+    border-color: #fca5a5 !important;
+    transform: rotate(90deg) !important;
+}
+
+/* Modal Body */
+.modal-body,
+.modal-body-content {
+    padding: 24px !important;
+    color: #334155 !important;
+    font-size: 0.95rem !important;
+    line-height: 1.6 !important;
+    overflow-y: auto !important;
+    max-height: calc(85vh - 140px) !important;
+}
+
+.modal-body p {
+    margin-bottom: 12px !important;
+}
+
+.modal-body p:last-child {
+    margin-bottom: 0 !important;
+}
+
+/* High Contrast Alert Callouts inside modals (Strictly NO border-left color) */
+.modal-body .text-warning,
+.modal-body .alert-warning {
+    color: #92400e !important;
+    background: #fef3c7 !important;
+    border: 1px solid #fde68a !important;
+    border-left: 1px solid #fde68a !important;
+    padding: 12px 14px !important;
+    border-radius: 10px !important;
+    margin-top: 14px !important;
+    margin-bottom: 0 !important;
+    font-size: 0.88rem !important;
+    font-weight: 500 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    line-height: 1.4 !important;
+}
+
+.modal-body .text-warning::before {
+    content: "\f071";
+    font-family: "Font Awesome 5 Free", "FontAwesome";
+    font-weight: 900;
+    color: #d97706 !important;
+    font-size: 1rem !important;
+    flex-shrink: 0;
+}
+
+.modal-body .text-danger,
+.modal-body .alert-danger {
+    color: #991b1b !important;
+    background: #fee2e2 !important;
+    border: 1px solid #fecaca !important;
+    border-left: 1px solid #fecaca !important;
+    padding: 12px 14px !important;
+    border-radius: 10px !important;
+    margin-top: 14px !important;
+    margin-bottom: 0 !important;
+    font-size: 0.88rem !important;
+    font-weight: 500 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    line-height: 1.4 !important;
+}
+
+.modal-body .text-danger::before {
+    content: "\f06a";
+    font-family: "Font Awesome 5 Free", "FontAwesome";
+    font-weight: 900;
+    color: #dc2626 !important;
+    font-size: 1rem !important;
+    flex-shrink: 0;
+}
+
+/* Modal Footer */
+.modal-footer {
+    padding: 16px 24px !important;
+    background: #f8fafc !important;
+    border-top: 1px solid #e2e8f0 !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-bottom: none !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    gap: 12px !important;
+}
+
+.modal-footer form {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    margin: 0 !important;
+}
+
+.modal-footer .btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 10px 18px !important;
+    font-size: 0.9rem !important;
+    font-weight: 600 !important;
+    border-radius: 8px !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+}
+
+.modal-footer .btn-secondary,
+.modal-footer .btn-outline {
+    background: #ffffff !important;
+    color: #475569 !important;
+    border: 1px solid #cbd5e1 !important;
+}
+
+.modal-footer .btn-secondary:hover,
+.modal-footer .btn-outline:hover {
+    background: #f1f5f9 !important;
+    color: #1e293b !important;
+    border-color: #94a3b8 !important;
+}
+
+.modal-footer .btn-danger {
+    background: #dc2626 !important;
+    color: #ffffff !important;
+    border: 1px solid #dc2626 !important;
+    box-shadow: 0 2px 4px rgba(220, 38, 38, 0.25) !important;
+}
+
+.modal-footer .btn-danger:hover {
+    background: #b91c1c !important;
+    border-color: #b91c1c !important;
+}
+
+.modal-footer .btn-warning {
+    background: #ea580c !important;
+    color: #ffffff !important;
+    border: 1px solid #ea580c !important;
+    box-shadow: 0 2px 4px rgba(234, 88, 12, 0.25) !important;
+}
+
+.modal-footer .btn-warning:hover {
+    background: #c2410c !important;
+    border-color: #c2410c !important;
+}
+
+@keyframes modalBackdropFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes modalScaleUp {
+    from {
+        opacity: 0;
+        transform: scale(0.96) translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+

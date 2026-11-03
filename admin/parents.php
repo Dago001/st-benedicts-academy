@@ -1093,23 +1093,29 @@ textarea.form-control {
 </div>
 
 <!-- Deactivate Confirmation Modal -->
-<div id="deactivateModal" class="modal">
+<div id="deactivateModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="deactivateParentModalTitle" style="display: none;">
     <div class="modal-content">
         <div class="modal-header">
-            <h3>Confirm Deactivate</h3>
-            <button type="button" class="close" onclick="closeModal('deactivateModal')">&times;</button>
+            <h3 id="deactivateParentModalTitle">
+                <i class="fas fa-user-slash" style="color: #ea580c;"></i> Confirm Deactivation
+            </h3>
+            <button type="button" class="close" onclick="closeModal('deactivateModal')" aria-label="Close modal">&times;</button>
         </div>
         <div class="modal-body">
-            <p>Are you sure you want to deactivate parent <strong id="parentName"></strong>?</p>
-            <p class="text-warning">The parent will no longer be able to login.</p>
+            <p style="margin: 0; font-size: 1rem; color: #1e293b;">Are you sure you want to deactivate parent <strong id="parentName" style="color: #0f172a;">this parent</strong>?</p>
+            <div class="text-warning">The parent will no longer be able to log in to the portal.</div>
         </div>
         <div class="modal-footer">
             <form method="POST" id="deactivateForm">
                 <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="id" id="deactivateId">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('deactivateModal')">Cancel</button>
-                <button type="submit" class="btn btn-warning">Deactivate</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal('deactivateModal')">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+                <button type="submit" class="btn btn-danger" style="background: #dc2626; color: #fff; border: 1px solid #dc2626;">
+                    <i class="fas fa-user-slash"></i> Deactivate Parent
+                </button>
             </form>
         </div>
     </div>
@@ -1148,8 +1154,12 @@ document.getElementById('searchInput')?.addEventListener('keyup', function() {
 
 function confirmDeactivate(id, name) {
     document.getElementById('deactivateId').value = id;
-    document.getElementById('parentName').textContent = name;
-    document.getElementById('deactivateModal').style.display = 'block';
+    document.getElementById('parentName').textContent = name || 'this parent';
+    const modal = document.getElementById('deactivateModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.classList.add('show');
+    }
 }
 
 function activateParent(id) {
@@ -1160,17 +1170,27 @@ function activateParent(id) {
 }
 
 function closeModal(modalId) {
-    document.getElementById(modalId).style.display = 'none';
+    const modal = document.getElementById(modalId || 'deactivateModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+    }
 }
 
 // Close modals when clicking outside
 window.onclick = function(event) {
     const deactivateModal = document.getElementById('deactivateModal');
-
     if (event.target === deactivateModal) {
-        deactivateModal.style.display = 'none';
+        closeModal('deactivateModal');
     }
-}
+};
+
+// Close modal on Escape key
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape' || event.key === 'Esc') {
+        closeModal('deactivateModal');
+    }
+});
 
 // Initialize DataTable if available
 $(document).ready(function() {

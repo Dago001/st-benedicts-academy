@@ -200,7 +200,7 @@ $categories = $db->getRows("SELECT DISTINCT category FROM gallery ORDER BY categ
         <?php endif; ?>
 
         <!-- Upload Modal -->
-        <div id="uploadModal" class="modal">
+        <div id="uploadModal" class="modal" role="dialog" aria-modal="true" style="display: none;">
             <div class="modal-content modal-lg">
                 <div class="modal-header">
                     <h3>Upload Images</h3>
@@ -344,7 +344,7 @@ $categories = $db->getRows("SELECT DISTINCT category FROM gallery ORDER BY categ
 </div>
 
 <!-- Edit Modal -->
-<div id="editModal" class="modal">
+<div id="editModal" class="modal" role="dialog" aria-modal="true" style="display: none;">
     <div class="modal-content">
         <div class="modal-header">
             <h3>Edit Image</h3>

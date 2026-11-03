@@ -740,23 +740,29 @@ $students = $db->getRows(
 </div>
 
 <!-- Delete/Deactivate Confirmation Modal -->
-<div id="deactivateModal" class="modal">
+<div id="deactivateModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="deactivateModalTitle" style="display: none;">
     <div class="modal-content">
         <div class="modal-header">
-            <h3>Confirm Deactivate</h3>
-            <button type="button" class="close" onclick="closeModal()">&times;</button>
+            <h3 id="deactivateModalTitle">
+                <i class="fas fa-user-slash" style="color: #ea580c;"></i> Confirm Deactivation
+            </h3>
+            <button type="button" class="close" onclick="closeModal()" aria-label="Close modal">&times;</button>
         </div>
         <div class="modal-body">
-            <p>Are you sure you want to deactivate <strong id="studentName"></strong>?</p>
-            <p class="text-warning">The student will no longer be able to login.</p>
+            <p style="margin: 0; font-size: 1rem; color: #1e293b;">Are you sure you want to deactivate <strong id="studentName" style="color: #0f172a;">this student</strong>?</p>
+            <div class="text-warning">The student will be deactivated and will no longer be able to log in to the student portal.</div>
         </div>
         <div class="modal-footer">
             <form method="POST" id="deactivateForm">
                 <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="id" id="deactivateId">
-                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-                <button type="submit" class="btn btn-warning">Deactivate</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+                <button type="submit" class="btn btn-danger" style="background: #dc2626; color: #fff; border: 1px solid #dc2626;">
+                    <i class="fas fa-user-slash"></i> Deactivate Student
+                </button>
             </form>
         </div>
     </div>
@@ -901,8 +907,12 @@ $students = $db->getRows(
 <script nonce="<?php echo CSP_NONCE; ?>">
 function confirmDeactivate(id, name) {
     document.getElementById('deactivateId').value = id;
-    document.getElementById('studentName').textContent = name;
-    document.getElementById('deactivateModal').style.display = 'block';
+    document.getElementById('studentName').textContent = name || 'this student';
+    const modal = document.getElementById('deactivateModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.classList.add('show');
+    }
 }
 
 function activateStudent(id) {
@@ -913,7 +923,11 @@ function activateStudent(id) {
 }
 
 function closeModal() {
-    document.getElementById('deactivateModal').style.display = 'none';
+    const modal = document.getElementById('deactivateModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+    }
 }
 
 // Search functionality
@@ -941,9 +955,16 @@ document.getElementById('searchInput')?.addEventListener('keyup', function() {
 window.onclick = function(event) {
     const modal = document.getElementById('deactivateModal');
     if (event.target === modal) {
-        modal.style.display = 'none';
+        closeModal();
     }
-}
+};
+
+// Close modal on Escape key
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape' || event.key === 'Esc') {
+        closeModal();
+    }
+});
 </script>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>

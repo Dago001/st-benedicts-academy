@@ -387,23 +387,29 @@ $classes = $db->getRows(
 </div>
 
 <!-- Delete Confirmation Modal -->
-<div id="deleteModal" class="modal">
+<div id="deleteModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle" style="display: none;">
     <div class="modal-content">
         <div class="modal-header">
-            <h3>Confirm Delete</h3>
-            <button type="button" class="close" onclick="closeModal()">&times;</button>
+            <h3 id="deleteModalTitle">
+                <i class="fas fa-trash-alt" style="color: #dc2626;"></i> Confirm Deletion
+            </h3>
+            <button type="button" class="close" onclick="closeModal()" aria-label="Close modal">&times;</button>
         </div>
         <div class="modal-body">
-            <p>Are you sure you want to delete class: <strong id="className"></strong>?</p>
-            <p class="text-danger">This action cannot be undone.</p>
+            <p style="margin: 0; font-size: 1rem; color: #1e293b;">Are you sure you want to delete class: <strong id="className" style="color: #0f172a;">this class</strong>?</p>
+            <div class="text-danger">This action cannot be undone. Associated records may be affected.</div>
         </div>
         <div class="modal-footer">
             <form method="POST" id="deleteForm">
                 <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="id" id="deleteId">
-                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-                <button type="submit" class="btn btn-danger">Delete</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+                <button type="submit" class="btn btn-danger">
+                    <i class="fas fa-trash-alt"></i> Delete Class
+                </button>
             </form>
         </div>
     </div>

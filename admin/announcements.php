@@ -941,39 +941,45 @@ $announcements = $db->getRows(
 </div>
 
 <!-- Preview Modal -->
-<div id="previewModal" class="modal">
+<div id="previewModal" class="modal" role="dialog" aria-modal="true" style="display: none;">
     <div class="modal-content modal-lg">
         <div class="modal-header">
-            <h3>Announcement Preview</h3>
-            <button type="button" class="close" onclick="closePreview()">&times;</button>
+            <h3><i class="fas fa-eye" style="color: #0066ff;"></i> Announcement Preview</h3>
+            <button type="button" class="close" onclick="closePreview()" aria-label="Close">&times;</button>
         </div>
         <div class="modal-body" id="previewContent">
             <!-- Preview content will be loaded here -->
         </div>
         <div class="modal-footer">
-            <button type="button" class="btn btn-outline" onclick="closePreview()">Close</button>
+            <button type="button" class="btn btn-outline" onclick="closePreview()">
+                <i class="fas fa-times"></i> Close
+            </button>
         </div>
     </div>
 </div>
 
 <!-- Delete Confirmation Modal -->
-<div id="deleteModal" class="modal">
+<div id="deleteModal" class="modal" role="dialog" aria-modal="true" style="display: none;">
     <div class="modal-content">
         <div class="modal-header">
-            <h3>Confirm Delete</h3>
-            <button type="button" class="close" onclick="closeModal()">&times;</button>
+            <h3><i class="fas fa-trash-alt" style="color: #dc2626;"></i> Confirm Delete</h3>
+            <button type="button" class="close" onclick="closeModal()" aria-label="Close">&times;</button>
         </div>
         <div class="modal-body">
-            <p>Are you sure you want to delete "<span id="announcementTitle"></span>"?</p>
-            <p class="text-danger">This action cannot be undone.</p>
+            <p>Are you sure you want to delete "<span id="announcementTitle">this announcement</span>"?</p>
+            <div class="text-danger">This action cannot be undone.</div>
         </div>
         <div class="modal-footer">
             <form method="POST" id="deleteForm">
                 <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="id" id="deleteId">
-                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-                <button type="submit" class="btn btn-danger">Delete</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+                <button type="submit" class="btn btn-danger">
+                    <i class="fas fa-trash-alt"></i> Delete
+                </button>
             </form>
         </div>
     </div>

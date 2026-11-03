@@ -1155,7 +1155,7 @@ define('ANNOUNCEMENT_UPLOAD_PATH', BASE_URL . '/uploads/announcements/');
 </div>
 
 <!-- View Message Modal -->
-<div id="messageModal" class="modal">
+<div id="messageModal" class="modal" role="dialog" aria-modal="true" style="display: none;">
     <div class="modal-content">
         <div class="modal-header">
             <h2 id="modalTitle"></h2>

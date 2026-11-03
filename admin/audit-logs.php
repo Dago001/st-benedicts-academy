@@ -245,17 +245,19 @@ $users = $db->getRows(
 </div>
 
 <!-- Details Modal -->
-<div id="detailsModal" class="modal">
+<div id="detailsModal" class="modal" role="dialog" aria-modal="true" style="display: none;">
     <div class="modal-content modal-lg">
         <div class="modal-header">
-            <h3>Audit Log Details</h3>
-            <button type="button" class="close" onclick="closeModal()">&times;</button>
+            <h3><i class="fas fa-file-alt" style="color: #0066ff;"></i> Audit Log Details</h3>
+            <button type="button" class="close" onclick="closeModal()" aria-label="Close">&times;</button>
         </div>
         <div class="modal-body" id="detailsContent">
             <!-- Content will be loaded via AJAX -->
         </div>
         <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" onclick="closeModal()">Close</button>
+            <button type="button" class="btn btn-secondary" onclick="closeModal()">
+                <i class="fas fa-times"></i> Close
+            </button>
         </div>
     </div>
 </div>

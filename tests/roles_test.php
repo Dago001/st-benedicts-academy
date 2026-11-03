@@ -161,6 +161,23 @@ test('sidebar CSS has zero border-left colored rule', strpos($sidebarCss, 'borde
 test('sidebar CSS has mobile breakpoint @media (max-width: 991px)', strpos($sidebarCss, '@media (max-width: 991px)') !== false);
 test('sidebar CSS has active rounded pill styling', strpos($sidebarCss, 'is-active') !== false);
 
+echo "\n=== 5. MODAL SYSTEM COMPLIANCE ===\n";
+$polishCss = file_get_contents(__DIR__ . '/../assets/css/polish.css');
+test('polish.css defines .modal display: none', strpos($polishCss, '.modal,') !== false && strpos($polishCss, 'display: none') !== false);
+test('polish.css defines modal backdrop blur', strpos($polishCss, 'backdrop-filter: blur') !== false);
+test('polish.css defines modal card with border-radius', strpos($polishCss, '.modal-content,') !== false);
+test('polish.css defines circular close button hover', strpos($polishCss, '.modal-header .close:hover') !== false);
+
+$studentsPhp = file_get_contents(__DIR__ . '/../admin/students.php');
+test('admin/students.php deactivateModal has explicit style="display: none;"', strpos($studentsPhp, 'id="deactivateModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="deactivateModalTitle" style="display: none;"') !== false);
+test('admin/students.php deactivateModal has icon and high contrast warning', strpos($studentsPhp, 'fa-user-slash') !== false && strpos($studentsPhp, 'class="text-warning"') !== false);
+
+$teachersPhp = file_get_contents(__DIR__ . '/../admin/teachers.php');
+test('admin/teachers.php deactivateModal has explicit style="display: none;"', strpos($teachersPhp, 'id="deactivateModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="deactivateTeacherModalTitle" style="display: none;"') !== false);
+
+$parentsPhp = file_get_contents(__DIR__ . '/../admin/parents.php');
+test('admin/parents.php deactivateModal has explicit style="display: none;"', strpos($parentsPhp, 'id="deactivateModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="deactivateParentModalTitle" style="display: none;"') !== false);
+
 echo "\n==========================================\n";
 echo "$pass passed, $fail failed\n";
 exit($fail ? 1 : 0);
