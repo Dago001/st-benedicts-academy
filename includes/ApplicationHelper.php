@@ -1,8 +1,8 @@
 <?php
 /**
  * ApplicationHelper
- * Unified schema management, sequential document catalog, payment processing,
- * and receipt lookup for Online Admissions (`admissions` and `applications` tables).
+ * Unified schema management, sequential document catalog, payment ledger tracking,
+ * live Paystack verification sync, and receipt lookup for Online Admissions.
  */
 require_once __DIR__ . '/../config/database.php';
 
@@ -74,7 +74,7 @@ class ApplicationHelper
     }
 
     /**
-     * Self-healing schema migration for both `admissions` and `applications` tables.
+     * Self-healing schema migration for `admissions`, `applications`, and `application_payments`.
      */
     public static function ensureSchema(): void
     {
@@ -106,7 +106,7 @@ class ApplicationHelper
                 'emergency_phone'        => "VARCHAR(30) DEFAULT NULL",
                 'emergency_relationship' => "VARCHAR(50) DEFAULT NULL",
                 'documents_path'         => "TEXT DEFAULT NULL",
-                'payment_method'         => "VARCHAR(50) DEFAULT 'online_card'",
+                'payment_method'         => "VARCHAR(50) DEFAULT 'paystack_card'",
                 'payment_reference'      => "VARCHAR(100) DEFAULT NULL",
                 'receipt_number'         => "VARCHAR(60) DEFAULT NULL",
                 'amount_paid'            => "DECIMAL(10,2) DEFAULT 15000.00",
@@ -117,6 +117,28 @@ class ApplicationHelper
 
             self::addMissingColumns($db, 'admissions', $commonExtraColumns);
             self::addMissingColumns($db, 'applications', $commonExtraColumns);
+
+            // Dedicated unified payment transactions ledger for backend tracking & Paystack verification
+            $db->exec("CREATE TABLE IF NOT EXISTS `application_payments` (
+                `id` INT AUTO_INCREMENT PRIMARY KEY,
+                `payment_reference` VARCHAR(100) NOT NULL UNIQUE,
+                `application_number` VARCHAR(50) DEFAULT NULL,
+                `receipt_number` VARCHAR(60) DEFAULT NULL,
+                `child_name` VARCHAR(150) DEFAULT NULL,
+                `parent_name` VARCHAR(150) DEFAULT NULL,
+                `parent_email` VARCHAR(150) DEFAULT NULL,
+                `parent_phone` VARCHAR(40) DEFAULT NULL,
+                `amount` DECIMAL(10,2) NOT NULL DEFAULT 15000.00,
+                `payment_method` VARCHAR(50) DEFAULT 'paystack',
+                `payment_channel` VARCHAR(50) DEFAULT NULL,
+                `payment_status` VARCHAR(30) DEFAULT 'pending',
+                `gateway_response` VARCHAR(255) DEFAULT NULL,
+                `verified_by` INT DEFAULT NULL,
+                `paid_at` DATETIME DEFAULT NULL,
+                `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX `idx_app_pay_appno` (`application_number`),
+                INDEX `idx_app_pay_status` (`payment_status`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         } catch (Throwable $e) {
             error_log("ApplicationHelper::ensureSchema warning: " . $e->getMessage());
         }
@@ -145,7 +167,7 @@ class ApplicationHelper
         return 'RCP-APP-' . date('Ymd') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 5));
     }
 
-    public static function generatePaymentReference(string $prefix = 'TXN-STB'): string
+    public static function generatePaymentReference(string $prefix = 'PSTK-STB'): string
     {
         return $prefix . '-' . date('Ymd') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
     }
@@ -161,13 +183,121 @@ class ApplicationHelper
             'paystack'          => 'Paystack Online Checkout',
             'paystack_card'     => 'Paystack Online Card Payment (Debit / Credit Card)',
             'paystack_transfer' => 'Paystack Instant Bank Transfer',
+            'paystack_bank'     => 'Paystack Bank Payment',
             'paystack_ussd'     => 'Paystack USSD Instant Channel',
             'online_card'       => 'Paystack Online Card Payment (Debit / Credit Card)',
             'online_transfer'   => 'Paystack Instant Bank Transfer',
             'online_ussd'       => 'Paystack USSD Instant Channel',
-            'bank_transfer'     => 'Direct Bank Transfer (' . SCHOOL_BANK_NAME . ' - ' . SCHOOL_ACCOUNT_NUMBER . ')'
+            'bank_transfer'     => 'Direct Bank Transfer (' . (defined('SCHOOL_BANK_NAME') ? SCHOOL_BANK_NAME : 'Zenith Bank') . ' - ' . (defined('SCHOOL_ACCOUNT_NUMBER') ? SCHOOL_ACCOUNT_NUMBER : '1310057496') . ')'
         ];
         return $map[$method ?? 'paystack_card'] ?? ucwords(str_replace('_', ' ', (string)$method));
+    }
+
+    /**
+     * Log a Paystack payment initialization immediately so the Admin can see even in-progress checkouts at the backend.
+     */
+    public static function recordPaymentInit(string $reference, string $email, float $amount, string $childName = '', string $parentName = '', string $phone = ''): void
+    {
+        self::ensureSchema();
+        try {
+            $db = Database::getInstance()->getConnection();
+            $stmt = $db->prepare("INSERT INTO application_payments (
+                payment_reference, child_name, parent_name, parent_email, parent_phone, amount, payment_method, payment_status
+            ) VALUES (?, ?, ?, ?, ?, ?, 'paystack', 'initialized')
+            ON DUPLICATE KEY UPDATE
+                child_name = COALESCE(NULLIF(VALUES(child_name), ''), child_name),
+                parent_name = COALESCE(NULLIF(VALUES(parent_name), ''), parent_name),
+                parent_email = COALESCE(NULLIF(VALUES(parent_email), ''), parent_email),
+                parent_phone = COALESCE(NULLIF(VALUES(parent_phone), ''), parent_phone)");
+            $stmt->execute([$reference, $childName ?: null, $parentName ?: null, $email ?: null, $phone ?: null, $amount]);
+        } catch (Throwable $e) {
+            error_log("ApplicationHelper::recordPaymentInit error: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Record a Paystack verification result in `application_payments` and update any linked `admissions` / `applications` rows.
+     */
+    public static function recordPaymentVerification(string $reference, array $verifyResult, ?int $verifiedByUserId = null): void
+    {
+        self::ensureSchema();
+        $reference = trim($reference);
+        if ($reference === '') {
+            return;
+        }
+        try {
+            $db = Database::getInstance()->getConnection();
+            $isSuccess = !empty($verifyResult['success']);
+            $status    = $isSuccess ? 'verified' : ($verifyResult['status'] ?? 'failed');
+            $channel   = $verifyResult['channel'] ?? 'paystack_card';
+            $amount    = (float)($verifyResult['amount'] ?? self::APPLICATION_FEE);
+            $msg       = mb_substr((string)($verifyResult['message'] ?? ''), 0, 250);
+            $paidAt    = $isSuccess ? date('Y-m-d H:i:s') : null;
+
+            $stmt = $db->prepare("INSERT INTO application_payments (
+                payment_reference, amount, payment_method, payment_channel, payment_status, gateway_response, verified_by, paid_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+                amount = IF(VALUES(amount) > 0, VALUES(amount), amount),
+                payment_channel = VALUES(payment_channel),
+                payment_status = VALUES(payment_status),
+                gateway_response = VALUES(gateway_response),
+                verified_by = COALESCE(VALUES(verified_by), verified_by),
+                paid_at = COALESCE(paid_at, VALUES(paid_at))");
+            $stmt->execute([$reference, $amount > 0 ? $amount : self::APPLICATION_FEE, $channel, $channel, $status, $msg, $verifiedByUserId, $paidAt]);
+
+            if ($isSuccess) {
+                $upd1 = $db->prepare("UPDATE admissions SET payment_status = 'verified', payment_method = ?, paid_at = COALESCE(paid_at, NOW()) WHERE payment_reference = ?");
+                $upd1->execute([$channel, $reference]);
+
+                $upd2 = $db->prepare("UPDATE applications SET payment_status = 'verified', payment_method = ?, paid_at = COALESCE(paid_at, NOW()) WHERE payment_reference = ?");
+                $upd2->execute([$channel, $reference]);
+            }
+        } catch (Throwable $e) {
+            error_log("ApplicationHelper::recordPaymentVerification error: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Synchronize an application submission with the `application_payments` ledger table.
+     */
+    public static function syncApplicationPayment(
+        string $appNumber,
+        string $receiptNumber,
+        string $reference,
+        string $method,
+        float $amount,
+        string $status,
+        string $childName,
+        string $parentName,
+        string $email,
+        string $phone
+    ): void {
+        self::ensureSchema();
+        try {
+            $db = Database::getInstance()->getConnection();
+            $paidAt = in_array($status, ['paid', 'verified'], true) ? date('Y-m-d H:i:s') : null;
+            $stmt = $db->prepare("INSERT INTO application_payments (
+                payment_reference, application_number, receipt_number, child_name, parent_name, parent_email, parent_phone,
+                amount, payment_method, payment_channel, payment_status, paid_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+                application_number = VALUES(application_number),
+                receipt_number = VALUES(receipt_number),
+                child_name = VALUES(child_name),
+                parent_name = VALUES(parent_name),
+                parent_email = VALUES(parent_email),
+                parent_phone = VALUES(parent_phone),
+                payment_method = VALUES(payment_method),
+                payment_status = IF(payment_status = 'verified', 'verified', VALUES(payment_status)),
+                paid_at = COALESCE(paid_at, VALUES(paid_at))");
+            $stmt->execute([
+                $reference, $appNumber, $receiptNumber, $childName, $parentName, $email, $phone,
+                $amount, $method, $method, $status, $paidAt
+            ]);
+        } catch (Throwable $e) {
+            error_log("ApplicationHelper::syncApplicationPayment error: " . $e->getMessage());
+        }
     }
 
     /**
@@ -281,9 +411,9 @@ class ApplicationHelper
             'emergency_phone'        => $row['emergency_phone'] ?? '',
             'emergency_relationship' => $row['emergency_relationship'] ?? '',
             'documents'              => $docs,
-            'payment_method'         => $row['payment_method'] ?? 'online_card',
-            'payment_method_label'   => self::formatPaymentMethod($row['payment_method'] ?? 'online_card'),
-            'payment_reference'      => !empty($row['payment_reference']) ? $row['payment_reference'] : ('TXN-STB-' . strtoupper(substr(md5($appNo), 0, 8))),
+            'payment_method'         => $row['payment_method'] ?? 'paystack_card',
+            'payment_method_label'   => self::formatPaymentMethod($row['payment_method'] ?? 'paystack_card'),
+            'payment_reference'      => !empty($row['payment_reference']) ? $row['payment_reference'] : ('PSTK-STB-' . strtoupper(substr(md5($appNo), 0, 8))),
             'receipt_number'         => !empty($row['receipt_number']) ? $row['receipt_number'] : ('RCP-APP-' . strtoupper(substr(md5('rcp' . $appNo), 0, 8))),
             'amount_paid'            => (float)($row['amount_paid'] ?? self::APPLICATION_FEE),
             'payment_status'         => $row['payment_status'] ?? 'paid',
@@ -292,5 +422,109 @@ class ApplicationHelper
             'status'                 => $row['status'] ?? 'pending',
             'created_at'             => $createdAt
         ];
+    }
+
+    /**
+     * Update payment status across `application_payments`, `admissions`, and `applications`.
+     */
+    public static function updatePaymentStatus(string $reference, string $newStatus, ?int $adminUserId = null): bool
+    {
+        self::ensureSchema();
+        $reference = trim($reference);
+        if ($reference === '') {
+            return false;
+        }
+        $allowed = ['verified', 'paid', 'pending_verification', 'pending', 'failed', 'refunded'];
+        if (!in_array($newStatus, $allowed, true)) {
+            return false;
+        }
+        try {
+            $db = Database::getInstance()->getConnection();
+            $paidAt = in_array($newStatus, ['verified', 'paid'], true) ? date('Y-m-d H:i:s') : null;
+            $note = in_array($newStatus, ['verified', 'paid'], true) ? 'Verified by Admin at Backend' : 'Status updated by Admin: ' . $newStatus;
+
+            $stmt = $db->prepare("UPDATE application_payments SET payment_status = ?, gateway_response = ?, verified_by = ?, paid_at = COALESCE(paid_at, ?) WHERE payment_reference = ? OR application_number = ?");
+            $stmt->execute([$newStatus, $note, $adminUserId, $paidAt, $reference, $reference]);
+
+            $stmt2 = $db->prepare("UPDATE admissions SET payment_status = ?, paid_at = COALESCE(paid_at, ?) WHERE payment_reference = ? OR application_number = ?");
+            $stmt2->execute([$newStatus, $paidAt, $reference, $reference]);
+
+            $stmt3 = $db->prepare("UPDATE applications SET payment_status = ?, paid_at = COALESCE(paid_at, ?) WHERE payment_reference = ? OR application_number = ?");
+            $stmt3->execute([$newStatus, $paidAt, $reference, $reference]);
+
+            return true;
+        } catch (Throwable $e) {
+            error_log("ApplicationHelper::updatePaymentStatus error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Backfill any existing `admissions` and `applications` rows into `application_payments`
+     * and return the complete unified payment ledger for the Admin Backend.
+     */
+    public static function getAllPaymentsLedger(int $limit = 200): array
+    {
+        self::ensureSchema();
+        try {
+            $db = Database::getInstance()->getConnection();
+
+            // Backfill from `admissions`
+            $admRows = $db->query("SELECT * FROM admissions ORDER BY id DESC LIMIT 200")->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($admRows as $r) {
+                $norm = self::normalizeAdmissionRow($r, 'admissions');
+                $stmt = $db->prepare("INSERT IGNORE INTO application_payments (
+                    payment_reference, application_number, receipt_number, child_name, parent_name, parent_email, parent_phone,
+                    amount, payment_method, payment_channel, payment_status, paid_at, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute([
+                    $norm['payment_reference'],
+                    $norm['application_number'],
+                    $norm['receipt_number'],
+                    $norm['child_full_name'],
+                    $norm['parent_name'],
+                    $norm['parent_email'],
+                    $norm['parent_phone'],
+                    $norm['amount_paid'],
+                    $norm['payment_method'],
+                    $norm['payment_method'],
+                    $norm['payment_status'],
+                    $norm['paid_at'],
+                    $norm['created_at']
+                ]);
+            }
+
+            // Backfill from `applications`
+            $appRows = $db->query("SELECT * FROM applications ORDER BY id DESC LIMIT 200")->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($appRows as $r) {
+                $norm = self::normalizeAdmissionRow($r, 'applications');
+                $stmt = $db->prepare("INSERT IGNORE INTO application_payments (
+                    payment_reference, application_number, receipt_number, child_name, parent_name, parent_email, parent_phone,
+                    amount, payment_method, payment_channel, payment_status, paid_at, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute([
+                    $norm['payment_reference'],
+                    $norm['application_number'],
+                    $norm['receipt_number'],
+                    $norm['child_full_name'],
+                    $norm['parent_name'],
+                    $norm['parent_email'],
+                    $norm['parent_phone'],
+                    $norm['amount_paid'],
+                    $norm['payment_method'],
+                    $norm['payment_method'],
+                    $norm['payment_status'],
+                    $norm['paid_at'],
+                    $norm['created_at']
+                ]);
+            }
+
+            $stmtLedger = $db->prepare("SELECT * FROM application_payments ORDER BY id DESC LIMIT " . (int)$limit);
+            $stmtLedger->execute();
+            return $stmtLedger->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $e) {
+            error_log("ApplicationHelper::getAllPaymentsLedger error: " . $e->getMessage());
+            return [];
+        }
     }
 }

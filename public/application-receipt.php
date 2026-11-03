@@ -479,7 +479,7 @@ $docCatalog = ApplicationHelper::getDocumentCatalog();
                 <span class="receipt-title-pill">Official Application &amp; Fee Receipt</span>
                 <div class="receipt-no"><?php echo htmlspecialchars($application['receipt_number']); ?></div>
                 <div class="receipt-date">Issued: <?php echo date('d M Y, h:i A', strtotime($application['paid_at'])); ?></div>
-                <?php $isPaid = strtolower($application['payment_status']) === 'paid'; ?>
+                <?php $isPaid = in_array(strtolower($application['payment_status']), ['paid', 'verified'], true); ?>
                 <div class="status-stamp <?php echo $isPaid ? 'paid' : 'pending'; ?>">
                     <i class="fas <?php echo $isPaid ? 'fa-check-circle' : 'fa-clock'; ?>"></i>
                     <?php echo $isPaid ? 'PAYMENT VERIFIED - PAID' : 'VERIFICATION PENDING'; ?>

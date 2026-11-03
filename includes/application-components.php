@@ -104,6 +104,7 @@ function renderOnlinePaymentSection(): void
 
     if ($returnedRef !== '') {
         $vResult = paystack_verify_transaction($returnedRef, $fee);
+        ApplicationHelper::recordPaymentVerification($returnedRef, $vResult);
         if (!empty($vResult['success'])) {
             $isPreVerified = true;
             $defaultRef = $vResult['reference'];

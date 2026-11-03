@@ -6,6 +6,7 @@
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/security.php';
 require_once __DIR__ . '/../includes/paystack.php';
+require_once __DIR__ . '/../includes/ApplicationHelper.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -32,4 +33,5 @@ $reference = trim((string)($input['reference'] ?? ''));
 $expectedAmount = isset($input['amount']) ? (float)$input['amount'] : null;
 
 $result = paystack_verify_transaction($reference, $expectedAmount);
+ApplicationHelper::recordPaymentVerification($reference, $result, isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null);
 echo json_encode($result);

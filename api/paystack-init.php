@@ -55,6 +55,14 @@ $metadata = [
 $result = paystack_initialize_transaction($email, $amount, $reference, $callbackUrl, $metadata);
 if (!empty($result['success'])) {
     $_SESSION['pending_paystack_ref'] = $result['reference'];
+    ApplicationHelper::recordPaymentInit(
+        $result['reference'],
+        $email,
+        $amount,
+        (string)($metadata['child_name'] ?? ''),
+        (string)($metadata['parent_name'] ?? ''),
+        (string)($metadata['phone'] ?? '')
+    );
 }
 
 echo json_encode($result);

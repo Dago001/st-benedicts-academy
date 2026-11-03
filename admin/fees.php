@@ -2,8 +2,11 @@
 // admin/fees.php - Complete Fee Management System
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/security.php';
+require_once __DIR__ . '/../includes/ApplicationHelper.php';
+require_once __DIR__ . '/../includes/paystack.php';
 
 Security::requireRole('admin');
+ApplicationHelper::ensureSchema();
 
 $pageTitle = 'Fee Management';
 $extraCSS = ['admin.css', 'dashboard.css'];
@@ -298,6 +301,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $messageType = 'error';
                 }
                 break;
+
+            case 'verify_paystack_fee':
+                $reference = trim((string)($_POST['payment_reference'] ?? ''));
+                if ($reference === '') {
+                    $message = 'Please provide a payment reference to verify.';
+                    $messageType = 'error';
+                    break;
+                }
+                $verifyRes = paystack_verify_transaction($reference);
+                ApplicationHelper::recordPaymentVerification($reference, $verifyRes, (int)($_SESSION['user_id'] ?? 0));
+                if (!empty($verifyRes['success'])) {
+                    $message = "Paystack Verification Successful for {$reference} — Marked as VERIFIED.";
+                    $messageType = 'success';
+                } else {
+                    $message = "Paystack check for {$reference}: " . ($verifyRes['message'] ?? 'Could not verify on Paystack.');
+                    $messageType = 'error';
+                }
+                break;
+
+            case 'update_app_payment_status':
+                $reference = trim((string)($_POST['payment_reference'] ?? ''));
+                $newPayStatus = trim((string)($_POST['payment_status'] ?? 'verified'));
+                if ($reference !== '' && ApplicationHelper::updatePaymentStatus($reference, $newPayStatus, (int)($_SESSION['user_id'] ?? 0))) {
+                    $message = "Application payment {$reference} marked as " . strtoupper(str_replace('_', ' ', $newPayStatus)) . '.';
+                    $messageType = 'success';
+                } else {
+                    $message = 'Could not update application payment status.';
+                    $messageType = 'error';
+                }
+                break;
         }
     }
 }
@@ -334,6 +367,9 @@ $feeStructures = $db->getRows(
      JOIN classes c ON fs.class_id = c.id
      ORDER BY fs.academic_year DESC, fs.term, c.class_name"
 );
+
+// Get recent online application & Paystack payments
+$appPaymentsLedger = ApplicationHelper::getAllPaymentsLedger(200);
 
 // Get recent payments with student and staff details
 $recentPayments = $db->getRows(
@@ -690,6 +726,12 @@ function getPaymentStatus($paid, $total) {
                             <?php endif; ?>
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="online-app-tab" data-toggle="tab" href="#onlineAppPayments" role="tab">
+                            <i class="fas fa-bolt"></i> Online Application &amp; Paystack Payments
+                            <span class="badge badge-info"><?php echo count($appPaymentsLedger); ?></span>
+                        </a>
+                    </li>
                 </ul>
             </div>
             <div class="card-body">
@@ -924,6 +966,110 @@ function getPaymentStatus($paid, $total) {
                                 <strong>Total Collected:</strong> ₦<?php echo number_format($summary['total_collected'], 2); ?><br>
                                 <strong>Total Expected:</strong> ₦<?php echo number_format($totalExpectedFees, 2); ?>
                             </p>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <!-- Online Application & Paystack Payments Tab -->
+                    <div class="tab-pane" id="onlineAppPayments" role="tabpanel">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px; background:#f8fafc; border:1px solid #e2e8f0; padding:14px 18px; border-radius:10px;">
+                            <div>
+                                <strong><i class="fas fa-shield-alt" style="color:#002147;"></i> Paystack &amp; Official Zenith Bank (`<?php echo e(school_account_number()); ?>`) Verification</strong>
+                                <div class="text-muted" style="font-size:0.84rem;">Verify any online application payment live against Paystack or approve direct bank transfers.</div>
+                            </div>
+                            <form method="POST" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                                <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
+                                <input type="hidden" name="action" value="verify_paystack_fee">
+                                <input type="text" name="payment_reference" class="form-control" style="max-width:240px;" placeholder="Enter Ref (PSTK-STB-...)" required>
+                                <button type="submit" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-sync-alt"></i> Verify on Paystack
+                                </button>
+                            </form>
+                        </div>
+
+                        <?php if (!empty($appPaymentsLedger)): ?>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Reference / Receipt</th>
+                                        <th>Application No.</th>
+                                        <th>Candidate &amp; Parent</th>
+                                        <th>Channel / Method</th>
+                                        <th>Amount (₦)</th>
+                                        <th>Status</th>
+                                        <th>Date</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($appPaymentsLedger as $ap):
+                                        $pRef = (string)($ap['payment_reference'] ?? '');
+                                        $pAppNo = (string)($ap['application_number'] ?? '');
+                                        $pRcpNo = (string)($ap['receipt_number'] ?? '');
+                                        $pStatus = strtolower((string)($ap['payment_status'] ?? 'pending'));
+                                        $isVerified = in_array($pStatus, ['verified', 'paid'], true);
+                                        $pAmt = (float)($ap['amount'] ?? ApplicationHelper::APPLICATION_FEE);
+                                        $pDate = $ap['paid_at'] ?: $ap['created_at'];
+                                    ?>
+                                    <tr>
+                                        <td>
+                                            <strong><?php echo e($pRef); ?></strong>
+                                            <?php if ($pRcpNo !== ''): ?>
+                                                <br><small class="text-muted"><?php echo e($pRcpNo); ?></small>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td><?php echo $pAppNo !== '' ? '<strong>' . e($pAppNo) . '</strong>' : '<span class="text-muted">Checkout Init</span>'; ?></td>
+                                        <td>
+                                            <?php echo e($ap['child_name'] ?: 'Pending Submission'); ?>
+                                            <?php if (!empty($ap['parent_name']) || !empty($ap['parent_email'])): ?>
+                                                <br><small class="text-muted"><?php echo e(trim(($ap['parent_name'] ?? '') . ' (' . ($ap['parent_email'] ?? '') . ')')); ?></small>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td><?php echo e(ApplicationHelper::formatPaymentMethod($ap['payment_channel'] ?: $ap['payment_method'])); ?></td>
+                                        <td class="text-right"><strong>₦<?php echo number_format($pAmt, 2); ?></strong></td>
+                                        <td>
+                                            <span class="badge <?php echo $isVerified ? 'badge-success' : 'badge-warning'; ?>">
+                                                <?php echo e(strtoupper(str_replace('_', ' ', $pStatus))); ?>
+                                            </span>
+                                        </td>
+                                        <td><?php echo $pDate ? date('d M Y H:i', strtotime($pDate)) : '-'; ?></td>
+                                        <td>
+                                            <div class="action-buttons" style="display:flex; gap:6px; flex-wrap:wrap;">
+                                                <form method="POST" style="display:inline;">
+                                                    <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
+                                                    <input type="hidden" name="action" value="verify_paystack_fee">
+                                                    <input type="hidden" name="payment_reference" value="<?php echo e($pRef); ?>">
+                                                    <button type="submit" class="btn btn-sm btn-outline" title="Verify Live on Paystack">
+                                                        <i class="fas fa-sync-alt"></i> Verify
+                                                    </button>
+                                                </form>
+                                                <?php if (!$isVerified): ?>
+                                                <form method="POST" style="display:inline;">
+                                                    <input type="hidden" name="csrf_token" value="<?php echo Security::generateCSRFToken(); ?>">
+                                                    <input type="hidden" name="action" value="update_app_payment_status">
+                                                    <input type="hidden" name="payment_reference" value="<?php echo e($pRef); ?>">
+                                                    <input type="hidden" name="payment_status" value="verified">
+                                                    <button type="submit" class="btn btn-sm btn-primary" title="Approve / Mark Verified">
+                                                        <i class="fas fa-check"></i> Approve
+                                                    </button>
+                                                </form>
+                                                <?php endif; ?>
+                                                <?php if ($pAppNo !== ''): ?>
+                                                <a href="<?php echo BASE_URL; ?>/public/application-receipt?app=<?php echo urlencode($pAppNo); ?>" target="_blank" class="btn btn-sm btn-outline" title="Print Official Receipt">
+                                                    <i class="fas fa-print"></i> Receipt
+                                                </a>
+                                                <?php endif; ?>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                        <?php else: ?>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> No online application or Paystack payment records found yet.
                         </div>
                         <?php endif; ?>
                     </div>

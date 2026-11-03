@@ -85,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $paymentMethod      = $t('payment_method', 50) ?: 'online_card';
         $paymentReference   = $t('payment_reference', 80) ?: ApplicationHelper::generatePaymentReference();
         $amountPaid         = ApplicationHelper::APPLICATION_FEE;
-        $paymentStatus      = 'paid';
+        $paymentStatus      = ($paymentMethod === 'bank_transfer') ? 'pending_verification' : 'paid';
 
         if ($firstName === '') $errors[] = 'First name is required';
         if ($lastName === '') $errors[] = 'Last name is required';
@@ -160,6 +160,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $receiptUrl = BASE_URL . '/public/application-receipt?app=' . urlencode($appNumber) . '&token=' . urlencode($receiptToken);
 
                 $fullName = trim($firstName . ' ' . $middleName . ' ' . $lastName);
+                ApplicationHelper::syncApplicationPayment(
+                    $appNumber,
+                    $receiptNumber,
+                    $paymentReference,
+                    $paymentMethod,
+                    (float)$amountPaid,
+                    $paymentStatus,
+                    $fullName,
+                    trim($parentTitle . ' ' . $parentName),
+                    $parentEmail,
+                    $parentPhone
+                );
                 $docList = '';
                 foreach ($stored as $key => $_) {
                     $docList .= '<li>&#10003; ' . e($catalog[$key]['short'] ?? $key) . '</li>';

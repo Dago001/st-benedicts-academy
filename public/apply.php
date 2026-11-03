@@ -132,6 +132,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $receiptToken  = ApplicationHelper::generateReceiptToken($appNumber, $formData['parent_email']);
                 $amountPaid    = ApplicationHelper::APPLICATION_FEE;
                 $paidAt        = date('Y-m-d H:i:s');
+                $payStatus     = ($formData['payment_method'] === 'bank_transfer') ? 'pending_verification' : 'paid';
 
                 $db->insert(
                     "INSERT INTO applications (
@@ -152,8 +153,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $formData['city'], $loc['state'] ?? '', $loc['lga'] ?? '', $loc['country'] ?? 'Nigeria', $formData['previous_school'], $formData['reason_applying'], $formData['how_hear'],
                         $formData['emergency_name'], $formData['emergency_phone'], $formData['emergency_relationship'],
                         $stored['birth_certificate'] ?? null, $stored['passport_photo'] ?? null, json_encode($stored),
-                        $formData['payment_method'], $formData['payment_reference'], $receiptNumber, $amountPaid, 'paid', $receiptToken, $paidAt
+                        $formData['payment_method'], $formData['payment_reference'], $receiptNumber, $amountPaid, $payStatus, $receiptToken, $paidAt
                     ]
+                );
+
+                ApplicationHelper::syncApplicationPayment(
+                    $appNumber,
+                    $receiptNumber,
+                    $formData['payment_reference'],
+                    $formData['payment_method'],
+                    (float)$amountPaid,
+                    $payStatus,
+                    trim($formData['child_first_name'] . ' ' . $formData['child_middle_name'] . ' ' . $formData['child_last_name']),
+                    trim($formData['parent_title'] . ' ' . $formData['parent_first_name'] . ' ' . $formData['parent_last_name']),
+                    $formData['parent_email'],
+                    $formData['parent_phone']
                 );
 
                 $_SESSION['recent_application_receipts'][] = $appNumber;
