@@ -2,7 +2,7 @@
 // includes/header.php
 // Expects config/config.php + config/security.php to be loaded by the page.
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
-$assetVersion = '28';
+$assetVersion = '29';
 
 /** <link>/<script nonce="<?php echo CSP_NONCE; ?>"> only for assets that actually exist, so a missing file never causes a 404. */
 if (!function_exists('asset_exists')) {
@@ -73,6 +73,25 @@ if (function_exists('enforce_maintenance_mode')) {
     <?php if (function_exists('turnstile_script')) echo turnstile_script(); ?>
 </head>
 <body class="<?php echo $isLoggedIn ? 'is-auth role-' . e($_SESSION['user_role']) . ($inPortal ? ' in-portal' : '') : 'is-public'; ?>">
+    <!-- Global Branded Page Transition Spinner (St. Benedict's Crest) -->
+    <div id="stbPagePreloader" class="stb-page-preloader" aria-hidden="true">
+        <div class="stb-preloader-backdrop"></div>
+        <div class="stb-preloader-content">
+            <div class="stb-crest-spin-container">
+                <div class="stb-crest-aura"></div>
+                <div class="stb-crest-ring"></div>
+                <img src="<?php echo BASE_URL; ?>/assets/images/logo.png" alt="St. Benedict's Academy Crest" class="stb-crest-image">
+            </div>
+            <div class="stb-crest-text-wrap">
+                <div class="stb-preloader-school">ST. BENEDICT'S ACADEMY</div>
+                <div class="stb-preloader-motto">Christo Dulce Simul Crescimus</div>
+            </div>
+            <div class="stb-preloader-loader-bar">
+                <span class="stb-loader-fill"></span>
+            </div>
+        </div>
+    </div>
+    <script src="<?php echo BASE_URL; ?>/assets/js/preloader.js?v=<?php echo $assetVersion; ?>"></script>
     <?php if (function_exists('maintenance_admin_banner')) maintenance_admin_banner(); ?>
     <a class="skip-link" href="#main-content">Skip to content</a>
     <div class="site-wrapper">

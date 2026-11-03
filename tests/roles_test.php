@@ -178,6 +178,22 @@ test('admin/teachers.php deactivateModal has explicit style="display: none;"', s
 $parentsPhp = file_get_contents(__DIR__ . '/../admin/parents.php');
 test('admin/parents.php deactivateModal has explicit style="display: none;"', strpos($parentsPhp, 'id="deactivateModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="deactivateParentModalTitle" style="display: none;"') !== false);
 
+echo "\n=== 6. SIDEBAR USER PROFILE REMOVAL & 3D LOGO SPIN PRELOADER ===\n";
+$layoutPhp = file_get_contents(__DIR__ . '/../includes/layout.php');
+test('sidebar-user-profile-box is REMOVED from includes/layout.php', strpos($layoutPhp, 'sidebar-user-profile-box') === false);
+
+$headerPhp = file_get_contents(__DIR__ . '/../includes/header.php');
+test('includes/header.php includes stbPagePreloader', strpos($headerPhp, 'id="stbPagePreloader"') !== false);
+test('includes/header.php loads preloader.js', strpos($headerPhp, 'assets/js/preloader.js') !== false);
+test('includes/header.php displays official school crest logo in preloader', strpos($headerPhp, 'class="stb-spinning-logo"') !== false || strpos($headerPhp, 'class="stb-crest-image"') !== false);
+
+$preloaderJs = file_get_contents(__DIR__ . '/../assets/js/preloader.js');
+test('preloader.js intercepts navigation links for logo spin', strpos($preloaderJs, 'navigateWithSpinner') !== false);
+test('preloader.js spin duration is between 1-2 seconds (1000ms - 2000ms)', preg_match('/DURATION_MS\s*=\s*(1[0-9]{3}|2000)/', $preloaderJs) === 1);
+
+test('polish.css defines 3D logo spin keyframes (stb3dSpin)', strpos($polishCss, '@keyframes stb3dSpin') !== false);
+test('polish.css defines preloader aura and ring animation', strpos($polishCss, 'stbAuraPulse') !== false && strpos($polishCss, 'stbRingRotate') !== false);
+
 echo "\n==========================================\n";
 echo "$pass passed, $fail failed\n";
 exit($fail ? 1 : 0);

@@ -220,17 +220,6 @@ if (!function_exists('render_sidebar')) {
             <button type="button" class="sidebar-close-btn" id="sidebarClose" aria-label="Close menu"><i class="fas fa-times"></i></button>
         </div>
 
-        <!-- Super Administrator / User Profile Card -->
-        <div class="sidebar-user-profile-box">
-            <div class="user-avatar-badge">
-                <span><?php echo e($userInitial); ?></span>
-            </div>
-            <div class="user-meta-info">
-                <div class="user-full-name" title="<?php echo e($displayName); ?>"><?php echo e($displayName); ?></div>
-                <div class="user-role-tag"><?php echo e($badgeText); ?></div>
-            </div>
-        </div>
-
         <!-- Categorized Nav Menu -->
         <nav class="sidebar-nav-scroll" aria-label="Main Navigation">
             <?php foreach ($sections as $sectionTitle => $items): ?>

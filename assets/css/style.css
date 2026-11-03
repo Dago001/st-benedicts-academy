@@ -3915,3 +3915,162 @@ textarea.form-control {
     display: flex;
     flex-direction: column;
 }
+
+/* ==========================================================================
+   GLOBAL BRANDED PAGE TRANSITION SPINNER (St. Benedict's Crest)
+   ========================================================================== */
+.stb-page-preloader {
+    display: none;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 1000000 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.stb-page-preloader.is-active {
+    display: flex !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+.stb-page-preloader.is-hidden {
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+.stb-preloader-backdrop {
+    position: absolute !important;
+    inset: 0 !important;
+    background: radial-gradient(circle at center, rgba(0, 40, 85, 0.94) 0%, rgba(0, 16, 38, 0.98) 100%) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+}
+
+.stb-preloader-content {
+    position: relative !important;
+    z-index: 2 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    padding: 30px !important;
+    max-width: 90vw !important;
+}
+
+.stb-crest-spin-container {
+    position: relative !important;
+    width: 135px !important;
+    height: 165px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    perspective: 1000px !important;
+    margin-bottom: 22px !important;
+}
+
+.stb-crest-aura {
+    position: absolute !important;
+    width: 175px !important;
+    height: 175px !important;
+    border-radius: 50% !important;
+    background: radial-gradient(circle, rgba(255, 215, 0, 0.38) 0%, rgba(0, 102, 255, 0.22) 50%, transparent 70%) !important;
+    animation: stbAuraPulse 1.8s ease-in-out infinite alternate !important;
+    pointer-events: none !important;
+}
+
+.stb-crest-ring {
+    position: absolute !important;
+    width: 155px !important;
+    height: 155px !important;
+    border-radius: 50% !important;
+    border: 2px dashed rgba(255, 215, 0, 0.45) !important;
+    border-top-color: #ffd700 !important;
+    border-bottom-color: #0066ff !important;
+    animation: stbRingRotate 4s linear infinite !important;
+    pointer-events: none !important;
+}
+
+.stb-crest-image {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain !important;
+    filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.55)) !important;
+    transform-style: preserve-3d !important;
+    animation: stb3dSpin 1.35s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite !important;
+}
+
+.stb-preloader-school {
+    color: #ffffff !important;
+    font-size: 1.15rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 1.5px !important;
+    margin: 0 0 6px 0 !important;
+    text-transform: uppercase !important;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6) !important;
+    font-family: 'Inter', -apple-system, sans-serif !important;
+}
+
+.stb-preloader-motto {
+    color: #ffd700 !important;
+    font-size: 0.88rem !important;
+    font-style: italic !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.8px !important;
+    margin: 0 0 20px 0 !important;
+    opacity: 0.95 !important;
+}
+
+.stb-preloader-loader-bar {
+    width: 160px !important;
+    height: 4px !important;
+    background: rgba(255, 255, 255, 0.15) !important;
+    border-radius: 999px !important;
+    overflow: hidden !important;
+    position: relative !important;
+}
+
+.stb-loader-fill {
+    display: block !important;
+    height: 100% !important;
+    background: linear-gradient(90deg, #ffd700, #ff6b6b, #0066ff, #ffd700) !important;
+    background-size: 200% 100% !important;
+    border-radius: 999px !important;
+    animation: stbBarFill 1.35s ease-in-out infinite !important;
+}
+
+@keyframes stb3dSpin {
+    0% {
+        transform: perspective(700px) rotateY(0deg) scale(0.96);
+    }
+    50% {
+        transform: perspective(700px) rotateY(180deg) scale(1.06);
+    }
+    100% {
+        transform: perspective(700px) rotateY(360deg) scale(0.96);
+    }
+}
+
+@keyframes stbAuraPulse {
+    0% { transform: scale(0.85); opacity: 0.4; }
+    100% { transform: scale(1.2); opacity: 0.85; }
+}
+
+@keyframes stbRingRotate {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes stbBarFill {
+    0% { width: 0%; transform: translateX(-100%); }
+    50% { width: 80%; transform: translateX(0%); }
+    100% { width: 100%; transform: translateX(100%); }
+}
