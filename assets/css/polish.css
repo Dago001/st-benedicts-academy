@@ -800,3 +800,16 @@ body .footer-grid {
         gap: 24px !important;
     }
 }
+
+/* ---- Hero Write-up Vertical Position (Move up 2 steps above slider controls) ---- */
+@media (min-width: 768px) {
+    body .hero-slide {
+        padding-bottom: 150px !important;
+        box-sizing: border-box !important;
+    }
+    body .hero-content {
+        margin-top: -40px !important;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+    }
+}

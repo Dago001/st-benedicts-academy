@@ -73,21 +73,28 @@ try {
         background-size: cover;
         background-position: center;
         opacity: 0;
-        transition: opacity 1s ease-in-out;
+        visibility: hidden;
+        pointer-events: none;
+        transition: opacity 0.8s ease-in-out, visibility 0.8s ease-in-out;
         display: flex;
         align-items: center;
+        padding-bottom: 150px;
+        box-sizing: border-box;
         z-index: 1;
     }
 
     .hero-slide.active {
         opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
         z-index: 2;
     }
 
     .hero-content {
         color: var(--white);
         max-width: 800px;
-        padding: var(--spacing-xl) 0;
+        padding: var(--spacing-md) 0;
+        margin-top: -40px;
         animation: fadeInUp 1s ease;
     }
 
