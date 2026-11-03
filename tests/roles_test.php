@@ -194,6 +194,21 @@ test('preloader.js spin duration is between 1-2 seconds (1000ms - 2000ms)', preg
 test('polish.css defines 3D logo spin keyframes (stb3dSpin)', strpos($polishCss, '@keyframes stb3dSpin') !== false);
 test('polish.css defines preloader aura and ring animation', strpos($polishCss, 'stbAuraPulse') !== false && strpos($polishCss, 'stbRingRotate') !== false);
 
+echo "\n=== 7. MOBILE RESPONSIVE DASHBOARD & SECTIONED NAVIGATION MENU ===\n";
+test('includes/header.php uses nav_sections() for mobile navigation', strpos($headerPhp, 'nav_sections($portalRole)') !== false);
+test('includes/header.php outputs nav-portal-heading for mobile sections', strpos($headerPhp, 'class="nav-portal-heading"') !== false);
+test('includes/header.php applies accent classes in mobile navigation', strpos($headerPhp, 'class="nav-portal-link') !== false);
+
+$mobileCss = file_get_contents(__DIR__ . '/../assets/css/mobile.css');
+test('mobile.css defines nav-portal-heading with uppercase letter-spacing', strpos($mobileCss, '.nav-portal-heading') !== false);
+test('mobile.css defines active rounded solid blue pill for mobile nav', strpos($mobileCss, 'body .nav-menu .nav-portal.active a') !== false && strpos($mobileCss, '#0066ff') !== false);
+test('mobile.css has NO forced uniform gold icon rule', strpos($mobileCss, 'body .nav-menu .nav-portal a i { width: 22px; text-align: center; color: var(--gold, #ffd700); }') === false);
+test('mobile.css defines row layout for dashboard header (title left, user pill right)', strpos($mobileCss, 'body .dashboard-header') !== false && strpos($mobileCss, 'flex-direction: row !important;') !== false);
+test('mobile.css defines 2x2 stats-grid on mobile (< 768px)', strpos($mobileCss, 'repeat(2, minmax(0, 1fr))') !== false);
+
+$mainJs = file_get_contents(__DIR__ . '/../assets/js/main.js');
+test('main.js closes mobile navMenu when any link is clicked', strpos($mainJs, "navMenu.querySelectorAll('a').forEach") !== false);
+
 echo "\n==========================================\n";
 echo "$pass passed, $fail failed\n";
 exit($fail ? 1 : 0);

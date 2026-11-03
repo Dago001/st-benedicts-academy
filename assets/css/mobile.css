@@ -101,18 +101,53 @@ body .data-table, body .table { width: 100%; }
     body .page-header { padding: 28px 16px; }
     body .page-header h1 { font-size: 1.5rem !important; line-height: 1.25 !important; height: auto !important; display: block; }
 
-    /* Dashboard header: title above actions */
-    body .dashboard-header { flex-direction: column; align-items: stretch; gap: 12px; margin-bottom: 16px; padding-bottom: 12px; }
-    body .dashboard-header h1 { font-size: 1.4rem; margin: 0; }
+    /* Dashboard header: title on left, user profile pill on right (ONE balanced row on mobile) */
+    body .dashboard-header {
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        text-align: left !important;
+        gap: 10px !important;
+        margin-bottom: 16px !important;
+        padding-bottom: 12px !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+        width: 100% !important;
+    }
+    body .dashboard-header h1 {
+        display: block !important;
+        font-size: 1.35rem !important;
+        font-weight: 800 !important;
+        color: var(--navy, #002147) !important;
+        margin: 0 !important;
+        text-align: left !important;
+        line-height: 1.2 !important;
+    }
     body .dashboard-header .header-actions, body .header-actions { display: flex; flex-wrap: wrap; gap: 8px; }
     body .header-actions .btn, body .header-actions button { flex: 1 1 calc(50% - 8px); justify-content: center; text-align: center; }
-    body .dashboard-header .user-info { flex-wrap: wrap; }
+    body .dashboard-header .user-info {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+        padding: 4px 10px !important;
+        background: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 999px !important;
+        font-size: 0.75rem !important;
+        color: #334155 !important;
+        flex-shrink: 0 !important;
+        margin: 0 0 0 auto !important;
+    }
 
-    /* Cards and grids */
-    body .stats-grid, body .actions-grid, body .summary-grid, body .dashboard-grid, body .info-grid,
+    /* Cards and grids: stats in a clean 2x2 grid on mobile instead of 4 giant stacked cards */
+    body .actions-grid, body .summary-grid, body .dashboard-grid, body .info-grid,
     body .charts-grid, body .quick-actions, body .grid-2, body .grid-3, body .grid-4 { grid-template-columns: 1fr !important; }
-    body .stats-grid { gap: 12px; }
-    body .stat-card { padding: 14px; }
+    body .stats-grid, body.in-portal .stats-grid, .dashboard-main .stats-grid {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 10px !important;
+    }
+    body .stat-card { padding: 12px !important; }
     body .card-header { flex-wrap: wrap; gap: 8px; padding: 14px 16px; }
     body .card-header h3 { font-size: 1.05rem; }
     body .card-body { padding: 14px 16px; }
@@ -259,7 +294,12 @@ body input[type="file"] { width: 100%; }
 }
 
 body.in-portal .stats-grid, .dashboard-main .stats-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
-@media (max-width: 767px) { body.in-portal .stats-grid, .dashboard-main .stats-grid { grid-template-columns: 1fr !important; } }
+@media (max-width: 767px) {
+    body.in-portal .stats-grid, .dashboard-main .stats-grid, body .stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 10px !important;
+    }
+}
 
 /* Desktop dashboard: sidebar sticks beside the content and stops at the footer (it used to be fixed and covered the footer) */
 @media (min-width: 992px) {
@@ -286,8 +326,8 @@ body.in-portal .stats-grid, .dashboard-main .stats-grid { grid-template-columns:
 body .stat-card, body .stat-content { min-width: 0; }
 body .stat-content h3, body .stat-content p { overflow-wrap: normal; word-break: normal; }
 
-/* ---- Phones & tablets (up to 991px): one hamburger menu, no second "Menu" bar, no dashboard title block ---- */
-.nav-portal-label, .nav-portal { display: none; }
+/* ---- Phones & tablets (up to 991px): structured sectioned navigation menu ---- */
+.nav-portal-heading, .nav-portal-label, .nav-portal { display: none; }
 @media (max-width: 1120px) {
     /* account items (Dashboard / Logout) are always visible in the hamburger menu */
     body .nav-menu .dropdown-toggle { pointer-events: none; opacity: .75; font-size: .85rem; text-transform: uppercase; letter-spacing: .06em; justify-content: flex-start; min-height: 36px; }
@@ -296,19 +336,111 @@ body .stat-content h3, body .stat-content p { overflow-wrap: normal; word-break:
     body .nav-menu .dropdown-menu li:last-child a { color: #ffd0d6; font-weight: 600; }
 }
 @media (max-width: 991px) {
-    body .nav-menu .nav-portal-label { display: block; padding: 10px 8px 4px; font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--gold, #ffd700); font-weight: 700; }
-    body .nav-menu .nav-portal { display: block; }
-    body .nav-menu li a { justify-content: flex-start; padding: 0 12px; gap: 12px; }
-    body .nav-menu .nav-portal a i { width: 22px; text-align: center; color: var(--gold, #ffd700); }
-    body .nav-menu .nav-portal.active a, body .nav-menu li.active a { background: rgba(255,255,255,.12); border-radius: 8px; }
+    /* Section Headings in mobile navigation (identical to desktop sidebar categories) */
+    body .nav-menu .nav-portal-heading {
+        display: block !important;
+        padding: 12px 14px 4px !important;
+        font-size: 0.68rem !important;
+        font-weight: 800 !important;
+        letter-spacing: 1px !important;
+        text-transform: uppercase !important;
+        color: #94a3b8 !important;
+        background: transparent !important;
+        margin: 6px 0 2px !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+        list-style: none !important;
+        text-align: left !important;
+    }
+    body .nav-menu .nav-portal-heading:first-child {
+        margin-top: 0 !important;
+        padding-top: 4px !important;
+    }
+    body .nav-menu .nav-portal {
+        display: block !important;
+        width: 100% !important;
+        margin: 2px 0 !important;
+        list-style: none !important;
+    }
+    body .nav-menu .nav-portal a,
+    body .nav-menu .nav-portal .nav-portal-link {
+        display: flex !important;
+        align-items: center !important;
+        gap: 12px !important;
+        padding: 9px 14px !important;
+        color: #cbd5e1 !important;
+        text-decoration: none !important;
+        font-size: 0.88rem !important;
+        font-weight: 500 !important;
+        border-radius: 8px !important;
+        transition: all 0.18s ease !important;
+        border: none !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        justify-content: flex-start !important;
+    }
+    body .nav-menu .nav-portal a:hover,
+    body .nav-menu .nav-portal .nav-portal-link:hover {
+        background: rgba(255, 255, 255, 0.08) !important;
+        color: #ffffff !important;
+        transform: translateX(2px) !important;
+    }
+    body .nav-menu .nav-portal .nav-portal-icon,
+    body .nav-menu .nav-portal a i {
+        width: 20px !important;
+        font-size: 0.95rem !important;
+        text-align: center !important;
+        color: #94a3b8 !important;
+        transition: color 0.18s ease !important;
+        flex-shrink: 0 !important;
+    }
+    body .nav-menu .nav-portal .nav-portal-text {
+        flex: 1 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        text-align: left !important;
+    }
+
+    /* Active Item: Solid Rounded Blue Pill (ZERO colored border-left!) */
+    body .nav-menu .nav-portal.active a,
+    body .nav-menu .nav-portal a.is-active,
+    body .nav-menu .nav-portal.active .nav-portal-link {
+        background: #0066ff !important;
+        color: #ffffff !important;
+        font-weight: 700 !important;
+        box-shadow: 0 4px 14px rgba(0, 102, 255, 0.4) !important;
+        border-radius: 8px !important;
+    }
+    body .nav-menu .nav-portal.active a i,
+    body .nav-menu .nav-portal a.is-active i,
+    body .nav-menu .nav-portal.active .nav-portal-icon {
+        color: #ffffff !important;
+    }
+
+    /* Category Accents (matching desktop sidebar) */
+    body .nav-menu .nav-portal a.accent-orange i,
+    body .nav-menu .nav-portal a.accent-orange .nav-portal-text { color: #f59e0b !important; }
+    body .nav-menu .nav-portal a.accent-green i,
+    body .nav-menu .nav-portal a.accent-green .nav-portal-text { color: #22c55e !important; }
+    body .nav-menu .nav-portal a.accent-red i,
+    body .nav-menu .nav-portal a.accent-red .nav-portal-text { color: #ef4444 !important; }
+    body .nav-menu .nav-portal a.accent-purple i,
+    body .nav-menu .nav-portal a.accent-purple .nav-portal-text { color: #c084fc !important; }
+
+    body .nav-menu .nav-portal.active a.accent-orange i,
+    body .nav-menu .nav-portal.active a.accent-orange .nav-portal-text,
+    body .nav-menu .nav-portal.active a.accent-green i,
+    body .nav-menu .nav-portal.active a.accent-green .nav-portal-text,
+    body .nav-menu .nav-portal.active a.accent-red i,
+    body .nav-menu .nav-portal.active a.accent-red .nav-portal-text,
+    body .nav-menu .nav-portal.active a.accent-purple i,
+    body .nav-menu .nav-portal.active a.accent-purple .nav-portal-text {
+        color: #ffffff !important;
+    }
+
     body .nav-menu .nav-buttons { padding-top: 8px; }
-    /* the sidebar drawer and its "Menu" bar are replaced by the hamburger menu above */
+    /* The sidebar drawer and its bottom floating "Menu" button are replaced by the navbar hamburger menu */
     body .sidebar-toggle-mobile, body .sidebar, body .sidebar-overlay { display: none !important; }
-    /* page title block of dashboards: the name chip and the "Dashboard" heading are redundant on phones */
-    body .user-info { display: none !important; }
-    body .dashboard-header:has(> .user-info) > h1, body .dashboard-header.is-home > h1 { display: none; }
-    body .dashboard-header:has(> .user-info), body .dashboard-header.is-home { margin: 0; padding: 0; border: 0; }
-    body .dashboard-header.is-home:not(:has(.header-actions)) { display: none; }
     body .dashboard-main { padding-top: 14px; }
 }
 @media (max-width: 991px) { body .nav-menu .dropdown-menu li:first-child { display: none; } }

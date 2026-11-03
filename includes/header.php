@@ -1,8 +1,9 @@
 <?php
 // includes/header.php
 // Expects config/config.php + config/security.php to be loaded by the page.
+require_once __DIR__ . '/layout.php';
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
-$assetVersion = '30';
+$assetVersion = '31';
 
 /** <link>/<script nonce="<?php echo CSP_NONCE; ?>"> only for assets that actually exist, so a missing file never causes a 404. */
 if (!function_exists('asset_exists')) {
@@ -110,19 +111,47 @@ if (function_exists('enforce_maintenance_mode')) {
 
                 <ul class="nav-menu" id="navMenu">
                     <?php
-                    // Phones: the portal menu (what the sidebar offers on desktop) lives inside this one hamburger menu
-                    $portalItems = $portalRole ? nav_items($portalRole) : [];
-                    if ($portalItems):
+                    // Phones: structured sectioned portal navigation (identical to desktop sidebar categories)
+                    $portalSections = $portalRole ? nav_sections($portalRole) : [];
+                    if (!empty($portalSections)):
                         $portalCurrent = $currentPage;
-                        $portalAlias = ['mark-attendance' => 'attendance', 'view-student' => 'students', 'teacher-profile' => 'teachers', 'view-parent' => 'parents', 'student-fees' => 'fees', 'print-receipt' => 'fees', 'assign-subjects' => 'teachers', 'attendance-detail' => 'attendance', 'generate-login' => 'students', 'student-data' => 'students'];
+                        $portalAlias = [
+                            'mark-attendance' => 'attendance', 'view-student' => 'students', 'teacher-profile' => 'teachers',
+                            'view-parent' => 'parents', 'student-fees' => 'fees', 'print-receipt' => 'fees',
+                            'view-receipt' => 'fees', 'attendance-detail' => 'attendance', 'submissions' => 'assignments',
+                            'assign-subjects' => 'assign-subjects', 'career-applications' => 'careers', 'vacancies' => 'careers',
+                            'quick-fee-collect' => 'quick-fee-collect', 'fee-reminders' => 'fee-reminders', 'fee-deletion-log' => 'fee-deletion-log',
+                            'new-admission' => 'new-admission', 'admissions-enquiry' => 'admissions-enquiry', 'passed-out-archive' => 'passed-out-archive',
+                            'promotion' => 'promotion', 'session-report' => 'session-report', 'attendance-report' => 'attendance-report',
+                            'exams' => 'exams', 'marks-entry' => 'marks-entry', 'expenses' => 'expenses', 'income-expense' => 'income-expense',
+                            'salary' => 'salary', 'salary-report' => 'salary-report',
+                        ];
                         $portalActive = $portalAlias[$portalCurrent] ?? $portalCurrent;
+                        $baseRoleDir = in_array($portalRole, ['super_admin', 'admin', 'head_teacher', 'supervisor'], true) ? 'admin' : $portalRole;
                     ?>
-                    <li class="nav-portal-label" aria-hidden="true"><?php echo e(ucfirst($portalRole)); ?> menu</li>
-                    <?php foreach ($portalItems as [$pf, $pl, $pi]): ?>
-                    <li class="nav-portal<?php echo ($inPortal && $portalActive === $pf) ? ' active' : ''; ?>"><a href="<?php echo e(BASE_URL . '/' . $portalRole . '/' . $pf); ?>"<?php echo ($inPortal && $portalActive === $pf) ? ' aria-current="page"' : ''; ?>><i class="fas <?php echo e($pi); ?>"></i> <?php echo e($pl); ?></a></li>
+                    <?php foreach ($portalSections as $sectionHeading => $items): ?>
+                        <li class="nav-portal-heading" aria-hidden="true"><?php echo e($sectionHeading); ?></li>
+                        <?php foreach ($items as $item):
+                            $file = $item[0];
+                            $label = $item[1];
+                            $icon = $item[2];
+                            $accent = $item[3] ?? '';
+                            $url = (strpos($file, '/') !== false || strpos($file, 'http') === 0)
+                                ? (strpos($file, '../') === 0 ? BASE_URL . substr($file, 2) : $file)
+                                : BASE_URL . '/' . $baseRoleDir . '/' . $file;
+                            $checkKey = explode('?', $file)[0];
+                            $isActive = ($inPortal && $portalActive === $checkKey);
+                        ?>
+                        <li class="nav-portal<?php echo $isActive ? ' active' : ''; ?>">
+                            <a href="<?php echo e($url); ?>" class="nav-portal-link <?php echo e($accent); ?><?php echo $isActive ? ' is-active' : ''; ?>"<?php echo $isActive ? ' aria-current="page"' : ''; ?>>
+                                <i class="fas <?php echo e($icon); ?> nav-portal-icon"></i>
+                                <span class="nav-portal-text"><?php echo e($label); ?></span>
+                            </a>
+                        </li>
+                        <?php endforeach; ?>
                     <?php endforeach; ?>
                     <?php if (!$inPortal): ?>
-                    <li class="nav-portal-label" aria-hidden="true">Website</li>
+                    <li class="nav-portal-heading" aria-hidden="true">Website</li>
                     <?php endif; ?>
                     <?php endif; ?>
 

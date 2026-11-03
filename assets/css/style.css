@@ -3462,14 +3462,17 @@ textarea.form-control {
     }
 
     .dashboard-header {
-        flex-direction: column;
-        gap: var(--spacing-md);
-        text-align: center;
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        text-align: left;
+        gap: var(--spacing-sm);
     }
 
     .user-info {
-        width: 100%;
-        justify-content: center;
+        width: auto;
+        justify-content: flex-end;
     }
 
     /* Forms */

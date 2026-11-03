@@ -297,9 +297,12 @@
 
     /* Dashboard */
     .dashboard-header {
-        flex-direction: column;
-        text-align: center;
-        gap: 15px;
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        text-align: left;
+        gap: 12px;
     }
 
     .header-actions {
