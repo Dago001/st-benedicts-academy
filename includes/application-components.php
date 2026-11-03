@@ -2,7 +2,7 @@
 /**
  * Shared UI Components for Online Application:
  * 1. Sequential "Required Documents" Dropdown Uploader
- * 2. Paystack Online Payment + Official Zenith Bank Account (1310057496) & Instant Receipt Generator
+ * 2. Paystack Hosted Checkout Redirect + Official Zenith Bank Account (1310057496) & Instant Receipt Generator
  */
 require_once __DIR__ . '/ApplicationHelper.php';
 require_once __DIR__ . '/paystack.php';
@@ -94,19 +94,45 @@ function renderOnlinePaymentSection(): void
     $bankName   = school_bank_name();
     $acctName   = school_account_name();
     $acctNum    = school_account_number();
+
+    // Check if user was just re-routed back from Paystack Checkout (?reference=... or ?trxref=...)
+    $returnedRef = trim((string)($_GET['reference'] ?? $_GET['trxref'] ?? ''));
+    $isPreVerified = false;
+    $verifiedChannel = 'Paystack Online Checkout';
+    $verifiedMethodCode = 'paystack_card';
+    $verifyErrorMsg = '';
+
+    if ($returnedRef !== '') {
+        $vResult = paystack_verify_transaction($returnedRef, $fee);
+        if (!empty($vResult['success'])) {
+            $isPreVerified = true;
+            $defaultRef = $vResult['reference'];
+            $verifiedMethodCode = $vResult['channel'] ?: 'paystack_card';
+            $verifiedChannel = ApplicationHelper::formatPaymentMethod($verifiedMethodCode);
+            $_SESSION['verified_paystack_ref'] = $defaultRef;
+        } else {
+            $verifyErrorMsg = $vResult['message'] ?? 'Payment could not be verified.';
+        }
+    }
     ?>
-    <div class="online-payment-card" id="onlinePaymentSection">
+    <div class="online-payment-card" id="onlinePaymentSection" data-paystack-returned="<?php echo $isPreVerified ? '1' : '0'; ?>">
         <div class="payment-banner-top">
             <div>
                 <span class="payment-pill-tag"><i class="fas fa-shield-alt"></i> Paystack &amp; Official School Bank Checkout</span>
                 <h4>Application &amp; Entrance Assessment Fee</h4>
-                <p>Pay online via <strong>Paystack</strong> (Card, Transfer, USSD) or direct transfer to the School's <strong><?php echo htmlspecialchars($bankName); ?></strong> account to generate your instant official receipt.</p>
+                <p>Pay online via <strong>Paystack</strong> (routes you to Paystack and returns you here automatically) or via direct transfer to the School's <strong><?php echo htmlspecialchars($bankName); ?></strong> account.</p>
             </div>
             <div class="payment-amount-box">
                 <span class="amt-label">Payable Amount</span>
                 <span class="amt-value">&#8358;<?php echo number_format($fee, 2); ?></span>
             </div>
         </div>
+
+        <?php if ($verifyErrorMsg !== ''): ?>
+            <div style="background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; padding:12px 16px; border-radius:10px; margin-bottom:14px; font-size:0.88rem;">
+                <i class="fas fa-exclamation-circle"></i> <?php echo htmlspecialchars($verifyErrorMsg); ?>
+            </div>
+        <?php endif; ?>
 
         <!-- Official School Bank Account Summary Bar -->
         <div class="official-school-account-bar">
@@ -127,15 +153,15 @@ function renderOnlinePaymentSection(): void
 
         <input type="hidden" name="amount_paid" id="input_amount_paid" value="<?php echo htmlspecialchars((string)$fee); ?>">
         <input type="hidden" name="payment_status" id="input_payment_status" value="paid">
-        <input type="hidden" name="payment_verified_ui" id="input_payment_verified_ui" value="0">
+        <input type="hidden" name="payment_verified_ui" id="input_payment_verified_ui" value="<?php echo $isPreVerified ? '1' : '0'; ?>">
 
         <div class="payment-method-selector">
             <label class="pay-method-option active" data-method="paystack_card">
-                <input type="radio" name="payment_method" value="paystack_card" checked>
+                <input type="radio" name="payment_method" value="<?php echo htmlspecialchars($verifiedMethodCode); ?>" checked>
                 <div class="pm-icon"><i class="fas fa-bolt"></i></div>
                 <div class="pm-text">
                     <strong>Pay Online with Paystack (Card / Transfer / USSD)</strong>
-                    <span>Instant Paystack verification &amp; immediate Official Receipt</span>
+                    <span>Routes to Paystack checkout &amp; returns you to this application</span>
                 </div>
             </label>
 
@@ -151,24 +177,24 @@ function renderOnlinePaymentSection(): void
 
         <!-- Mode A: Paystack Online Gateway Checkout -->
         <div id="onlineGatewayPanel" class="payment-gateway-panel">
-            <div class="gateway-action-row" id="gatewayUnpaidState">
+            <div class="gateway-action-row" id="gatewayUnpaidState" style="<?php echo $isPreVerified ? 'display:none;' : ''; ?>">
                 <div class="gateway-info">
                     <i class="fas fa-lock" style="color:#002147;"></i>
-                    <span>Click <strong>Pay &#8358;<?php echo number_format($fee, 2); ?> with Paystack</strong> to complete your payment securely via Debit Card, Bank Transfer, or USSD and generate your official receipt.</span>
+                    <span>Click <strong>Pay &#8358;<?php echo number_format($fee, 2); ?> on Paystack</strong> to proceed to the official Paystack payment page. Your form progress is saved automatically and you will be routed back here immediately after payment.</span>
                 </div>
                 <button type="button" id="openPaymentModalBtn" class="btn-pay-online">
-                    <i class="fas fa-credit-card"></i> Pay &#8358;<?php echo number_format($fee, 2); ?> with Paystack
+                    <i class="fas fa-external-link-alt"></i> Pay &#8358;<?php echo number_format($fee, 2); ?> on Paystack
                 </button>
             </div>
 
-            <div class="gateway-verified-box" id="gatewayPaidState" style="display:none;">
+            <div class="gateway-verified-box" id="gatewayPaidState" style="<?php echo $isPreVerified ? 'display:flex;' : 'display:none;'; ?>">
                 <div class="gv-left">
                     <div class="gv-check"><i class="fas fa-check-circle"></i></div>
                     <div>
-                        <div class="gv-title">Paystack Payment Verified &amp; Official Receipt Assigned</div>
+                        <div class="gv-title">Paystack Payment Verified &amp; Returned to Application!</div>
                         <div class="gv-meta">
-                            <span>Ref: <strong id="displayPaidRef">-</strong></span> &bull;
-                            <span>Channel: <strong id="displayPaidChannel">Paystack Checkout</strong></span> &bull;
+                            <span>Ref: <strong id="displayPaidRef"><?php echo htmlspecialchars($defaultRef); ?></strong></span> &bull;
+                            <span>Channel: <strong id="displayPaidChannel"><?php echo htmlspecialchars($verifiedChannel); ?></strong></span> &bull;
                             <span>Amount: <strong>&#8358;<?php echo number_format($fee, 2); ?></strong></span>
                         </div>
                     </div>
@@ -208,91 +234,6 @@ function renderOnlinePaymentSection(): void
             </div>
         </div>
     </div>
-
-    <!-- Interactive Paystack / School Bursary Checkout Modal -->
-    <div class="stb-pay-modal-backdrop" id="stbPayModal" style="display:none;" role="dialog" aria-modal="true">
-        <div class="stb-pay-modal">
-            <div class="stb-pay-modal-header">
-                <div class="stb-pay-brand">
-                    <img src="<?php echo BASE_URL; ?>/assets/images/logo.png" alt="Logo">
-                    <div>
-                        <strong>Paystack &bull; St. Benedict's Checkout</strong>
-                        <span id="modalApplicantEmailDisplay">Admissions Bursary Checkout</span>
-                    </div>
-                </div>
-                <div class="stb-pay-amount-tag">
-                    <small>NGN</small> &#8358;<?php echo number_format($fee, 2); ?>
-                </div>
-            </div>
-
-            <div class="stb-pay-tabs">
-                <button type="button" class="stb-pay-tab active" data-tab="card"><i class="fas fa-credit-card"></i> Card</button>
-                <button type="button" class="stb-pay-tab" data-tab="transfer"><i class="fas fa-university"></i> Bank Transfer</button>
-                <button type="button" class="stb-pay-tab" data-tab="ussd"><i class="fas fa-mobile-alt"></i> USSD</button>
-            </div>
-
-            <div class="stb-pay-body">
-                <!-- Tab 1: Card -->
-                <div class="stb-tab-pane active" id="stbTab_card">
-                    <div class="stb-field">
-                        <label>Cardholder Name</label>
-                        <input type="text" id="simCardName" class="form-control" placeholder="Name on Card">
-                    </div>
-                    <div class="stb-field">
-                        <label>Card Number (Verve / Mastercard / Visa)</label>
-                        <input type="text" id="simCardNumber" class="form-control" maxlength="19" placeholder="5399 •••• •••• 4210" value="5399 8344 1029 4210">
-                    </div>
-                    <div class="stb-field-row">
-                        <div class="stb-field">
-                            <label>Expiry Date</label>
-                            <input type="text" id="simCardExp" class="form-control" maxlength="5" placeholder="MM/YY" value="09/28">
-                        </div>
-                        <div class="stb-field">
-                            <label>CVV</label>
-                            <input type="password" id="simCardCvv" class="form-control" maxlength="4" placeholder="123" value="482">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tab 2: Official Zenith Bank Transfer -->
-                <div class="stb-tab-pane" id="stbTab_transfer" style="display:none;">
-                    <div class="stb-transfer-VirtualBox">
-                        <div class="v-label">Transfer Exact Amount (&#8358;<?php echo number_format($fee, 2); ?>) To School Account</div>
-                        <div class="v-bank"><?php echo htmlspecialchars($bankName); ?> &mdash; <?php echo htmlspecialchars($acctName); ?></div>
-                        <div class="v-acct" id="virtualAcctNo"><?php echo htmlspecialchars($acctNum); ?></div>
-                        <div class="v-note">Click the button below once your transfer of &#8358;<?php echo number_format($fee, 2); ?> has been sent.</div>
-                    </div>
-                </div>
-
-                <!-- Tab 3: USSD -->
-                <div class="stb-tab-pane" id="stbTab_ussd" style="display:none;">
-                    <div class="stb-field">
-                        <label>Select Your Bank</label>
-                        <select id="simUssdBank" class="form-control">
-                            <option value="*966*15000*1310057496#">Zenith Bank (*966*15000*1310057496#)</option>
-                            <option value="*737*2*15000*1310057496#">GTBank (*737#)</option>
-                            <option value="*894*15000*1310057496#">First Bank (*894#)</option>
-                            <option value="*919*4*1310057496*15000#">UBA (*919#)</option>
-                            <option value="*901*2*15000*1310057496#">Access Bank (*901#)</option>
-                        </select>
-                    </div>
-                    <div class="stb-transfer-VirtualBox">
-                        <div class="v-label">Dial this code on your registered mobile phone:</div>
-                        <div class="v-acct" id="ussdCodeDisplay">*966*15000*1310057496#</div>
-                    </div>
-                </div>
-
-                <button type="button" id="confirmOnlinePayBtn" class="btn-confirm-pay">
-                    <i class="fas fa-lock"></i> Confirm &amp; Verify Payment (&#8358;<?php echo number_format($fee, 2); ?>)
-                </button>
-                <button type="button" id="closePaymentModalBtn" class="btn-cancel-pay">Cancel</button>
-            </div>
-
-            <div class="stb-pay-footer">
-                <i class="fas fa-shield-alt"></i> Secured by <strong>Paystack</strong> &bull; <?php echo htmlspecialchars($bankName); ?> (<?php echo htmlspecialchars($acctNum); ?>)
-            </div>
-        </div>
-    </div>
     <?php
 }
 
@@ -300,7 +241,6 @@ function renderApplicationComponentsAssets(): void
 {
     $pubKey = paystack_public_key();
     $fee    = ApplicationHelper::APPLICATION_FEE;
-    echo paystack_script();
     ?>
     <style>
         /* Sequential Document Dropdown Uploader */
@@ -733,8 +673,10 @@ function renderApplicationComponentsAssets(): void
             align-items: center;
             gap: 8px;
             box-shadow: 0 6px 16px rgba(9, 165, 219, 0.28);
+            transition: all 0.2s ease;
         }
-        .btn-pay-online:hover { background: #0787b5; }
+        .btn-pay-online:hover { background: #0787b5; transform: translateY(-1px); }
+        .btn-pay-online:disabled { opacity: 0.75; cursor: wait; }
         .gateway-verified-box {
             display: flex;
             justify-content: space-between;
@@ -806,135 +748,6 @@ function renderApplicationComponentsAssets(): void
             font-weight: 600;
         }
 
-        /* Checkout Modal */
-        .stb-pay-modal-backdrop {
-            position: fixed;
-            inset: 0;
-            background: rgba(15, 23, 42, 0.72);
-            z-index: 9999;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 16px;
-        }
-        .stb-pay-modal {
-            width: 100%;
-            max-width: 460px;
-            background: #fff;
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
-        }
-        .stb-pay-modal-header {
-            background: #002147;
-            color: #fff;
-            padding: 18px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .stb-pay-brand {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .stb-pay-brand img {
-            width: 38px;
-            height: 38px;
-            border-radius: 6px;
-            background: #fff;
-            padding: 2px;
-        }
-        .stb-pay-brand strong { display: block; font-size: 0.95rem; }
-        .stb-pay-brand span { font-size: 0.75rem; color: #cbd5e1; }
-        .stb-pay-amount-tag {
-            font-weight: 800;
-            color: #FFD700;
-            font-size: 1.1rem;
-        }
-        .stb-pay-tabs {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            background: #f1f5f9;
-            border-bottom: 1px solid #e2e8f0;
-        }
-        .stb-pay-tab {
-            padding: 11px 8px;
-            border: none;
-            background: transparent;
-            font-weight: 700;
-            font-size: 0.82rem;
-            color: #64748b;
-            cursor: pointer;
-            border-bottom: 3px solid transparent;
-        }
-        .stb-pay-tab.active {
-            color: #002147;
-            background: #fff;
-            border-bottom-color: #09a5db;
-        }
-        .stb-pay-body { padding: 20px; }
-        .stb-field { margin-bottom: 14px; }
-        .stb-field label {
-            display: block;
-            font-size: 0.8rem;
-            font-weight: 700;
-            color: #334155;
-            margin-bottom: 5px;
-        }
-        .stb-field-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-        }
-        .stb-transfer-VirtualBox {
-            background: #f8fafc;
-            border: 1px dashed #94a3b8;
-            border-radius: 10px;
-            padding: 16px;
-            text-align: center;
-            margin-bottom: 14px;
-        }
-        .stb-transfer-VirtualBox .v-label { font-size: 0.78rem; color: #64748b; }
-        .stb-transfer-VirtualBox .v-bank { font-weight: 700; color: #002147; margin-top: 4px; }
-        .stb-transfer-VirtualBox .v-acct {
-            font-size: 1.4rem;
-            font-weight: 800;
-            color: #c8102e;
-            letter-spacing: 1px;
-            margin: 6px 0;
-        }
-        .stb-transfer-VirtualBox .v-note { font-size: 0.76rem; color: #64748b; }
-        .btn-confirm-pay {
-            width: 100%;
-            padding: 13px;
-            background: #16a34a;
-            color: #fff;
-            border: none;
-            border-radius: 10px;
-            font-weight: 800;
-            font-size: 0.95rem;
-            cursor: pointer;
-            margin-bottom: 8px;
-        }
-        .btn-cancel-pay {
-            width: 100%;
-            padding: 9px;
-            background: transparent;
-            color: #64748b;
-            border: none;
-            font-weight: 600;
-            cursor: pointer;
-        }
-        .stb-pay-footer {
-            background: #f8fafc;
-            padding: 10px 16px;
-            text-align: center;
-            font-size: 0.75rem;
-            color: #64748b;
-            border-top: 1px solid #e2e8f0;
-        }
-
         @media (max-width: 768px) {
             .seq-doc-controls,
             .payment-method-selector,
@@ -950,6 +763,41 @@ function renderApplicationComponentsAssets(): void
     window.APPLICATION_FEE_NAIRA = <?php echo json_encode((float)$fee); ?>;
 
     document.addEventListener('DOMContentLoaded', function() {
+        const DRAFT_KEY = 'stb_application_form_draft_v1';
+        const appForm = document.getElementById('admissionForm') || document.getElementById('applicationForm');
+
+        // Save form fields to sessionStorage before routing to Paystack so user input is preserved on return
+        function saveFormDraft() {
+            if (!appForm) return;
+            const draft = {};
+            const fields = appForm.querySelectorAll('input:not([type="file"]):not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), select, textarea');
+            fields.forEach(function(el) {
+                if (el.name && el.id !== 'requiredDocDropdown' && el.name !== 'payment_reference') {
+                    draft[el.name] = el.value;
+                }
+            });
+            try {
+                sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+            } catch (e) {}
+        }
+
+        function restoreFormDraft() {
+            if (!appForm) return;
+            try {
+                const raw = sessionStorage.getItem(DRAFT_KEY);
+                if (!raw) return;
+                const draft = JSON.parse(raw);
+                if (!draft || typeof draft !== 'object') return;
+                Object.keys(draft).forEach(function(name) {
+                    const el = appForm.querySelector('[name="' + name + '"]');
+                    if (el && draft[name] !== undefined && draft[name] !== '') {
+                        el.value = draft[name];
+                        el.dispatchEvent(new Event('change'));
+                    }
+                });
+            } catch (e) {}
+        }
+
         // Copy Official School Account Number
         const copyAcctBtn = document.getElementById('copySchoolAcctBtn');
         if (copyAcctBtn) {
@@ -1109,74 +957,38 @@ function renderApplicationComponentsAssets(): void
             updateActiveBanner();
         }
 
-        // --- 2. Paystack Online Payment & Instant Receipt Checkout ---
+        // --- 2. Paystack Hosted Checkout Redirect & Return Handling ---
+        const paymentSection = document.getElementById('onlinePaymentSection');
         const methodOptions = document.querySelectorAll('.pay-method-option');
         const onlineGatewayPanel = document.getElementById('onlineGatewayPanel');
         const bankTransferPanel = document.getElementById('bankTransferPanel');
         const paymentRefInput = document.getElementById('input_payment_reference');
         const paymentStatusInput = document.getElementById('input_payment_status');
         const openModalBtn = document.getElementById('openPaymentModalBtn');
-        const closeModalBtn = document.getElementById('closePaymentModalBtn');
-        const confirmPayBtn = document.getElementById('confirmOnlinePayBtn');
-        const modal = document.getElementById('stbPayModal');
-        const unpaidState = document.getElementById('gatewayUnpaidState');
-        const paidState = document.getElementById('gatewayPaidState');
-        const displayPaidRef = document.getElementById('displayPaidRef');
-        const displayPaidChannel = document.getElementById('displayPaidChannel');
-        const verifiedUiInput = document.getElementById('input_payment_verified_ui');
-        let activeGatewayTab = 'card';
 
-        function generatePaystackRef() {
-            const randHex = Math.random().toString(16).substring(2, 8).toUpperCase();
-            const d = new Date();
-            const ymd = d.getFullYear().toString() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
-            return 'PSTK-STB-' + ymd + '-' + randHex;
-        }
+        // If user just returned from Paystack Checkout, restore their form draft and scroll to payment section
+        if (paymentSection && paymentSection.getAttribute('data-paystack-returned') === '1') {
+            restoreFormDraft();
 
-        function markPaymentVerified(ref, channelLabel, methodCode) {
-            if (paymentRefInput) paymentRefInput.value = ref;
-            if (paymentStatusInput) paymentStatusInput.value = 'paid';
-            if (verifiedUiInput) verifiedUiInput.value = '1';
-            if (displayPaidRef) displayPaidRef.textContent = ref;
-            if (displayPaidChannel) displayPaidChannel.textContent = channelLabel;
-
-            const radioOnline = document.querySelector('input[name="payment_method"][value^="paystack_"], input[name="payment_method"][value^="online_"]');
-            if (radioOnline) {
-                radioOnline.value = methodCode || 'paystack_card';
+            // If on multi-step apply.php, jump straight to Step 4
+            const step4 = document.getElementById('step4');
+            if (step4) {
+                document.querySelectorAll('.form-step').forEach(function(s) { s.classList.remove('active'); });
+                step4.classList.add('active');
+                document.querySelectorAll('.progress-step').forEach(function(ps, idx) {
+                    if (idx < 3) ps.classList.add('completed');
+                    if (idx === 3) ps.classList.add('active');
+                });
             }
 
-            if (unpaidState) unpaidState.style.display = 'none';
-            if (paidState) paidState.style.display = 'flex';
-            if (modal) modal.style.display = 'none';
-        }
+            setTimeout(function() {
+                paymentSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 250);
 
-        function verifyWithBackend(ref, fallbackChannelLabel, fallbackMethodCode, doneCallback) {
-            const verifyUrl = (window.BASE_URL || '') + '/api/paystack-verify.php';
-            fetch(verifyUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-Token': window.CSRF_TOKEN || ''
-                },
-                body: JSON.stringify({
-                    reference: ref,
-                    amount: window.APPLICATION_FEE_NAIRA || 15000,
-                    csrf_token: window.CSRF_TOKEN || ''
-                })
-            })
-            .then(function(res) { return res.json(); })
-            .then(function(data) {
-                if (data && data.success) {
-                    markPaymentVerified(data.reference || ref, fallbackChannelLabel, data.channel || fallbackMethodCode);
-                } else {
-                    alert((data && data.message) ? data.message : 'Payment verification failed.');
-                }
-                if (doneCallback) doneCallback();
-            })
-            .catch(function() {
-                markPaymentVerified(ref, fallbackChannelLabel, fallbackMethodCode);
-                if (doneCallback) doneCallback();
-            });
+            if (window.history && window.history.replaceState) {
+                const cleanUrl = window.location.pathname + window.location.hash;
+                window.history.replaceState({}, document.title, cleanUrl);
+            }
         }
 
         methodOptions.forEach(function(opt) {
@@ -1206,88 +1018,62 @@ function renderApplicationComponentsAssets(): void
             });
         });
 
+        // Route user to Paystack Hosted Checkout interface
         if (openModalBtn) {
             openModalBtn.addEventListener('click', function() {
+                saveFormDraft();
+
                 const emailEl = document.querySelector('input[name="parent_email"]');
+                const parentNameEl = document.querySelector('input[name="parent_name"], input[name="parent_first_name"]');
+                const childNameEl = document.querySelector('input[name="first_name"], input[name="child_first_name"]');
+                const phoneEl = document.querySelector('input[name="parent_phone"]');
+
                 const applicantEmail = (emailEl && emailEl.value && emailEl.value.indexOf('@') !== -1)
                     ? emailEl.value.trim()
                     : 'admissions@stbenedicts.edu.ng';
 
-                // If live/test Paystack Public Key is configured and PaystackPop is available, launch official Paystack Popup
-                if (window.PAYSTACK_PUBLIC_KEY && typeof window.PaystackPop !== 'undefined') {
-                    const ref = generatePaystackRef();
-                    const handler = window.PaystackPop.setup({
-                        key: window.PAYSTACK_PUBLIC_KEY,
+                const origHtml = openModalBtn.innerHTML;
+                openModalBtn.disabled = true;
+                openModalBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Routing to Paystack...';
+
+                // Compute relative path from BASE_URL so callback_url matches current page (/public/admissions or /public/apply)
+                let returnPath = '/public/admissions';
+                if (window.location.pathname.indexOf('/apply') !== -1) {
+                    returnPath = '/public/apply';
+                }
+
+                const initUrl = (window.BASE_URL || '') + '/api/paystack-init.php';
+                fetch(initUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': window.CSRF_TOKEN || ''
+                    },
+                    body: JSON.stringify({
                         email: applicantEmail,
-                        amount: Math.round((window.APPLICATION_FEE_NAIRA || 15000) * 100),
-                        currency: 'NGN',
-                        ref: ref,
-                        callback: function(response) {
-                            verifyWithBackend(response.reference || ref, 'Paystack Online Checkout', 'paystack_card');
-                        },
-                        onClose: function() {}
-                    });
-                    handler.openIframe();
-                    return;
-                }
-
-                // Fallback interactive Paystack / School Bursary modal
-                const emailLabel = document.getElementById('modalApplicantEmailDisplay');
-                if (emailLabel) {
-                    emailLabel.textContent = applicantEmail;
-                }
-                if (modal) modal.style.display = 'flex';
-            });
-        }
-
-        if (closeModalBtn && modal) {
-            closeModalBtn.addEventListener('click', function() {
-                modal.style.display = 'none';
-            });
-        }
-
-        const payTabs = document.querySelectorAll('.stb-pay-tab');
-        payTabs.forEach(function(tab) {
-            tab.addEventListener('click', function() {
-                payTabs.forEach(t => t.classList.remove('active'));
-                this.classList.add('active');
-                activeGatewayTab = this.getAttribute('data-tab');
-                ['card', 'transfer', 'ussd'].forEach(function(k) {
-                    const pane = document.getElementById('stbTab_' + k);
-                    if (pane) pane.style.display = (k === activeGatewayTab) ? 'block' : 'none';
+                        parent_name: parentNameEl ? parentNameEl.value : '',
+                        child_name: childNameEl ? childNameEl.value : '',
+                        phone: phoneEl ? phoneEl.value : '',
+                        return_path: returnPath,
+                        csrf_token: window.CSRF_TOKEN || ''
+                    })
+                })
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    if (data && data.success && data.authorization_url) {
+                        // Redirect browser directly to Paystack Hosted Checkout interface
+                        window.location.href = data.authorization_url;
+                    } else {
+                        openModalBtn.disabled = false;
+                        openModalBtn.innerHTML = origHtml;
+                        alert((data && data.message) ? data.message : 'Unable to connect to Paystack right now. Please try again.');
+                    }
+                })
+                .catch(function() {
+                    openModalBtn.disabled = false;
+                    openModalBtn.innerHTML = origHtml;
+                    alert('Network error while connecting to Paystack. Please check your internet connection and try again.');
                 });
-            });
-        });
-
-        const ussdSelect = document.getElementById('simUssdBank');
-        const ussdDisplay = document.getElementById('ussdCodeDisplay');
-        if (ussdSelect && ussdDisplay) {
-            ussdSelect.addEventListener('change', function() {
-                ussdDisplay.textContent = this.value;
-            });
-        }
-
-        if (confirmPayBtn) {
-            confirmPayBtn.addEventListener('click', function() {
-                const origHtml = confirmPayBtn.innerHTML;
-                confirmPayBtn.disabled = true;
-                confirmPayBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying with Paystack...';
-
-                const newRef = generatePaystackRef();
-                const channelMap = {
-                    'card': 'Paystack Card Payment',
-                    'transfer': 'Paystack / Zenith Bank Transfer (1310057496)',
-                    'ussd': 'Paystack USSD Channel'
-                };
-                const channelLabel = channelMap[activeGatewayTab] || 'Paystack Card Payment';
-                const methodCode = 'paystack_' + activeGatewayTab;
-
-                setTimeout(function() {
-                    verifyWithBackend(newRef, channelLabel, methodCode, function() {
-                        confirmPayBtn.disabled = false;
-                        confirmPayBtn.innerHTML = origHtml;
-                    });
-                }, 500);
             });
         }
     });
