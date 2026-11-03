@@ -303,6 +303,9 @@ test('polish.css contains compact mvg-slideshow rules', strpos($polishCss, 'body
 test('includes/footer.php has centered footer-bottom copyright and privacy notice', strpos($footerContent, '<div class="footer-bottom" style="text-align: center;">') !== false);
 test('polish.css enforces text-align center on .footer-bottom for mobile', strpos($polishCss, 'body .footer-bottom, body .footer-bottom p') !== false && strpos($polishCss, 'text-align: center !important') !== false);
 test('cms_default school.email returns support@stbenedictsacademy.com.ng', cms_default('school.email') === 'support@stbenedictsacademy.com.ng');
+test('index.php pillars-grid has 1fr column layout on mobile', strpos($indexContent, '.pillars-grid {') !== false && strpos($indexContent, 'grid-template-columns: 1fr !important;') !== false);
+$mobileCss = file_get_contents(__DIR__ . '/../assets/css/mobile.css');
+test('mobile.css enforces 1fr for pillars-grid on <= 767px', strpos($mobileCss, 'body .core-pillars-section .pillars-grid') !== false && strpos($mobileCss, 'grid-template-columns: 1fr !important;') !== false);
 
 echo "\n==========================================\n";
 echo "$pass passed, $fail failed\n";

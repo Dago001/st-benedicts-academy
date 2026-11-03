@@ -97,6 +97,28 @@ body .data-table, body .table { width: 100%; }
 @media (max-width: 767px) {
     body .container, body .page-section { padding-left: 16px; padding-right: 16px; }
 
+    /* Core Pillars Section: Clean single full-width card per row on mobile */
+    body .core-pillars-section,
+    .core-pillars-section {
+        padding: 36px 0 !important;
+    }
+    body .core-pillars-section .pillars-grid,
+    body .pillars-grid,
+    .pillars-grid {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+        width: 100% !important;
+    }
+    body .core-pillars-section .pillar-card,
+    body .pillar-card,
+    .pillar-card {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        padding: 24px 20px !important;
+    }
+
     /* Page header strip on public pages */
     body .page-header { padding: 28px 16px; }
     body .page-header h1 { font-size: 1.5rem !important; line-height: 1.25 !important; height: auto !important; display: block; }

@@ -449,6 +449,41 @@ try {
         gap: 20px;
     }
 
+    @media (max-width: 991px) {
+        .pillars-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 16px !important;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .core-pillars-section {
+            padding: 36px 0 !important;
+        }
+        .pillars-header {
+            margin-bottom: 22px !important;
+            padding: 0 10px;
+        }
+        .pillars-title {
+            font-size: 1.45rem !important;
+            line-height: 1.3 !important;
+        }
+        .pillars-subtitle {
+            font-size: 0.92rem !important;
+            line-height: 1.55 !important;
+        }
+        .pillars-grid {
+            grid-template-columns: 1fr !important;
+            gap: 16px !important;
+        }
+        .pillar-card {
+            width: 100% !important;
+            max-width: 100% !important;
+            padding: 24px 20px !important;
+            box-sizing: border-box !important;
+        }
+    }
+
     .pillar-card {
         background: rgba(255, 255, 255, 0.08);
         border: 1px solid rgba(255, 255, 255, 0.15);
@@ -1036,6 +1071,17 @@ try {
             grid-template-columns: 1fr;
         }
 
+        .pillars-grid {
+            grid-template-columns: 1fr !important;
+            gap: 16px !important;
+        }
+
+        .pillar-card {
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+        }
+
         .floating-card {
             display: none;
         }
@@ -1079,6 +1125,18 @@ try {
         .stats-grid,
         .stats-container {
             grid-template-columns: 1fr;
+        }
+
+        .pillars-grid {
+            grid-template-columns: 1fr !important;
+            gap: 14px !important;
+        }
+
+        .pillar-card {
+            width: 100% !important;
+            max-width: 100% !important;
+            padding: 22px 18px !important;
+            box-sizing: border-box !important;
         }
 
         .slider-controls {

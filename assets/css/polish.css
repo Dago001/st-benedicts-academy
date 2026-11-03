@@ -108,21 +108,32 @@ body .core-pillars-section .pillar-desc {
 }
 
 @media (max-width: 991px) {
-    body .core-pillars-section .pillars-grid {
+    body .core-pillars-section .pillars-grid,
+    .core-pillars-section .pillars-grid,
+    .pillars-grid {
         grid-template-columns: repeat(2, 1fr) !important;
         gap: 16px !important;
     }
 }
-@media (max-width: 576px) {
-    body .core-pillars-section {
-        padding: 40px 0 !important;
+@media (max-width: 768px) {
+    body .core-pillars-section,
+    .core-pillars-section {
+        padding: 36px 0 !important;
     }
-    body .core-pillars-section .pillars-grid {
+    body .core-pillars-section .pillars-grid,
+    .core-pillars-section .pillars-grid,
+    .pillars-grid {
         grid-template-columns: 1fr !important;
-        gap: 14px !important;
+        gap: 16px !important;
+        width: 100% !important;
     }
-    body .core-pillars-section .pillar-card {
-        padding: 22px 16px !important;
+    body .core-pillars-section .pillar-card,
+    .core-pillars-section .pillar-card,
+    .pillar-card {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        padding: 24px 20px !important;
     }
 }
 
