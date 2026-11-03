@@ -2268,20 +2268,12 @@ textarea.form-control {
 }
 
 .sidebar-nav li a::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 3px;
-    background-color: var(--gold);
-    transform: translateX(-100%);
-    transition: transform var(--transition-fast);
+    display: none !important;
 }
 
 .sidebar-nav li a:hover::before,
 .sidebar-nav li.active a::before {
-    transform: translateX(0);
+    display: none !important;
 }
 
 .sidebar-nav li a:hover,

@@ -11,8 +11,13 @@ $mk = function ($u, $email, $f, $l, $role) use ($db, $pw) {
     return $db->insert("INSERT INTO users (username,email,password_hash,first_name,last_name,phone,role,is_active) VALUES (?,?,?,?,?,?,?,1)",
         [$u, $email, $pw, $f, $l, '08031234567', $role]);
 };
-$db->query("UPDATE users SET password_hash = ? WHERE role='admin'", [$pw]);
+$db->query("UPDATE users SET password_hash = ? WHERE role='admin' OR role='super_admin'", [$pw]);
 
+// 7 Tested Roles:
+$saUser = $mk('superadmin', 'superadmin@test.com', 'Super', 'Administrator', 'super_admin');
+$admUser = $mk('admin1', 'admin@test.com', 'System', 'Administrator', 'admin');
+$htUser = $mk('headteacher1', 'headteacher@test.com', 'Helen', 'HeadTeacher', 'head_teacher');
+$supUser = $mk('supervisor1', 'supervisor@test.com', 'Simon', 'Supervisor', 'supervisor');
 $tUser = $mk('teacher1', 'teacher@test.com', 'Tina', 'Teacher', 'teacher');
 $db->query("DELETE FROM teachers WHERE employee_id='T001'");
 $tid = $db->insert("INSERT INTO teachers (user_id, employee_id, qualification, specialization, date_of_hire) VALUES (?, 'T001','B.Ed','Maths','2020-01-01')", [$tUser]);

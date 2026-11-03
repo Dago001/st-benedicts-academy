@@ -130,12 +130,13 @@ class Auth {
 
     /** Only same-site paths are honoured as post-login redirects. */
     private function safeRedirect($target, $role) {
-        $default = BASE_URL . '/' . $role . '/dashboard';
+        $baseRoleDir = in_array($role, ['super_admin', 'admin', 'head_teacher', 'supervisor'], true) ? 'admin' : $role;
+        $default = BASE_URL . '/' . $baseRoleDir . '/dashboard';
         if (!$target || !is_string($target) || $target[0] !== '/' || strpos($target, '//') === 0 || strpos($target, '\\') !== false) {
             return $default;
         }
         $base = parse_url(BASE_URL, PHP_URL_PATH) ?: '';
-        if (strpos($target, $base . '/' . $role . '/') !== 0) {
+        if (strpos($target, $base . '/' . $baseRoleDir . '/') !== 0 && strpos($target, $base . '/' . $role . '/') !== 0) {
             return $default;
         }
         return (parse_url(BASE_URL, PHP_URL_SCHEME) . '://' . parse_url(BASE_URL, PHP_URL_HOST)
@@ -159,12 +160,14 @@ class Auth {
     public function hasPermission($userId, $permission) {
         $user = $this->db->getRow('SELECT role FROM users WHERE id = ?', [$userId]);
         if (!$user) return false;
-        if ($user['role'] === 'admin') return true;
+        if (in_array($user['role'], ['super_admin', 'admin'], true)) return true;
 
         $permissions = [
-            'teacher' => ['view_students', 'mark_attendance', 'add_results', 'view_own_classes', 'upload_assignments', 'view_own_schedule'],
-            'student' => ['view_own_results', 'view_own_attendance', 'submit_assignments', 'view_announcements'],
-            'parent'  => ['view_children', 'view_fees', 'communicate', 'view_attendance'],
+            'head_teacher' => ['view_students', 'mark_attendance', 'add_results', 'approve_results', 'view_all_classes', 'upload_assignments', 'view_schedules', 'manage_academics'],
+            'supervisor'   => ['view_students', 'mark_attendance', 'view_all_classes', 'view_schedules', 'supervise_academics'],
+            'teacher'      => ['view_students', 'mark_attendance', 'add_results', 'view_own_classes', 'upload_assignments', 'view_own_schedule'],
+            'student'      => ['view_own_results', 'view_own_attendance', 'submit_assignments', 'view_own_schedule'],
+            'parent'       => ['view_children_results', 'view_children_attendance', 'pay_fees', 'view_children_schedule'],
         ];
         return in_array($permission, $permissions[$user['role']] ?? [], true);
     }

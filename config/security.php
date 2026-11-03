@@ -89,6 +89,24 @@ class Security {
         return password_verify($password, $hash);
     }
 
+    public const ROLE_SUPER_ADMIN  = 'super_admin';
+    public const ROLE_ADMIN        = 'admin';
+    public const ROLE_HEAD_TEACHER = 'head_teacher';
+    public const ROLE_SUPERVISOR   = 'supervisor';
+    public const ROLE_TEACHER      = 'teacher';
+    public const ROLE_PARENT       = 'parent';
+    public const ROLE_STUDENT      = 'student';
+
+    public const ROLES = [
+        self::ROLE_SUPER_ADMIN  => 'Super Administrator',
+        self::ROLE_ADMIN        => 'Administrator',
+        self::ROLE_HEAD_TEACHER => 'Head Teacher',
+        self::ROLE_SUPERVISOR   => 'Supervisor',
+        self::ROLE_TEACHER      => 'Teacher',
+        self::ROLE_PARENT       => 'Parent',
+        self::ROLE_STUDENT      => 'Student',
+    ];
+
     public static function isLoggedIn() {
         return isset($_SESSION['user_id']) && isset($_SESSION['user_role']);
     }
@@ -97,8 +115,76 @@ class Security {
         return self::isLoggedIn() ? $_SESSION['user_role'] : null;
     }
 
-    /** $role can be a single role or an array of roles. */
+    public static function roleTitle(?string $role = null): string {
+        $role = $role ?? self::currentRole() ?? '';
+        return self::ROLES[$role] ?? ucwords(str_replace('_', ' ', (string)$role));
+    }
+
+    public static function roleBadge(?string $role = null): string {
+        $role = $role ?? self::currentRole() ?? '';
+        $badges = [
+            self::ROLE_SUPER_ADMIN  => '⭐ Super Admin',
+            self::ROLE_ADMIN        => '🛡️ Admin',
+            self::ROLE_HEAD_TEACHER => '🎓 Head Teacher',
+            self::ROLE_SUPERVISOR   => '🔍 Supervisor',
+            self::ROLE_TEACHER      => '📚 Teacher',
+            self::ROLE_PARENT       => '👨‍👩‍👧 Parent',
+            self::ROLE_STUDENT      => '🎒 Student',
+        ];
+        return $badges[$role] ?? ucfirst((string)$role);
+    }
+
+    public static function isSuperAdmin(): bool {
+        return self::isLoggedIn() && ($_SESSION['user_role'] === self::ROLE_SUPER_ADMIN);
+    }
+
+    public static function isAdmin(): bool {
+        return self::isLoggedIn() && in_array($_SESSION['user_role'], [self::ROLE_SUPER_ADMIN, self::ROLE_ADMIN], true);
+    }
+
+    public static function isAcademicStaff(): bool {
+        return self::isLoggedIn() && in_array($_SESSION['user_role'], [self::ROLE_SUPER_ADMIN, self::ROLE_ADMIN, self::ROLE_HEAD_TEACHER, self::ROLE_SUPERVISOR, self::ROLE_TEACHER], true);
+    }
+
+    /** $role can be a single role or an array of roles. Respects role hierarchy. */
     public static function hasRole($role) {
+        if (!self::isLoggedIn()) {
+            return false;
+        }
+        $curr = $_SESSION['user_role'] ?? '';
+        $roles = (array)$role;
+
+        // Exact match
+        if (in_array($curr, $roles, true)) {
+            return true;
+        }
+
+        // Super Administrator has administrative & academic oversight
+        if ($curr === self::ROLE_SUPER_ADMIN && (
+            in_array(self::ROLE_ADMIN, $roles, true) ||
+            in_array(self::ROLE_HEAD_TEACHER, $roles, true) ||
+            in_array(self::ROLE_SUPERVISOR, $roles, true)
+        )) {
+            return true;
+        }
+
+        // Administrator has head teacher and supervisor level access
+        if ($curr === self::ROLE_ADMIN && (
+            in_array(self::ROLE_HEAD_TEACHER, $roles, true) ||
+            in_array(self::ROLE_SUPERVISOR, $roles, true)
+        )) {
+            return true;
+        }
+
+        // Head Teacher has supervisor level access
+        if ($curr === self::ROLE_HEAD_TEACHER && in_array(self::ROLE_SUPERVISOR, $roles, true)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    public static function hasExactRole($role) {
         if (!self::isLoggedIn()) {
             return false;
         }
@@ -324,7 +410,10 @@ class Security {
         if ($studentId <= 0 || !self::isLoggedIn()) return false;
         $db = self::getDB();
         switch ($_SESSION['user_role']) {
+            case 'super_admin':
             case 'admin':
+            case 'head_teacher':
+            case 'supervisor':
                 return true;
             case 'student':
                 return self::currentStudentId() === $studentId;
@@ -345,7 +434,11 @@ class Security {
         if ($classId <= 0 || !self::isLoggedIn()) return false;
         $db = self::getDB();
         switch ($_SESSION['user_role']) {
+            case 'super_admin':
             case 'admin':
+            case 'head_teacher':
+                return true;
+            case 'supervisor':
                 return true;
             case 'teacher':
                 $tid = self::currentTeacherId() ?? 0;

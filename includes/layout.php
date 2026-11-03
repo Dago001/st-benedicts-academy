@@ -1,65 +1,169 @@
 <?php
-// includes/layout.php - shared dashboard layout pieces (sidebar, alerts, page chrome)
+// includes/layout.php - Shared dashboard layout pieces (sidebar, alerts, page chrome)
+require_once __DIR__ . '/../config/security.php';
 
-if (!function_exists('nav_items')) {
-    /** Navigation entries per role: [file, label, icon]. */
-    function nav_items($role) {
-        $nav = [
-            'admin' => [
-                ['dashboard', 'Dashboard', 'fa-home'],
-                ['students', 'Students', 'fa-user-graduate'],
-                ['parents', 'Parents', 'fa-users'],
-                ['teachers', 'Teachers', 'fa-chalkboard-teacher'],
-                ['classes', 'Classes', 'fa-school'],
-                ['subjects', 'Subjects', 'fa-book'],
-                ['attendance', 'Attendance', 'fa-calendar-check'],
-                ['fees', 'Fees', 'fa-money-bill'],
-                ['results', 'Results', 'fa-chart-line'],
-                ['applications', 'Applications', 'fa-file-signature'],
-                ['careers', 'Careers', 'fa-briefcase'],
-                ['announcements', 'Announcements', 'fa-bullhorn'],
-                ['site-content', 'Site Content', 'fa-edit'],
-                ['slides', 'Home Slider', 'fa-film'],
-                ['pages', 'Extra Pages', 'fa-file-alt'],
-                ['news', 'News & Events', 'fa-newspaper'],
-                ['gallery', 'Gallery', 'fa-images'],
-                ['chatbot', 'Chatbot', 'fa-robot'],
-                ['maintenance', 'Maintenance Mode', 'fa-tools'],
-                ['reports', 'Reports', 'fa-file-alt'],
-                ['audit-logs', 'Audit Logs', 'fa-history'],
-                ['profile', 'Profile', 'fa-user-cog'],
+if (!function_exists('nav_sections')) {
+    /** Structured navigation categories per role */
+    function nav_sections($role) {
+        $role = $role ?: ($_SESSION['user_role'] ?? 'student');
+        $isSuperAdmin = Security::isSuperAdmin();
+        $isAdmin = Security::isAdmin();
+        $isAcademicLead = in_array($role, ['super_admin', 'admin', 'head_teacher', 'supervisor'], true);
+
+        if ($isAcademicLead) {
+            $sections = [
+                'MAIN' => [
+                    ['dashboard', 'Dashboard', 'fa-home', ''],
+                ],
+                'STUDENTS' => [
+                    ['admissions-enquiry', 'Admission Enquiry', 'fa-clipboard-list', ''],
+                    ['new-admission', 'New Admission', 'fa-user-plus', ''],
+                    ['students', 'All Students', 'fa-user-graduate', ''],
+                    ['passed-out-archive', 'Passed Out Archive', 'fa-archive', ''],
+                    ['promotion', 'Promotion', 'fa-graduation-cap', ''],
+                    ['session-report', 'Session Report', 'fa-file-invoice', 'accent-orange'],
+                ],
+            ];
+
+            if ($isAdmin) {
+                $sections['FEES'] = [
+                    ['fees?tab=structures', 'Fee Structure', 'fa-list-alt', ''],
+                    ['fees', 'Fee Collection', 'fa-money-bill-wave', ''],
+                    ['quick-fee-collect', 'Quick Fee Collect', 'fa-bolt', 'accent-green'],
+                    ['fee-reminders', 'WhatsApp Reminder', 'fa-paper-plane', 'accent-green'],
+                    ['fee-deletion-log', 'Fee Deletion Log', 'fa-trash-alt', 'accent-red'],
+                ];
+            }
+
+            $sections['ACADEMICS'] = [
+                ['attendance', 'Attendance', 'fa-calendar-check', ''],
+                ['attendance-report', 'Attendance Report', 'fa-chart-line', ''],
+                ['exams', 'Exams', 'fa-file-alt', ''],
+                ['marks-entry', 'Marks Entry', 'fa-edit', ''],
+                ['results', 'Class Result', 'fa-poll', ''],
+                ['subjects', 'Subjects', 'fa-book', ''],
+                ['assign-subjects', 'Class-Subject Map', 'fa-link', ''],
+                ['timetable', 'Exam Schedule', 'fa-clock', ''],
+            ];
+
+            if ($isAdmin) {
+                $sections['FINANCE'] = [
+                    ['expenses', 'Expenses', 'fa-receipt', ''],
+                    ['reports', 'All Reports', 'fa-file-contract', ''],
+                    ['income-expense', 'Income vs Expense', 'fa-balance-scale', 'accent-purple'],
+                ];
+            }
+
+            $staffItems = [
+                ['teachers', 'Staff Management', 'fa-user-tie', ''],
+            ];
+            if ($isAdmin) {
+                $staffItems[] = ['salary', 'Salary Management', 'fa-credit-card', ''];
+                $staffItems[] = ['salary-report', 'Salary Report', 'fa-chart-bar', ''];
+            }
+            $sections['STAFF / PAYROLL'] = $staffItems;
+
+            $sections['COMMUNICATION'] = [
+                ['announcements', 'Notices', 'fa-bullhorn', ''],
+            ];
+
+            if ($isAdmin) {
+                $sections['ADMIN'] = [
+                    ['site-content', 'Admin Settings', 'fa-sliders-h', ''],
+                    ['site-content', 'Settings', 'fa-cog', ''],
+                ];
+            }
+
+            $sections['ACCOUNT'] = [
+                ['profile', 'Password Change', 'fa-key', ''],
+                ['../logout', 'Logout', 'fa-sign-out-alt', 'accent-red'],
+            ];
+
+            return $sections;
+        }
+
+        if ($role === 'teacher') {
+            return [
+                'MAIN' => [
+                    ['dashboard', 'Dashboard', 'fa-home', ''],
+                ],
+                'MY ACADEMICS' => [
+                    ['classes', 'My Classes', 'fa-school', ''],
+                    ['attendance', 'Attendance', 'fa-calendar-check', ''],
+                    ['results', 'Marks & Results', 'fa-chart-line', ''],
+                    ['assignments', 'Assignments', 'fa-tasks', ''],
+                ],
+                'STUDENTS' => [
+                    ['students', 'My Students', 'fa-user-graduate', ''],
+                ],
+                'COMMUNICATION' => [
+                    ['messages', 'Messages', 'fa-envelope', ''],
+                ],
+                'ACCOUNT' => [
+                    ['profile', 'Profile & Password', 'fa-user-cog', ''],
+                    ['../logout', 'Logout', 'fa-sign-out-alt', 'accent-red'],
+                ],
+            ];
+        }
+
+        if ($role === 'parent') {
+            return [
+                'MAIN' => [
+                    ['dashboard', 'Dashboard', 'fa-home', ''],
+                ],
+                'MY CHILDREN' => [
+                    ['children', 'My Children', 'fa-child', ''],
+                    ['child-performance', 'Child Performance', 'fa-chart-line', ''],
+                    ['schedule', 'Timetable', 'fa-clock', ''],
+                ],
+                'FEES & PAYMENTS' => [
+                    ['fees', 'Fee Status & Paystack', 'fa-money-bill-wave', 'accent-green'],
+                ],
+                'COMMUNICATION' => [
+                    ['messages', 'Messages', 'fa-envelope', ''],
+                ],
+                'ACCOUNT' => [
+                    ['profile', 'Profile & Password', 'fa-user-cog', ''],
+                    ['../logout', 'Logout', 'fa-sign-out-alt', 'accent-red'],
+                ],
+            ];
+        }
+
+        // Student default
+        return [
+            'MAIN' => [
+                ['dashboard', 'Dashboard', 'fa-home', ''],
             ],
-            'teacher' => [
-                ['dashboard', 'Dashboard', 'fa-home'],
-                ['classes', 'My Classes', 'fa-school'],
-                ['attendance', 'Attendance', 'fa-calendar-check'],
-                ['results', 'Results', 'fa-chart-line'],
-                ['assignments', 'Assignments', 'fa-tasks'],
-                ['students', 'Students', 'fa-user-graduate'],
-                ['messages', 'Messages', 'fa-envelope'],
-                ['profile', 'Profile', 'fa-user-cog'],
+            'MY ACADEMICS' => [
+                ['timetable', 'Timetable', 'fa-clock', ''],
+                ['attendance', 'Attendance', 'fa-calendar-check', ''],
+                ['assignments', 'Assignments & Homework', 'fa-tasks', ''],
+                ['results', 'My Results', 'fa-chart-line', ''],
             ],
-            'student' => [
-                ['dashboard', 'Dashboard', 'fa-home'],
-                ['results', 'My Results', 'fa-chart-line'],
-                ['attendance', 'Attendance', 'fa-calendar-check'],
-                ['assignments', 'Assignments', 'fa-tasks'],
-                ['timetable', 'Timetable', 'fa-clock'],
-                ['fees', 'Fees', 'fa-money-bill'],
-                ['messages', 'Messages', 'fa-envelope'],
-                ['profile', 'Profile', 'fa-user-cog'],
+            'FEES' => [
+                ['fees', 'Fees & Receipts', 'fa-money-bill', ''],
             ],
-            'parent' => [
-                ['dashboard', 'Dashboard', 'fa-home'],
-                ['children', 'My Children', 'fa-child'],
-                ['child-performance', 'Child Performance', 'fa-chart-line'],
-                ['fees', 'Fee Status', 'fa-money-bill'],
-                ['schedule', 'Timetable', 'fa-clock'],
-                ['messages', 'Messages', 'fa-envelope'],
-                ['profile', 'Profile', 'fa-user-cog'],
+            'COMMUNICATION' => [
+                ['messages', 'Messages', 'fa-envelope', ''],
+            ],
+            'ACCOUNT' => [
+                ['profile', 'Profile & Password', 'fa-user-cog', ''],
+                ['../logout', 'Logout', 'fa-sign-out-alt', 'accent-red'],
             ],
         ];
-        return $nav[$role] ?? [];
+    }
+}
+
+if (!function_exists('nav_items')) {
+    /** Flattened nav items fallback */
+    function nav_items($role) {
+        $flat = [];
+        foreach (nav_sections($role) as $category => $items) {
+            foreach ($items as $item) {
+                $flat[] = [$item[0], $item[1], $item[2]];
+            }
+        }
+        return $flat;
     }
 }
 
@@ -75,55 +179,99 @@ if (!function_exists('unread_message_count')) {
 }
 
 if (!function_exists('render_sidebar')) {
-    /** Outputs the role sidebar (with mobile toggle + overlay). */
+    /** Outputs the modern global-standard role sidebar (with mobile toggle + overlay). */
     function render_sidebar($role = null) {
-        $role = $role ?: ($_SESSION['user_role'] ?? '');
-        $titles = ['admin' => 'Admin Panel', 'teacher' => 'Teacher Panel', 'student' => 'Student Panel', 'parent' => 'Parent Portal'];
+        $role = $role ?: ($_SESSION['user_role'] ?? 'student');
         $current = basename($_SERVER['SCRIPT_NAME'], '.php');
-        // Pages that belong to a nav entry although their file name differs
+        $baseRoleDir = in_array($role, ['super_admin', 'admin', 'head_teacher', 'supervisor'], true) ? 'admin' : $role;
+
         $alias = [
             'mark-attendance' => 'attendance', 'view-student' => 'students', 'teacher-profile' => 'teachers',
             'view-parent' => 'parents', 'student-fees' => 'fees', 'print-receipt' => 'fees',
-            'view-receipt' => 'fees', 'attendance-report' => 'attendance', 'submissions' => 'assignments',
-            'timetable' => 'classes', 'assign-subjects' => 'teachers', 'attendance-detail' => 'attendance',
-            'generate-login' => 'students', 'career-applications' => 'careers', 'vacancies' => 'careers',
+            'view-receipt' => 'fees', 'attendance-detail' => 'attendance', 'submissions' => 'assignments',
+            'assign-subjects' => 'assign-subjects', 'career-applications' => 'careers', 'vacancies' => 'careers',
+            'quick-fee-collect' => 'quick-fee-collect', 'fee-reminders' => 'fee-reminders', 'fee-deletion-log' => 'fee-deletion-log',
+            'new-admission' => 'new-admission', 'admissions-enquiry' => 'admissions-enquiry', 'passed-out-archive' => 'passed-out-archive',
+            'promotion' => 'promotion', 'session-report' => 'session-report', 'attendance-report' => 'attendance-report',
+            'exams' => 'exams', 'marks-entry' => 'marks-entry', 'expenses' => 'expenses', 'income-expense' => 'income-expense',
+            'salary' => 'salary', 'salary-report' => 'salary-report',
         ];
         $active = $alias[$current] ?? $current;
         $unread = unread_message_count();
-        $pendingCareers = ($role === 'admin' && class_exists('Career')) ? Career::pendingCount() : 0;
+        $sections = nav_sections($role);
+        $displayName = $_SESSION['user_name'] ?? Security::roleTitle();
+        $userInitial = strtoupper(substr($displayName, 0, 1));
+        $badgeText = Security::roleBadge();
         ?>
     <button type="button" class="sidebar-toggle-mobile" id="sidebarToggle" aria-label="Open menu" aria-expanded="false" aria-controls="appSidebar">
         <i class="fas fa-bars"></i><span>Menu</span>
     </button>
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
-    <aside class="sidebar" id="appSidebar">
-        <div class="sidebar-header">
-            <a href="<?php echo BASE_URL . '/' . $role . '/dashboard'; ?>" class="sidebar-brand">
-                <img src="<?php echo BASE_URL; ?>/assets/images/logo.png" alt="<?php echo e(SITE_NAME); ?>" class="sidebar-logo">
-                <span class="sidebar-brand-text">
-                    <span class="school-name">ST. BENEDICT'S</span>
-                    <small>Early Years British Academy</small>
-                </span>
+    <aside class="sidebar modern-school-sidebar" id="appSidebar">
+        <!-- Brand & System Header -->
+        <div class="sidebar-brand-card">
+            <a href="<?php echo BASE_URL . '/' . $baseRoleDir . '/dashboard'; ?>" class="sidebar-brand-inner">
+                <img src="<?php echo BASE_URL; ?>/assets/images/logo.png" alt="Logo" class="sidebar-school-crest">
+                <div class="sidebar-brand-text-block">
+                    <span class="brand-school-title">ST. BENEDICT'S ACADEMY</span>
+                    <span class="brand-system-sub">Early Years British Academy</span>
+                </div>
             </a>
-            <div class="sidebar-title-row">
-                <h3><?php echo e($titles[$role] ?? 'Menu'); ?></h3>
-                <button type="button" class="sidebar-close" id="sidebarClose" aria-label="Close menu"><i class="fas fa-times"></i></button>
+            <button type="button" class="sidebar-close-btn" id="sidebarClose" aria-label="Close menu"><i class="fas fa-times"></i></button>
+        </div>
+
+        <!-- Super Administrator / User Profile Card -->
+        <div class="sidebar-user-profile-box">
+            <div class="user-avatar-badge">
+                <span><?php echo e($userInitial); ?></span>
+            </div>
+            <div class="user-meta-info">
+                <div class="user-full-name" title="<?php echo e($displayName); ?>"><?php echo e($displayName); ?></div>
+                <div class="user-role-tag"><?php echo e($badgeText); ?></div>
             </div>
         </div>
-        <nav class="sidebar-nav" aria-label="<?php echo e($titles[$role] ?? 'Menu'); ?>">
-            <ul>
-                <?php foreach (nav_items($role) as [$file, $label, $icon]): ?>
-                <li class="<?php echo $active === $file ? 'active' : ''; ?>">
-                    <a href="<?php echo e(BASE_URL . '/' . $role . '/' . $file); ?>"<?php echo $active === $file ? ' aria-current="page"' : ''; ?>>
-                        <i class="fas <?php echo e($icon); ?>"></i> <?php echo e($label); ?>
-                        <?php if ($file === 'messages' && $unread > 0): ?><span class="badge badge-danger"><?php echo $unread; ?></span><?php endif; ?>
-                        <?php if ($file === 'careers' && $pendingCareers > 0): ?><span class="badge badge-warning"><?php echo $pendingCareers; ?></span><?php endif; ?>
-                    </a>
-                </li>
-                <?php endforeach; ?>
-                <li><a href="<?php echo e(BASE_URL); ?>/logout"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
-            </ul>
+
+        <!-- Categorized Nav Menu -->
+        <nav class="sidebar-nav-scroll" aria-label="Main Navigation">
+            <?php foreach ($sections as $sectionTitle => $items): ?>
+                <div class="nav-section-group">
+                    <div class="nav-section-heading"><?php echo e($sectionTitle); ?></div>
+                    <ul class="nav-section-list">
+                        <?php foreach ($items as $item):
+                            $file = $item[0];
+                            $label = $item[1];
+                            $icon = $item[2];
+                            $accent = $item[3] ?? '';
+                            $url = (strpos($file, '/') !== false || strpos($file, 'http') === 0)
+                                ? (strpos($file, '../') === 0 ? BASE_URL . substr($file, 2) : $file)
+                                : BASE_URL . '/' . $baseRoleDir . '/' . $file;
+                            $checkKey = explode('?', $file)[0];
+                            $isActive = ($active === $checkKey);
+                        ?>
+                        <li class="nav-section-item <?php echo $isActive ? 'active' : ''; ?>">
+                            <a href="<?php echo e($url); ?>" class="nav-link-btn <?php echo e($accent); ?><?php echo $isActive ? ' is-active' : ''; ?>"<?php echo $isActive ? ' aria-current="page"' : ''; ?>>
+                                <i class="fas <?php echo e($icon); ?> nav-item-icon"></i>
+                                <span class="nav-item-label"><?php echo e($label); ?></span>
+                                <?php if ($file === 'messages' && $unread > 0): ?>
+                                    <span class="badge badge-danger nav-pill"><?php echo $unread; ?></span>
+                                <?php endif; ?>
+                            </a>
+                        </li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+            <?php endforeach; ?>
         </nav>
+
+        <!-- Sidebar Bottom Footer Info Bar -->
+        <div class="sidebar-bottom-bar">
+            <div class="sbb-phone"><i class="fas fa-phone-alt"></i> <span>09044472688</span></div>
+            <div class="sbb-links">
+                <a href="<?php echo BASE_URL; ?>" target="_blank" title="Website"><i class="fas fa-globe"></i> Website</a>
+                <span class="sbb-dot">&bull;</span>
+                <a href="<?php echo BASE_URL; ?>/public/contact" target="_blank" title="Contact"><i class="fas fa-envelope"></i> Contact</a>
+            </div>
+        </div>
     </aside>
         <?php
     }
@@ -149,6 +297,7 @@ if (!function_exists('dashboard_open')) {
         echo '</div>';
     }
 }
+
 if (!function_exists('dashboard_close')) {
     function dashboard_close() { echo '</main></div>'; }
 }

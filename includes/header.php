@@ -59,6 +59,7 @@ if (function_exists('enforce_maintenance_mode')) {
 
     <?php if ($isLoggedIn): ?>
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/vendor/datatables/jquery.dataTables.min.css?v=1">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/sidebar-modern.css?v=<?php echo $assetVersion; ?>">
     <script src="<?php echo BASE_URL; ?>/assets/vendor/chartjs/chart.umd.min.js?v=1"></script>
     <script src="<?php echo BASE_URL; ?>/assets/vendor/jquery/jquery-3.6.0.min.js"></script>
     <script src="<?php echo BASE_URL; ?>/assets/vendor/datatables/jquery.dataTables.min.js?v=1"></script>

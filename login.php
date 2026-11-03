@@ -6,7 +6,9 @@ require_once __DIR__ . '/includes/auth.php';
 
 // Redirect if already logged in
 if (Security::isLoggedIn()) {
-    header('Location: ' . BASE_URL . '/' . $_SESSION['user_role'] . '/dashboard');
+    $role = $_SESSION['user_role'] ?? 'student';
+    $baseRoleDir = in_array($role, ['super_admin', 'admin', 'head_teacher', 'supervisor'], true) ? 'admin' : $role;
+    header('Location: ' . BASE_URL . '/' . $baseRoleDir . '/dashboard');
     exit;
 }
 

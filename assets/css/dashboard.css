@@ -82,20 +82,12 @@
 }
 
 .sidebar-nav a::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 3px;
-    background: var(--gold);
-    transform: scaleY(0);
-    transition: transform 0.3s ease;
+    display: none !important;
 }
 
 .sidebar-nav a:hover::before,
 .sidebar-nav li.active a::before {
-    transform: scaleY(1);
+    display: none !important;
 }
 
 .sidebar-nav i {
