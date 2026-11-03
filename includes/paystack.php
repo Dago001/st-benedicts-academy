@@ -61,6 +61,9 @@ function school_account_number(): string {
  * Returns the configured Paystack Public Key (pk_test_... or pk_live_...).
  */
 function paystack_public_key(): string {
+    if (defined('TESTING') && TESTING) {
+        return '';
+    }
     if (defined('PAYSTACK_PUBLIC_KEY') && PAYSTACK_PUBLIC_KEY !== '') {
         return trim((string)PAYSTACK_PUBLIC_KEY);
     }
@@ -68,7 +71,7 @@ function paystack_public_key(): string {
     if ($env !== false && $env !== '') {
         return trim($env);
     }
-    if (function_exists('cms') && !(defined('TESTING') && TESTING)) {
+    if (function_exists('cms')) {
         $val = cms('paystack.public_key', '');
         if (!empty($val)) {
             return trim((string)$val);
@@ -81,6 +84,9 @@ function paystack_public_key(): string {
  * Returns the configured Paystack Secret Key (sk_test_... or sk_live_...).
  */
 function paystack_secret_key(): string {
+    if (defined('TESTING') && TESTING) {
+        return '';
+    }
     if (defined('PAYSTACK_SECRET_KEY') && PAYSTACK_SECRET_KEY !== '') {
         return trim((string)PAYSTACK_SECRET_KEY);
     }
@@ -88,7 +94,7 @@ function paystack_secret_key(): string {
     if ($env !== false && $env !== '') {
         return trim($env);
     }
-    if (function_exists('cms') && !(defined('TESTING') && TESTING)) {
+    if (function_exists('cms')) {
         $val = cms('paystack.secret_key', '');
         if (!empty($val)) {
             return trim((string)$val);
