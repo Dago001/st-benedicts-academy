@@ -2071,13 +2071,13 @@ textarea.form-control {
 
 .login-container {
     width: 100%;
-    max-width: 450px;
+    max-width: 380px;
 }
 
 .login-box {
     background-color: var(--white);
-    border-radius: var(--radius-xl);
-    padding: var(--spacing-2xl);
+    border-radius: 14px;
+    padding: 20px 22px;
     box-shadow: var(--shadow-xl);
     animation: fadeInUp var(--transition-slow);
 }
@@ -2085,7 +2085,7 @@ textarea.form-control {
 @keyframes fadeInUp {
     from {
         opacity: 0;
-        transform: translateY(20px);
+        transform: translateY(14px);
     }
     to {
         opacity: 1;
@@ -2095,66 +2095,72 @@ textarea.form-control {
 
 .login-header {
     text-align: center;
-    margin-bottom: var(--spacing-xl);
+    margin-bottom: 14px;
 }
 
 .login-logo {
-    width: 100px;
+    width: 50px;
     height: auto;
-    margin: 0 auto var(--spacing-lg);
+    margin: 0 auto 8px;
 }
 
 .login-header h1 {
-    font-size: var(--font-size-xl);
+    font-size: 1.15rem;
+    font-weight: 800;
     color: var(--navy);
-    margin-bottom: var(--spacing-xs);
+    margin-bottom: 3px;
+    line-height: 1.25;
 }
 
 .login-header p {
     color: var(--gray);
-    font-size: var(--font-size-sm);
+    font-size: 0.8rem;
+    margin: 0;
 }
 
 .login-form .form-group {
     position: relative;
+    margin-bottom: 11px;
 }
 
 .login-form label {
     display: flex;
     align-items: center;
-    gap: var(--spacing-xs);
-    margin-bottom: var(--spacing-xs);
+    gap: 6px;
+    margin-bottom: 4px;
     color: var(--navy);
-    font-weight: 500;
-    font-size: var(--font-size-sm);
+    font-weight: 600;
+    font-size: 0.82rem;
 }
 
 .login-form label i {
     color: var(--gold);
-    width: 20px;
+    width: 16px;
+    font-size: 0.85rem;
 }
 
 .login-form input {
     width: 100%;
-    padding: 0.75rem 1rem;
-    border: 2px solid var(--medium-gray);
+    height: 40px;
+    padding: 8px 12px;
+    border: 1.5px solid var(--medium-gray);
     border-radius: var(--radius-md);
-    font-size: var(--font-size-md);
+    font-size: 0.92rem;
     transition: all var(--transition-fast);
 }
 
 .login-form input:focus {
     outline: none;
-    border-color: var(--gold);
-    box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.1);
+    border-color: var(--navy);
+    box-shadow: 0 0 0 3px rgba(0, 40, 85, 0.1);
 }
 
 .login-footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-top: var(--spacing-lg);
-    padding-top: var(--spacing-lg);
+    margin-top: 12px;
+    padding-top: 10px;
     border-top: 1px solid var(--light-gray);
 }
 

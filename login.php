@@ -63,59 +63,96 @@ $csrf_token = Security::generateCSRFToken();
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/mobile.css">
     <?php if (function_exists('turnstile_script')) echo turnstile_script(); ?>
     <style>
-        /* Page-specific styles */
+        /* Page-specific styles - Compact & Balanced (Reduced height by 3 steps) */
         .login-page {
-            background: linear-gradient(135deg, rgba(0, 40, 85, 0.85) 0%, rgba(0, 26, 58, 0.9) 100%),
+            background: linear-gradient(135deg, rgba(0, 40, 85, 0.88) 0%, rgba(0, 26, 58, 0.92) 100%),
                         url('<?php echo BASE_URL; ?>/assets/images/background.png') center/cover no-repeat fixed;
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+            padding: 16px;
             position: relative;
         }
 
         .login-container {
             width: 100%;
-            max-width: 400px;
+            max-width: 380px;
             margin: 0 auto;
         }
 
         .login-box {
-            background-color: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 16px;
-            padding: 30px 25px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-            animation: fadeInUp 0.5s ease;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            background-color: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(12px);
+            border-radius: 14px;
+            padding: 20px 22px;
+            box-shadow: 0 16px 36px rgba(0, 0, 0, 0.28);
+            animation: fadeInUp 0.4s ease;
+            border: 1px solid rgba(255, 255, 255, 0.35);
         }
 
         .login-header {
             text-align: center;
-            margin-bottom: 25px;
+            margin-bottom: 14px;
         }
 
         .login-logo {
-            width: 80px;
+            width: 50px;
             height: auto;
-            margin: 0 auto 15px;
+            margin: 0 auto 8px;
+            display: block;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
         }
 
         .login-header h1 {
-            font-size: 1.5rem;
-            color: var(--navy);
-            margin-bottom: 5px;
-            line-height: 1.3;
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: var(--navy, #002855);
+            margin: 0 0 3px;
+            line-height: 1.25;
+            letter-spacing: -0.01em;
         }
 
         .login-header p {
-            color: var(--gray);
-            font-size: 0.9rem;
+            color: #64748b;
+            font-size: 0.8rem;
+            margin: 0;
+            line-height: 1.2;
         }
 
         .login-form .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 11px;
+        }
+
+        .login-form label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 4px;
+            color: var(--navy, #002855);
+            font-weight: 600;
+            font-size: 0.82rem;
+            line-height: 1.2;
+        }
+
+        .login-form label i {
+            color: var(--gold, #d97706);
+            width: 16px;
+            font-size: 0.85rem;
+        }
+
+        .login-form input[type="email"],
+        .password-wrapper input {
+            width: 100%;
+            height: 40px;
+            padding: 8px 12px;
+            border: 1.5px solid #dce4ee;
+            border-radius: 8px;
+            font-size: 0.92rem;
+            transition: all 0.2s ease;
+            background-color: #ffffff;
+            box-sizing: border-box;
+            color: #0f172a;
         }
 
         .password-wrapper {
@@ -124,132 +161,132 @@ $csrf_token = Security::generateCSRFToken();
         }
 
         .password-wrapper input {
-            width: 100%;
-            padding: 12px 45px 12px 15px;
-            border: 2px solid var(--medium-gray);
-            border-radius: 8px;
-            font-size: 1rem;
-            transition: all 0.3s ease;
-            background-color: white;
+            padding-right: 38px;
         }
 
-        .password-wrapper input:focus {
+        .login-form input:focus {
             outline: none;
-            border-color: var(--gold);
-            box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.1);
+            border-color: var(--navy, #002855);
+            box-shadow: 0 0 0 3px rgba(0, 40, 85, 0.1);
+            background-color: #ffffff;
+        }
+
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover, 
+        input:-webkit-autofill:focus {
+            -webkit-box-shadow: 0 0 0 1000px #f8fafc inset !important;
+            -webkit-text-fill-color: #0f172a !important;
+            transition: background-color 5000s ease-in-out 0s;
         }
 
         .toggle-password {
             position: absolute;
-            right: 15px;
+            right: 10px;
             top: 50%;
             transform: translateY(-50%);
             cursor: pointer;
-            color: var(--gray);
-            font-size: 1.2rem;
-            transition: color 0.3s ease;
+            color: #94a3b8;
+            font-size: 0.95rem;
+            transition: color 0.2s ease;
             background: none;
             border: none;
             padding: 0;
             display: flex;
             align-items: center;
             justify-content: center;
+            width: 24px;
+            height: 24px;
         }
 
         .toggle-password:hover {
-            color: var(--gold);
+            color: var(--navy, #002855);
+        }
+
+        .cf-turnstile-wrapper {
+            margin: 8px 0 10px !important;
+            display: flex;
+            justify-content: center;
         }
 
         .btn-primary {
-            background-color: var(--red);
+            background-color: var(--red, #c41e3a);
             color: white;
-            padding: 12px 20px;
-            font-size: 1rem;
+            padding: 9px 16px;
+            font-size: 0.92rem;
+            font-weight: 700;
             border-radius: 8px;
             border: none;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
             width: 100%;
+            height: 42px;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
+            box-sizing: border-box;
         }
 
         .btn-primary:hover {
-            background-color: var(--red-dark);
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(196, 30, 58, 0.3);
+            background-color: #9b1429;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(196, 30, 58, 0.3);
         }
 
         .alert {
-            padding: 12px 15px;
+            padding: 8px 12px;
             border-radius: 8px;
-            margin-bottom: 20px;
+            margin-bottom: 12px;
             display: flex;
             align-items: center;
-            gap: 10px;
-            font-size: 0.9rem;
+            gap: 8px;
+            font-size: 0.82rem;
         }
 
         .alert-error {
-            background-color: #fee;
-            color: var(--danger);
-            border: 1px solid #fcc;
+            background-color: #fee2e2;
+            color: #b91c1c;
+            border: 1px solid #fca5a5;
         }
 
         .alert-success {
-            background-color: #e8f5e9;
-            color: var(--success);
-            border: 1px solid #c8e6c9;
+            background-color: #ecfdf5;
+            color: #047857;
+            border: 1px solid #a7f3d0;
         }
 
         .alert i {
-            font-size: 1.1rem;
+            font-size: 0.95rem;
         }
 
         .login-footer {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-top: 20px;
-            padding-top: 15px;
-            border-top: 1px solid var(--light-gray);
-            font-size: 0.9rem;
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 0.82rem;
         }
 
         .login-footer a {
-            color: var(--navy);
+            color: var(--navy, #002855);
             text-decoration: none;
-            transition: color 0.3s ease;
+            transition: color 0.2s ease;
             display: inline-flex;
             align-items: center;
             gap: 5px;
+            font-weight: 500;
         }
 
         .login-footer a:hover {
-            color: var(--gold);
-        }
-
-        .login-form label {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 8px;
-            color: var(--navy);
-            font-weight: 500;
-            font-size: 0.9rem;
-        }
-
-        .login-form label i {
-            color: var(--gold);
-            width: 18px;
+            color: var(--red, #c41e3a);
         }
 
         @keyframes fadeInUp {
             from {
                 opacity: 0;
-                transform: translateY(20px);
+                transform: translateY(14px);
             }
             to {
                 opacity: 1;
@@ -258,26 +295,27 @@ $csrf_token = Security::generateCSRFToken();
         }
 
         @media (max-width: 480px) {
-            .login-container {
-                max-width: 100%;
+            .login-page {
+                padding: 12px;
             }
 
             .login-box {
-                padding: 25px 20px;
+                padding: 18px 16px;
+                border-radius: 12px;
             }
 
             .login-header h1 {
-                font-size: 1.3rem;
+                font-size: 1.05rem;
             }
 
             .login-logo {
-                width: 70px;
+                width: 44px;
+                margin-bottom: 6px;
             }
 
             .login-footer {
-                flex-direction: column;
-                gap: 10px;
-                text-align: center;
+                flex-direction: row;
+                gap: 8px;
             }
         }
     </style>
