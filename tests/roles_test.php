@@ -220,7 +220,7 @@ require_once __DIR__ . '/../includes/mailer.php';
 require_once __DIR__ . '/../includes/helpers.php';
 
 test('Mailer::getSchoolEmail() is mail@stbenedictsacademy.com.ng', Mailer::getSchoolEmail() === 'mail@stbenedictsacademy.com.ng');
-test('config.php defines SCHOOL_EMAIL as mail@stbenedictsacademy.com.ng', defined('SCHOOL_EMAIL') && SCHOOL_EMAIL === 'mail@stbenedictsacademy.com.ng');
+test('config.php defines SCHOOL_EMAIL as support@stbenedictsacademy.com.ng', defined('SCHOOL_EMAIL') && SCHOOL_EMAIL === 'support@stbenedictsacademy.com.ng');
 test('config.php defines MAIL_FROM as mail@stbenedictsacademy.com.ng', defined('MAIL_FROM') && MAIL_FROM === 'mail@stbenedictsacademy.com.ng');
 
 // Student official email generation
@@ -292,6 +292,17 @@ test('polish.css hides main-footer for authenticated backend users', strpos($pol
 test('polish.css pins desktop sidebar fixed at top: 0 with 100vh height', strpos($polishCss, 'aside.modern-school-sidebar') !== false && strpos($polishCss, 'position: fixed !important') !== false);
 test('polish.css hides user dropdown on mobile view (< 769px)', strpos($polishCss, 'body .dashboard-header .user-dropdown-wrapper') !== false && strpos($polishCss, 'display: none !important') !== false);
 test('main.js includes automatic userDropdown fallback injection for dashboard-header', strpos(file_get_contents(__DIR__ . '/../assets/js/main.js'), 'dashboardHeader.appendChild(wrap)') !== false);
+
+echo "\n=== 11. LANDING PAGE CORE PILLARS, MVG COMPACT CONTROLS & FOOTER CENTERING ===\n";
+$indexContent = file_get_contents(__DIR__ . '/../index.php');
+test('index.php replaces redundant quick-stats with core-pillars-section', strpos($indexContent, 'core-pillars-section') !== false && strpos($indexContent, '<section class="quick-stats">') === false);
+test('index.php core pillars includes British EYFS Standards', strpos($indexContent, 'British EYFS Standards') !== false);
+test('index.php core pillars includes Christian Moral Values', strpos($indexContent, 'Christian Moral Values') !== false);
+test('index.php mvg-container uses min-height: 0 to eliminate 300px blank void', strpos($indexContent, '.mvg-container {') !== false && strpos($indexContent, 'min-height: 0;') !== false);
+test('polish.css contains compact mvg-slideshow rules', strpos($polishCss, 'body .mvg-container') !== false && strpos($polishCss, 'min-height: 0 !important') !== false);
+test('includes/footer.php has centered footer-bottom copyright and privacy notice', strpos($footerContent, '<div class="footer-bottom" style="text-align: center;">') !== false);
+test('polish.css enforces text-align center on .footer-bottom for mobile', strpos($polishCss, 'body .footer-bottom, body .footer-bottom p') !== false && strpos($polishCss, 'text-align: center !important') !== false);
+test('cms_default school.email returns support@stbenedictsacademy.com.ng', cms_default('school.email') === 'support@stbenedictsacademy.com.ng');
 
 echo "\n==========================================\n";
 echo "$pass passed, $fail failed\n";

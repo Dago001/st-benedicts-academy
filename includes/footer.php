@@ -87,8 +87,8 @@ $isBackendPortal = !empty($inPortal) ||
                 </div>
                 <?php endif; ?>
 
-                <div class="footer-bottom">
-                    <p>&copy; <?php echo date('Y'); ?> <?php echo SCHOOL_NAME; ?>. All rights reserved.
+                <div class="footer-bottom" style="text-align: center;">
+                    <p style="text-align: center; margin: 0 auto;">&copy; <?php echo date('Y'); ?> <?php echo SCHOOL_NAME; ?>. All rights reserved.
                        <br class="mobile-only"> <a href="<?php echo BASE_URL; ?>/public/privacy">Privacy Notice</a>
                     </p>
                 </div>

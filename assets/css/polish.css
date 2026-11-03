@@ -44,7 +44,89 @@ body .title-underline, body .section-title::after { height: 3px; width: 56px; bo
 body .program-card, body .news-card, body.is-auth .stat-box, body .card { border-radius: var(--r-lg); border: 1px solid var(--line); box-shadow: var(--elev-1); background: var(--surface); }
 body .program-card:hover, body .news-card:hover { box-shadow: var(--elev-2); }
 
-/* ---- Quick Stats (Public landing page) -------------------------------- */
+/* ---- Core Pillars (Replaces redundant stats) --------------------------- */
+body .core-pillars-section {
+    background: linear-gradient(135deg, var(--brand, #002855) 0%, var(--brand-deep, #001a3a) 100%) !important;
+    padding: 56px 0 !important;
+    margin: 0 !important;
+    color: #fff !important;
+    border-top: 3px solid var(--gold-ui, #ffd23f) !important;
+    border-bottom: 3px solid var(--gold-ui, #ffd23f) !important;
+}
+body .core-pillars-section .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+body .core-pillars-section .pillars-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 20px !important;
+    text-align: center !important;
+}
+body .core-pillars-section .pillar-card {
+    background: rgba(255, 255, 255, 0.08) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-radius: var(--r-lg, 14px) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2) !important;
+    padding: 28px 18px !important;
+    text-align: center !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    transition: transform 0.25s ease, background 0.25s ease, box-shadow 0.25s ease !important;
+}
+body .core-pillars-section .pillar-card:hover {
+    transform: translateY(-5px) !important;
+    background: rgba(255, 255, 255, 0.14) !important;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3) !important;
+}
+body .core-pillars-section .pillar-icon {
+    width: 56px !important;
+    height: 56px !important;
+    margin: 0 auto 14px !important;
+    background: rgba(255, 210, 63, 0.16) !important;
+    border: 1px solid rgba(255, 210, 63, 0.35) !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 1.5rem !important;
+    color: var(--gold-ui, #ffd23f) !important;
+}
+body .core-pillars-section .pillar-title {
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
+    color: #ffffff !important;
+    margin-bottom: 8px !important;
+    line-height: 1.3 !important;
+}
+body .core-pillars-section .pillar-desc {
+    font-size: 0.86rem !important;
+    color: rgba(255, 255, 255, 0.85) !important;
+    line-height: 1.55 !important;
+    margin: 0 !important;
+}
+
+@media (max-width: 991px) {
+    body .core-pillars-section .pillars-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 16px !important;
+    }
+}
+@media (max-width: 576px) {
+    body .core-pillars-section {
+        padding: 40px 0 !important;
+    }
+    body .core-pillars-section .pillars-grid {
+        grid-template-columns: 1fr !important;
+        gap: 14px !important;
+    }
+    body .core-pillars-section .pillar-card {
+        padding: 22px 16px !important;
+    }
+}
+
+/* Backward compatibility for quick-stats if any page references it */
 body .quick-stats {
     background: linear-gradient(135deg, var(--brand, #002855) 0%, var(--brand-deep, #001a3a) 100%) !important;
     padding: 56px 0 !important;
@@ -639,7 +721,7 @@ body .stat-card .stat-content p {
     body .footer-links a { display: inline-block; padding: 6px 0; color: rgba(255,255,255,.8); }
     body .social-icons { display: flex; gap: 10px; }
     body .social-icons a { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(255,255,255,.1); }
-    body .footer-bottom { text-align: left; font-size: .8rem; opacity: .75; }
+    body .footer-bottom, body .footer-bottom p { text-align: center !important; font-size: .8rem; opacity: .85; margin: 0 auto !important; }
 
     /* Inner pages */
     body .page-header { padding: 36px 16px; background: linear-gradient(135deg, var(--brand), var(--brand-deep)); }
@@ -1426,22 +1508,134 @@ body.in-portal .main-footer,
         display: flex !important;
         align-items: center !important;
         justify-content: space-between !important;
-        flex-wrap: wrap !important;
+        flex-wrap: nowrap !important;
         gap: 16px !important;
     }
 
+    body .dashboard-header .header-right-cluster,
     .dashboard-header .header-right-cluster {
         display: inline-flex !important;
+        flex-direction: row !important;
         align-items: center !important;
+        justify-content: flex-end !important;
         gap: 12px !important;
         margin-left: auto !important;
+        flex-wrap: nowrap !important;
+        flex-shrink: 0 !important;
+    }
+
+    body .dashboard-header .header-actions,
+    .dashboard-header .header-actions {
+        display: inline-flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 8px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: auto !important;
+        flex-shrink: 0 !important;
+        flex-wrap: nowrap !important;
+    }
+
+    body .dashboard-header .header-actions .btn,
+    .dashboard-header .header-actions .btn,
+    body .dashboard-header .header-actions button,
+    .dashboard-header .header-actions button {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 6px !important;
+        height: 38px !important;
+        padding: 0 14px !important;
+        font-size: 12.5px !important;
+        font-weight: 600 !important;
+        border-radius: 8px !important;
+        white-space: nowrap !important;
+        margin: 0 !important;
+        width: auto !important;
+        flex: 0 0 auto !important;
+        box-sizing: border-box !important;
     }
 
     body .dashboard-header .user-dropdown-wrapper,
     .dashboard-header .user-dropdown-wrapper {
         display: inline-flex !important;
-        margin-left: auto !important;
+        position: relative !important;
+        margin: 0 !important;
+        align-items: center !important;
+        flex-shrink: 0 !important;
     }
+
+    body .dashboard-header .user-dropdown-toggle,
+    .dashboard-header .user-dropdown-toggle {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 10px !important;
+        height: 38px !important;
+        padding: 4px 14px 4px 6px !important;
+        box-sizing: border-box !important;
+        margin: 0 !important;
+    }
+}
+
+/* 4. MVG Slideshow Compact Spacing: Eliminate blank gap between Mission/Vision/Goal and buttons */
+body .mvg-slideshow {
+    padding: 36px 0 !important;
+}
+
+body .mvg-container {
+    min-height: 0 !important;
+    height: auto !important;
+}
+
+body .mvg-controls {
+    margin-top: 14px !important;
+}
+
+@media (max-width: 768px) {
+    body .mvg-slideshow {
+        padding: 24px 0 !important;
+    }
+
+    body .mvg-container {
+        min-height: 0 !important;
+        height: auto !important;
+    }
+
+    body .mvg-slide {
+        padding: 22px 16px !important;
+    }
+
+    body .mvg-icon {
+        width: 64px !important;
+        height: 64px !important;
+        font-size: 1.8rem !important;
+        margin: 0 auto 10px !important;
+    }
+
+    body .mvg-slide h2 {
+        font-size: 1.35rem !important;
+        margin-bottom: 8px !important;
+    }
+
+    body .mvg-slide p {
+        font-size: 0.92rem !important;
+        line-height: 1.55 !important;
+    }
+
+    body .mvg-controls {
+        margin-top: 12px !important;
+    }
+}
+
+/* 5. Footer Copyright & Privacy Notice: Perfectly centered on mobile and all viewports */
+body .footer-bottom,
+body .footer-bottom p,
+.footer-bottom,
+.footer-bottom p {
+    text-align: center !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
 }
 
 

@@ -844,7 +844,7 @@ $businessHours = school_hours();
                         </div>
                         <div class="info-content">
                             <h3>Email Us</h3>
-                            <p><a href="mailto:<?php echo defined('SCHOOL_EMAIL') ? school_email() : 'mail@stbenedictsacademy.com.ng'; ?>"><?php echo defined('SCHOOL_EMAIL') ? school_email() : 'mail@stbenedictsacademy.com.ng'; ?></a></p>
+                            <p><a href="mailto:<?php echo defined('SCHOOL_EMAIL') ? school_email() : 'support@stbenedictsacademy.com.ng'; ?>"><?php echo defined('SCHOOL_EMAIL') ? school_email() : 'support@stbenedictsacademy.com.ng'; ?></a></p>
                             <p class="small">We reply within 24 hours</p>
                         </div>
                     </div>

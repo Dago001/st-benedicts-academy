@@ -397,52 +397,102 @@ try {
         opacity: 0.9;
     }
 
-    /* ===== QUICK STATS SECTION ===== */
-    .quick-stats {
-        padding: var(--spacing-xl) 0;
-        background: linear-gradient(135deg, var(--navy-light), var(--navy));
+    /* ===== CORE PILLARS SECTION (The St. Benedict's Advantage) ===== */
+    .core-pillars-section {
+        padding: 56px 0;
+        background: linear-gradient(135deg, var(--navy-light, #003366), var(--navy, #002147));
         color: var(--white);
+        border-top: 3px solid var(--gold, #ffd700);
+        border-bottom: 3px solid var(--gold, #ffd700);
     }
 
-    .stats-container {
+    .pillars-header {
+        text-align: center;
+        max-width: 760px;
+        margin: 0 auto 36px;
+    }
+
+    .pillars-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(255, 215, 0, 0.15);
+        color: var(--gold, #ffd700);
+        padding: 4px 14px;
+        border-radius: 999px;
+        font-size: 0.82rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+        border: 1px solid rgba(255, 215, 0, 0.3);
+    }
+
+    .pillars-title {
+        color: #ffffff;
+        font-size: clamp(1.5rem, 3.2vw, 2.2rem);
+        font-weight: 800;
+        margin-bottom: 10px;
+        line-height: 1.25;
+    }
+
+    .pillars-subtitle {
+        color: rgba(255, 255, 255, 0.85);
+        font-size: 0.98rem;
+        line-height: 1.6;
+        margin: 0;
+    }
+
+    .pillars-grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
-        gap: var(--spacing-lg);
+        gap: 20px;
+    }
+
+    .pillar-card {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: var(--radius-lg, 12px);
+        padding: 26px 18px;
         text-align: center;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        transition: transform var(--transition-fast, 0.2s), background var(--transition-fast, 0.2s), box-shadow var(--transition-fast, 0.2s);
     }
 
-    .stat-box {
-        padding: var(--spacing-lg);
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: var(--radius-lg);
-        backdrop-filter: blur(10px);
-        transition: transform var(--transition-fast);
-    }
-
-    .stat-box:hover {
+    .pillar-card:hover {
         transform: translateY(-5px);
-        background: rgba(255, 255, 255, 0.15);
+        background: rgba(255, 255, 255, 0.14);
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
     }
 
-    .stat-box i {
-        font-size: 2.5rem;
-        color: var(--gold);
-        margin-bottom: var(--spacing-sm);
+    .pillar-icon {
+        width: 54px;
+        height: 54px;
+        margin: 0 auto 14px;
+        background: rgba(255, 215, 0, 0.16);
+        border: 1px solid rgba(255, 215, 0, 0.35);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.45rem;
+        color: var(--gold, #ffd700);
     }
 
-    .stat-box .number {
-        font-size: 2rem;
+    .pillar-title {
+        font-size: 1.1rem;
         font-weight: 700;
-        color: var(--gold);
-        line-height: 1.2;
-        margin-bottom: var(--spacing-xs);
+        color: #ffffff;
+        margin-bottom: 8px;
+        line-height: 1.3;
     }
 
-    .stat-box .label {
-        font-size: 0.9rem;
-        opacity: 0.9;
-        text-transform: uppercase;
-        letter-spacing: 1px;
+    .pillar-desc {
+        font-size: 0.86rem;
+        color: rgba(255, 255, 255, 0.82);
+        line-height: 1.5;
+        margin: 0;
     }
 
     /* ===== MVG SLIDESHOW SECTION ===== */
@@ -454,10 +504,10 @@ try {
     }
 
     .mvg-container {
-        max-width: 900px;
+        max-width: 840px;
         margin: 0 auto;
         position: relative;
-        min-height: 400px;
+        min-height: 0;
     }
 
     .mvg-slide {
@@ -529,8 +579,8 @@ try {
         display: flex;
         justify-content: center;
         align-items: center;
-        gap: var(--spacing-lg);
-        margin-top: var(--spacing-xl);
+        gap: 16px;
+        margin-top: 14px;
     }
 
     .mvg-prev,
@@ -942,7 +992,7 @@ try {
         }
 
         .mvg-container {
-            min-height: 450px;
+            min-height: 0;
         }
     }
 
@@ -998,7 +1048,10 @@ try {
         }
 
         .mvg-container {
-            min-height: 500px;
+            min-height: 0;
+        }
+        .mvg-controls {
+            margin-top: 12px;
         }
 
         .mvg-slide {
@@ -1066,7 +1119,27 @@ try {
         }
 
         .mvg-container {
-            min-height: 550px;
+            min-height: 0;
+        }
+        .mvg-slide {
+            padding: 22px 16px;
+        }
+        .mvg-icon {
+            width: 64px;
+            height: 64px;
+            font-size: 1.8rem;
+            margin: 0 auto 10px;
+        }
+        .mvg-slide h2 {
+            font-size: 1.35rem;
+            margin-bottom: 8px;
+        }
+        .mvg-slide p {
+            font-size: 0.92rem;
+            line-height: 1.55;
+        }
+        .mvg-controls {
+            margin-top: 10px;
         }
 
         .mvg-slide h2 {
@@ -1224,29 +1297,34 @@ try {
     </div>
 </section>
 
-<!-- ===== QUICK STATS SECTION ===== -->
-<section class="quick-stats">
+<!-- ===== CORE PILLARS SECTION (The St. Benedict's Advantage) ===== -->
+<section class="core-pillars-section">
     <div class="container">
-        <div class="stats-container">
-            <div class="stat-box">
-                <i class="fas fa-users"></i>
-                <div class="number"><?php echo e($stats['students']); ?>+</div>
-                <div class="label">Students</div>
+        <div class="pillars-header text-center">
+            <span class="pillars-badge"><i class="fas fa-award"></i> The St. Benedict's Advantage</span>
+            <h2 class="pillars-title">Why Parents Trust St. Benedict's Academy</h2>
+            <p class="pillars-subtitle">Blending world-class British Early Years Foundation Stage (EYFS) standards with rooted Christian Catholic faith and moral excellence.</p>
+        </div>
+        <div class="pillars-grid">
+            <div class="pillar-card">
+                <div class="pillar-icon"><i class="fas fa-graduation-cap"></i></div>
+                <h3 class="pillar-title">British EYFS Standards</h3>
+                <p class="pillar-desc">UK Early Years Foundation Stage framework fostering early phonetic literacy, foundational numeracy, and active curiosity.</p>
             </div>
-            <div class="stat-box">
-                <i class="fas fa-chalkboard-teacher"></i>
-                <div class="number"><?php echo e($stats['teachers']); ?></div>
-                <div class="label">Teachers</div>
+            <div class="pillar-card">
+                <div class="pillar-icon"><i class="fas fa-cross"></i></div>
+                <h3 class="pillar-title">Christian Moral Values</h3>
+                <p class="pillar-desc">Nurturing compassion, integrity, respect, and spiritual grounding in a loving, God-centred school family.</p>
             </div>
-            <div class="stat-box">
-                <i class="fas fa-school"></i>
-                <div class="number"><?php echo e($stats['classes']); ?></div>
-                <div class="label">Classes</div>
+            <div class="pillar-card">
+                <div class="pillar-icon"><i class="fas fa-shield-alt"></i></div>
+                <h3 class="pillar-title">Safe &amp; Secure Campus</h3>
+                <p class="pillar-desc">Sanitized, monitored, and child-proofed early years environment designed for joyful, risk-free exploration.</p>
             </div>
-            <div class="stat-box">
-                <i class="fas fa-trophy"></i>
-                <div class="number"><?php echo e($stats['years']); ?></div>
-                <div class="label">Years</div>
+            <div class="pillar-card">
+                <div class="pillar-icon"><i class="fas fa-palette"></i></div>
+                <h3 class="pillar-title">Holistic Child Development</h3>
+                <p class="pillar-desc">Harmonious balance of intellectual growth, creative arts, physical motor agility, and social-emotional intelligence.</p>
             </div>
         </div>
     </div>

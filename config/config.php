@@ -145,7 +145,7 @@ define('LOCKOUT_TIME', 900); // 15 minutes
 define('SCHOOL_NAME', "ST. BENEDICT'S EARLY YEARS BRITISH ACADEMY");
 define('SCHOOL_ADDRESS', 'No 560 A A New G.R.A TRANS-EKULU, ENUGU');
 define('SCHOOL_PHONE', '09044472688');
-define('SCHOOL_EMAIL', 'mail@stbenedictsacademy.com.ng');
+define('SCHOOL_EMAIL', 'support@stbenedictsacademy.com.ng');
 if (!defined('MAIL_FROM')) {
     define('MAIL_FROM', 'mail@stbenedictsacademy.com.ng');
 }

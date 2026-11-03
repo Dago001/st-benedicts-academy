@@ -50,6 +50,11 @@ class SystemSchema
                 $db->exec("ALTER TABLE users ADD COLUMN must_change_password TINYINT(1) NOT NULL DEFAULT 0");
             }
 
+            // Sync public contact/support email to support@stbenedictsacademy.com.ng in site_content
+            try {
+                $db->exec("UPDATE site_content SET content_value = 'support@stbenedictsacademy.com.ng' WHERE content_key = 'school.email'");
+            } catch (Throwable $e) {}
+
             // 2. Expand students table with extra fields from the New Admission form
             $studentCols = self::getTableColumns($db, 'students');
             $newStudentFields = [
