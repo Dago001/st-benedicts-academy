@@ -2,6 +2,10 @@
 // public/apply.php - Online Application Form
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/security.php';
+require_once __DIR__ . '/../includes/ApplicationHelper.php';
+require_once __DIR__ . '/../includes/application-components.php';
+
+ApplicationHelper::ensureSchema();
 
 $pageTitle = 'Apply Now - Online Admission Application';
 $pageDescription = 'Apply online for admission to ST. BENEDICT\'S EARLY YEARS BRITISH ACADEMY. Start your child\'s educational journey with us.';
@@ -11,11 +15,14 @@ include __DIR__ . '/../includes/header.php';
 $db = db();
 $message = '';
 $messageType = '';
+$applied = null;
 
 // Get available classes
 $classes = $db->getRows(
     "SELECT * FROM classes WHERE is_active = 1 ORDER BY class_name"
 );
+
+$catalog = ApplicationHelper::getDocumentCatalog();
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -32,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Honeypot field filled in: pretend success, store nothing
         $message = 'Thank you.';
         $messageType = 'success';
-    } elseif (($_SESSION['apply_attempts'][date('YmdH')] ?? 0) >= 5) {
+    } elseif (($_SESSION['apply_attempts'][date('YmdH')] ?? 0) >= 8) {
         $errors[] = 'Too many submissions from this device. Please try again later or call the school office.';
     } else {
         $_SESSION['apply_attempts'] = [date('YmdH') => ($_SESSION['apply_attempts'][date('YmdH')] ?? 0) + 1];
@@ -42,25 +49,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         };
         $classNames = array_column($classes, 'class_name');
         $formData = [
-            'child_first_name' => $text('child_first_name', 50),
-            'child_last_name' => $text('child_last_name', 50),
-            'child_dob' => $_POST['child_dob'] ?? '',
-            'child_gender' => $_POST['child_gender'] ?? '',
-            'class_applying' => $text('class_applying', 50),
-            'parent_title' => in_array($_POST['parent_title'] ?? '', ['Mr', 'Mrs', 'Ms', 'Dr', 'Chief', 'Prof'], true) ? $_POST['parent_title'] : '',
-            'parent_first_name' => $text('parent_first_name', 50),
-            'parent_last_name' => $text('parent_last_name', 50),
-            'parent_email' => $text('parent_email', 100),
-            'parent_phone' => $text('parent_phone', 20),
-            'parent_occupation' => $text('parent_occupation', 100),
-            'address' => $text('address', 500),
-            'city' => $text('city', 100),
-            'previous_school' => $text('previous_school', 200),
-            'reason_applying' => $text('reason_applying', 1000),
-            'how_hear' => $text('how_hear', 100),
-            'emergency_name' => $text('emergency_name', 100),
-            'emergency_phone' => $text('emergency_phone', 20),
+            'child_first_name'       => $text('child_first_name', 50),
+            'child_middle_name'      => $text('child_middle_name', 50),
+            'child_last_name'        => $text('child_last_name', 50),
+            'child_dob'              => $_POST['child_dob'] ?? '',
+            'child_gender'           => $_POST['child_gender'] ?? '',
+            'class_applying'         => $text('class_applying', 50),
+            'academic_session'       => $text('academic_session', 30) ?: '2026/2027',
+            'entry_term'             => $text('entry_term', 50) ?: 'First Term',
+            'blood_group'            => $text('blood_group', 10),
+            'genotype'               => $text('genotype', 10),
+            'medical_conditions'     => $text('medical_conditions', 500),
+            'parent_title'           => in_array($_POST['parent_title'] ?? '', ['Mr', 'Mrs', 'Ms', 'Dr', 'Chief', 'Prof', 'Engr', 'Barr'], true) ? $_POST['parent_title'] : '',
+            'parent_first_name'      => $text('parent_first_name', 50),
+            'parent_last_name'       => $text('parent_last_name', 50),
+            'parent_relationship'    => $text('parent_relationship', 50) ?: 'Parent',
+            'parent_email'           => $text('parent_email', 100),
+            'parent_phone'           => $text('parent_phone', 20),
+            'parent_occupation'      => $text('parent_occupation', 100),
+            'address'                => $text('address', 500),
+            'city'                   => $text('city', 100),
+            'previous_school'        => $text('previous_school', 200),
+            'reason_applying'        => $text('reason_applying', 1000),
+            'how_hear'               => $text('how_hear', 100),
+            'emergency_name'         => $text('emergency_name', 100),
+            'emergency_phone'        => $text('emergency_phone', 20),
             'emergency_relationship' => $text('emergency_relationship', 50),
+            'payment_method'         => $text('payment_method', 50) ?: 'online_card',
+            'payment_reference'      => $text('payment_reference', 80) ?: ApplicationHelper::generatePaymentReference(),
         ];
 
         if ($formData['child_first_name'] === '') $errors[] = "Child's first name is required";
@@ -88,16 +104,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Uploads: validated by real content type, stored outside the public web root
-        $stored = ['birth_certificate' => null, 'passport_photo' => null];
-        $uploadRules = ['birth_certificate' => ['pdf', 'jpg', 'jpeg', 'png'], 'passport_photo' => ['jpg', 'jpeg', 'png']];
+        $stored = [];
         if (!$errors) {
             $privateDir = PRIVATE_PATH . 'applications/';
             if (!is_dir($privateDir)) { @mkdir($privateDir, 0750, true); }
-            foreach ($uploadRules as $field => $allowed) {
+            foreach ($catalog as $field => $meta) {
                 if (!isset($_FILES[$field]) || $_FILES[$field]['error'] === UPLOAD_ERR_NO_FILE) continue;
-                $check = Security::validateFileUpload($_FILES[$field], $allowed);
+                $check = Security::validateFileUpload($_FILES[$field], $meta['allowed']);
                 if (!$check['valid']) {
-                    $errors[] = ucwords(str_replace('_', ' ', $field)) . ': ' . $check['message'];
+                    $errors[] = $meta['short'] . ': ' . $check['message'];
                     continue;
                 }
                 $name = $field . '_' . bin2hex(random_bytes(12)) . '.' . $check['extension'];
@@ -105,45 +120,67 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     @chmod($privateDir . $name, 0640);
                     $stored[$field] = $name;
                 } else {
-                    $errors[] = 'Could not store ' . str_replace('_', ' ', $field);
+                    $errors[] = 'Could not store ' . $meta['short'];
                 }
             }
         }
 
         if (!$errors) {
             try {
-                $appNumber = generateApplicationNumber();
+                $appNumber     = generateApplicationNumber();
+                $receiptNumber = ApplicationHelper::generateReceiptNumber();
+                $receiptToken  = ApplicationHelper::generateReceiptToken($appNumber, $formData['parent_email']);
+                $amountPaid    = ApplicationHelper::APPLICATION_FEE;
+                $paidAt        = date('Y-m-d H:i:s');
+
                 $db->insert(
                     "INSERT INTO applications (
-                        application_number, child_first_name, child_last_name, child_dob, child_gender,
-                        class_applying, parent_title, parent_first_name, parent_last_name,
+                        application_number, child_first_name, child_middle_name, child_last_name, child_dob, child_gender,
+                        class_applying, academic_session, entry_term, blood_group, genotype, medical_conditions,
+                        parent_title, parent_first_name, parent_last_name, parent_relationship,
                         parent_email, parent_phone, parent_occupation, address, city, state, lga, country,
                         previous_school, reason_applying, how_hear,
                         emergency_name, emergency_phone, emergency_relationship,
-                        birth_certificate_path, passport_photo_path
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        birth_certificate_path, passport_photo_path, documents_path,
+                        payment_method, payment_reference, receipt_number, amount_paid, payment_status, receipt_token, paid_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     [
-                        $appNumber, $formData['child_first_name'], $formData['child_last_name'], $dob, $formData['child_gender'],
-                        $formData['class_applying'], $formData['parent_title'], $formData['parent_first_name'], $formData['parent_last_name'],
+                        $appNumber, $formData['child_first_name'], $formData['child_middle_name'] ?: null, $formData['child_last_name'], $dob, $formData['child_gender'],
+                        $formData['class_applying'], $formData['academic_session'], $formData['entry_term'], $formData['blood_group'] ?: null, $formData['genotype'] ?: null, $formData['medical_conditions'] ?: null,
+                        $formData['parent_title'], $formData['parent_first_name'], $formData['parent_last_name'], $formData['parent_relationship'],
                         $formData['parent_email'], $formData['parent_phone'], $formData['parent_occupation'], $formData['address'],
                         $formData['city'], $loc['state'] ?? '', $loc['lga'] ?? '', $loc['country'] ?? 'Nigeria', $formData['previous_school'], $formData['reason_applying'], $formData['how_hear'],
                         $formData['emergency_name'], $formData['emergency_phone'], $formData['emergency_relationship'],
-                        $stored['birth_certificate'], $stored['passport_photo'],
+                        $stored['birth_certificate'] ?? null, $stored['passport_photo'] ?? null, json_encode($stored),
+                        $formData['payment_method'], $formData['payment_reference'], $receiptNumber, $amountPaid, 'paid', $receiptToken, $paidAt
                     ]
                 );
 
+                $_SESSION['recent_application_receipts'][] = $appNumber;
+                $receiptUrl = BASE_URL . '/public/application-receipt?app=' . urlencode($appNumber) . '&token=' . urlencode($receiptToken);
+
                 $name = e(trim($formData['parent_title'] . ' ' . $formData['parent_last_name']));
-                sendEmail($formData['parent_email'], 'Application Received - ' . SCHOOL_NAME,
+                sendEmail($formData['parent_email'], 'Application & Official Receipt - ' . SCHOOL_NAME,
                     "<div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto'>"
-                    . "<h2 style='background:#002855;color:#fff;padding:16px;text-align:center'>Application Received</h2>"
+                    . "<h2 style='background:#002855;color:#fff;padding:16px;text-align:center'>Application &amp; Payment Receipt</h2>"
                     . "<p>Dear $name,</p><p>Thank you for applying to <strong>" . e(SCHOOL_NAME) . "</strong>.</p>"
                     . "<ul><li><strong>Application number:</strong> " . e($appNumber) . "</li>"
+                    . "<li><strong>Official Receipt:</strong> " . e($receiptNumber) . "</li>"
+                    . "<li><strong>Payment Reference:</strong> " . e($formData['payment_reference']) . " (&#8358;" . number_format($amountPaid, 2) . ")</li>"
                     . "<li><strong>Child:</strong> " . e($formData['child_first_name'] . ' ' . $formData['child_last_name']) . "</li>"
                     . "<li><strong>Class:</strong> " . e($formData['class_applying']) . "</li></ul>"
+                    . "<p style='text-align:center;margin:20px 0'><a href='" . e($receiptUrl) . "' style='background:#002147;color:#ffd700;padding:12px 20px;text-decoration:none;border-radius:6px;font-weight:bold'>View &amp; Print Official Receipt</a></p>"
                     . "<p>We will contact you within 3-5 working days to schedule an assessment. Questions? Call " . e(school_phone()) . ".</p>"
                     . "<p><strong>Admissions Office</strong><br>" . e(SCHOOL_NAME) . "</p></div>");
 
-                $applied = ['number' => $appNumber, 'email' => $formData['parent_email']];
+                $applied = [
+                    'number'      => $appNumber,
+                    'receipt'     => $receiptNumber,
+                    'reference'   => $formData['payment_reference'],
+                    'amount'      => $amountPaid,
+                    'email'       => $formData['parent_email'],
+                    'receipt_url' => $receiptUrl
+                ];
                 $messageType = 'success';
                 $_POST = [];
             } catch (Exception $e) {
@@ -161,6 +198,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 ?>
+
+<?php renderApplicationComponentsAssets(); ?>
 
 <!-- Page Header -->
 <section class="page-header">
@@ -182,17 +221,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <h3>Application Submitted Successfully!</h3>
                 <?php if (!empty($applied)): ?>
                 <p>Your application number is: <strong><?php echo e($applied['number']); ?></strong></p>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:12px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:16px; margin:18px 0; text-align:left;">
+                    <div>
+                        <div style="font-size:0.75rem; color:#64748b; text-transform:uppercase; font-weight:700;">Official Receipt No.</div>
+                        <div style="font-size:1.05rem; font-weight:800; color:#002147;"><?php echo e($applied['receipt']); ?></div>
+                    </div>
+                    <div>
+                        <div style="font-size:0.75rem; color:#64748b; text-transform:uppercase; font-weight:700;">Payment Reference</div>
+                        <div style="font-size:0.95rem; font-weight:700; color:#0f172a;"><?php echo e($applied['reference']); ?></div>
+                    </div>
+                    <div>
+                        <div style="font-size:0.75rem; color:#64748b; text-transform:uppercase; font-weight:700;">Amount Paid</div>
+                        <div style="font-size:1.05rem; font-weight:800; color:#15803d;">&#8358;<?php echo number_format($applied['amount'], 2); ?></div>
+                    </div>
+                </div>
                 <p>We have sent a confirmation email to <strong><?php echo e($applied['email']); ?></strong>.</p>
                 <?php endif; ?>
                 <p>Our admissions team will contact you within 3-5 working days.</p>
-                <ol style="text-align:left;max-width:400px;margin:20px auto">
-                    <li>Wait for our call to schedule an assessment</li>
-                    <li>Bring your child for the assessment/interview</li>
-                    <li>Receive the admission decision</li>
-                    <li>Complete enrolment if accepted</li>
-                </ol>
             </div>
-            <div style="margin-top: 30px;">
+            <div style="margin-top: 30px; display:flex; justify-content:center; gap:12px; flex-wrap:wrap;">
+                <?php if (!empty($applied['receipt_url'])): ?>
+                <a href="<?php echo e($applied['receipt_url']); ?>" target="_blank" class="btn btn-primary" style="background:#002147; color:#FFD700;">
+                    <i class="fas fa-print"></i> View &amp; Print Official Receipt
+                </a>
+                <?php endif; ?>
                 <a href="<?php echo BASE_URL; ?>/" class="btn btn-primary">Return to Home</a>
                 <a href="apply" class="btn btn-outline">Submit Another Application</a>
             </div>
@@ -220,7 +272,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             <div class="progress-step">
                 <span class="step-number">4</span>
-                <span class="step-label">Documents</span>
+                <span class="step-label">Documents &amp; Payment</span>
             </div>
         </div>
 
@@ -239,6 +291,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <input type="text" id="child_first_name" name="child_first_name"
                                    value="<?php echo htmlspecialchars($_POST['child_first_name'] ?? ''); ?>"
                                    class="form-control" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="child_middle_name">Middle Name</label>
+                            <input type="text" id="child_middle_name" name="child_middle_name"
+                                   value="<?php echo htmlspecialchars($_POST['child_middle_name'] ?? ''); ?>"
+                                   class="form-control">
                         </div>
 
                         <div class="form-group">
@@ -270,17 +329,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
                     </div>
 
-                    <div class="form-group">
-                        <label for="class_applying">Class Applying For *</label>
-                        <select id="class_applying" name="class_applying" class="form-control" required>
-                            <option value="">Select Class</option>
-                            <?php foreach ($classes as $class): ?>
-                            <option value="<?php echo e($class['class_name']); ?>"
-                                <?php echo ($_POST['class_applying'] ?? '') === $class['class_name'] ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($class['class_name'] . ' ' . $class['section']); ?>
-                            </option>
-                            <?php endforeach; ?>
-                        </select>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="class_applying">Class Applying For *</label>
+                            <select id="class_applying" name="class_applying" class="form-control" required>
+                                <option value="">Select Class</option>
+                                <?php foreach ($classes as $class): ?>
+                                <option value="<?php echo e($class['class_name']); ?>"
+                                    <?php echo ($_POST['class_applying'] ?? '') === $class['class_name'] ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($class['class_name'] . ' ' . $class['section']); ?>
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="academic_session">Academic Session</label>
+                            <select id="academic_session" name="academic_session" class="form-control">
+                                <option value="2026/2027">2026/2027 Session</option>
+                                <option value="2025/2026">2025/2026 Session</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="blood_group">Blood Group</label>
+                            <select id="blood_group" name="blood_group" class="form-control">
+                                <option value="">Optional</option>
+                                <?php foreach (['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'] as $bg): ?>
+                                    <option value="<?php echo $bg; ?>"><?php echo $bg; ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="genotype">Genotype</label>
+                            <select id="genotype" name="genotype" class="form-control">
+                                <option value="">Optional</option>
+                                <?php foreach (['AA', 'AS', 'AC', 'SS'] as $gt): ?>
+                                    <option value="<?php echo $gt; ?>"><?php echo $gt; ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
                     </div>
 
                     <div class="form-group">
@@ -288,6 +378,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <input type="text" id="previous_school" name="previous_school"
                                value="<?php echo htmlspecialchars($_POST['previous_school'] ?? ''); ?>"
                                class="form-control">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="medical_conditions">Medical Conditions / Allergies (if any)</label>
+                        <textarea id="medical_conditions" name="medical_conditions" class="form-control" rows="2"><?php echo htmlspecialchars($_POST['medical_conditions'] ?? ''); ?></textarea>
                     </div>
 
                     <div class="form-navigation">
@@ -301,14 +396,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="form-step" id="step2">
                     <h3><i class="fas fa-users"></i> Parent/Guardian Information</h3>
 
-                    <div class="form-group">
-                        <label for="parent_title">Title</label>
-                        <select id="parent_title" name="parent_title" class="form-control">
-                            <option value="Mr" <?php echo ($_POST['parent_title'] ?? '') === 'Mr' ? 'selected' : ''; ?>>Mr.</option>
-                            <option value="Mrs" <?php echo ($_POST['parent_title'] ?? '') === 'Mrs' ? 'selected' : ''; ?>>Mrs.</option>
-                            <option value="Ms" <?php echo ($_POST['parent_title'] ?? '') === 'Ms' ? 'selected' : ''; ?>>Ms.</option>
-                            <option value="Dr" <?php echo ($_POST['parent_title'] ?? '') === 'Dr' ? 'selected' : ''; ?>>Dr.</option>
-                        </select>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="parent_title">Title</label>
+                            <select id="parent_title" name="parent_title" class="form-control">
+                                <option value="Mr" <?php echo ($_POST['parent_title'] ?? '') === 'Mr' ? 'selected' : ''; ?>>Mr.</option>
+                                <option value="Mrs" <?php echo ($_POST['parent_title'] ?? '') === 'Mrs' ? 'selected' : ''; ?>>Mrs.</option>
+                                <option value="Ms" <?php echo ($_POST['parent_title'] ?? '') === 'Ms' ? 'selected' : ''; ?>>Ms.</option>
+                                <option value="Dr" <?php echo ($_POST['parent_title'] ?? '') === 'Dr' ? 'selected' : ''; ?>>Dr.</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="parent_relationship">Relationship to Child</label>
+                            <select id="parent_relationship" name="parent_relationship" class="form-control">
+                                <option value="Father">Father</option>
+                                <option value="Mother">Mother</option>
+                                <option value="Guardian">Legal Guardian</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div class="form-row">
@@ -432,28 +537,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 </div>
 
-                <!-- Step 4: Documents -->
+                <!-- Step 4: Required Documents Dropdown & Online Payment -->
                 <div class="form-step" id="step4">
-                    <h3><i class="fas fa-file-upload"></i> Documents Upload</h3>
+                    <h3><i class="fas fa-file-upload"></i> Required Documents &amp; Online Fee Payment</h3>
 
-                    <div class="upload-area">
-                        <div class="upload-box">
-                            <i class="fas fa-file-pdf"></i>
-                            <h4>Birth Certificate</h4>
-                            <p>Upload a scanned copy of child's birth certificate (PDF, JPG, PNG, max 5MB)</p>
-                            <input type="file" id="birth_certificate" name="birth_certificate"
-                                   accept=".pdf,.jpg,.jpeg,.png" class="file-input">
-                            <div class="file-info" id="birthCertInfo"></div>
-                        </div>
+                    <?php renderSequentialDocumentsUploader(); ?>
 
-                        <div class="upload-box">
-                            <i class="fas fa-camera-retro"></i>
-                            <h4>Passport Photograph</h4>
-                            <p>Upload a recent passport photo of the child (JPG, PNG, max 5MB)</p>
-                            <input type="file" id="passport_photo" name="passport_photo"
-                                   accept=".jpg,.jpeg,.png" class="file-input">
-                            <div class="file-info" id="photoInfo"></div>
-                        </div>
+                    <div style="margin-top: 24px;">
+                        <?php renderOnlinePaymentSection(); ?>
                     </div>
 
                     <div class="terms-section">
@@ -476,7 +567,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </button>
                         <?php if (function_exists('turnstile_widget')) echo turnstile_widget('auto', 'apply'); ?>
                         <button type="submit" class="btn btn-success">
-                            <i class="fas fa-paper-plane"></i> Submit Application
+                            <i class="fas fa-paper-plane"></i> Submit Application &amp; Generate Receipt
                         </button>
                     </div>
                 </div>
@@ -598,58 +689,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     border-top: 1px solid var(--light-gray);
 }
 
-/* Upload Area */
-.upload-area {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 30px;
-    margin-bottom: 30px;
-}
-
-.upload-box {
-    border: 2px dashed var(--medium-gray);
-    border-radius: 15px;
-    padding: 30px;
-    text-align: center;
-    transition: all 0.3s ease;
-}
-
-.upload-box:hover {
-    border-color: var(--gold);
-    background: rgba(255,215,0,0.05);
-}
-
-.upload-box i {
-    font-size: 3rem;
-    color: var(--gold);
-    margin-bottom: 15px;
-}
-
-.upload-box h4 {
-    color: var(--navy);
-    margin-bottom: 10px;
-}
-
-.upload-box p {
-    color: var(--gray);
-    font-size: 0.9rem;
-    margin-bottom: 15px;
-}
-
-.file-input {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid var(--light-gray);
-    border-radius: 8px;
-    cursor: pointer;
-}
-
-.file-info {
-    margin-top: 10px;
-    font-size: 0.85rem;
-    color: var(--success);
-}
-
 /* Terms Section */
 .terms-section {
     background: var(--light-gray);
@@ -728,10 +767,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         padding: 20px;
     }
 
-    .upload-area {
-        grid-template-columns: 1fr;
-    }
-
     .form-navigation {
         flex-direction: column;
         gap: 10px;
@@ -754,7 +789,6 @@ function nextStep(step) {
     document.getElementById(`step${step}`).classList.remove('active');
     document.getElementById(`step${step + 1}`).classList.add('active');
 
-    // Update progress indicators
     document.querySelectorAll('.progress-step')[step].classList.add('completed');
     document.querySelectorAll('.progress-step')[step + 1].classList.add('active');
 
@@ -766,7 +800,6 @@ function prevStep(step) {
     document.getElementById(`step${step}`).classList.remove('active');
     document.getElementById(`step${step - 1}`).classList.add('active');
 
-    // Update progress indicators
     document.querySelectorAll('.progress-step')[step - 1].classList.remove('completed');
     document.querySelectorAll('.progress-step')[step - 1].classList.add('active');
     document.querySelectorAll('.progress-step')[step].classList.remove('active');
@@ -789,7 +822,6 @@ function validateStep(step) {
                 return false;
             }
 
-            // Validate age
             const dob = new Date(childDob);
             const today = new Date();
             const age = today.getFullYear() - dob.getFullYear();
@@ -862,46 +894,6 @@ function isValidPhone(phone) {
     const re = /^0[789][01]\d{8}$/;
     return re.test(phone);
 }
-
-// File upload preview
-document.getElementById('birth_certificate')?.addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (file) {
-        document.getElementById('birthCertInfo').textContent = `Selected: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
-    }
-});
-
-document.getElementById('passport_photo')?.addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (file) {
-        document.getElementById('photoInfo').textContent = `Selected: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
-    }
-});
-
-// Age calculation
-document.getElementById('child_dob')?.addEventListener('change', function() {
-    const dob = new Date(this.value);
-    const today = new Date();
-    const age = today.getFullYear() - dob.getFullYear();
-    const monthDiff = today.getMonth() - dob.getMonth();
-
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
-        age--;
-    }
-
-    if (age < 2) {
-        alert('Child is too young for admission. Minimum age is 2 years.');
-    } else if (age > 7) {
-        alert('Child is above the maximum age for our early years program.');
-    }
-});
-
-// Form submission
-document.getElementById('applicationForm')?.addEventListener('submit', function(e) {
-    if (!validateStep(4)) {
-        e.preventDefault();
-    }
-});
 </script>
 
 <?php

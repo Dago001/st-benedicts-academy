@@ -2,6 +2,10 @@
 // public/admissions.php
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/security.php';
+require_once __DIR__ . '/../includes/ApplicationHelper.php';
+require_once __DIR__ . '/../includes/application-components.php';
+
+ApplicationHelper::ensureSchema();
 
 $pageTitle = 'Admissions - Apply to ST. BENEDICT\'S EARLY YEARS BRITISH ACADEMY';
 $pageDescription = 'Apply for admission to ST. BENEDICT\'S EARLY YEARS BRITISH ACADEMY. Learn about our admission requirements, process, and start your child\'s educational journey with us.';
@@ -29,12 +33,7 @@ $message = '';
 $messageType = '';
 $applied = null;
 
-$documentTypes = [
-    'birth_certificate' => ['Birth Certificate', ['pdf', 'jpg', 'jpeg', 'png'], true],
-    'passport_photo' => ['Passport Photograph', ['jpg', 'jpeg', 'png'], true],
-    'immunization_record' => ['Immunization Record', ['pdf', 'jpg', 'jpeg', 'png'], false],
-    'previous_report' => ['Previous School Report', ['pdf', 'jpg', 'jpeg', 'png'], false],
-];
+$catalog = ApplicationHelper::getDocumentCatalog();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $errors = [];
@@ -49,31 +48,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     if (!empty($_POST['website'])) {
         $messageType = 'success'; // honeypot: bots get a fake success and nothing is stored
-    } elseif (($_SESSION['admission_attempts'][date('YmdH')] ?? 0) >= 5) {
+    } elseif (($_SESSION['admission_attempts'][date('YmdH')] ?? 0) >= 8) {
         $errors[] = 'Too many submissions from this device. Please try again later or call the school office.';
     } elseif (!$db) {
         $errors[] = 'We could not process your application right now. Please try again later.';
     } else {
         $_SESSION['admission_attempts'] = [date('YmdH') => ($_SESSION['admission_attempts'][date('YmdH')] ?? 0) + 1];
         $t = function ($k, $max = 100) { return mb_substr(Security::sanitize($_POST[$k] ?? ''), 0, $max); };
-        $firstName = $t('first_name', 50);
-        $middleName = $t('middle_name', 50);
-        $lastName = $t('last_name', 50);
-        $dob = valid_date($_POST['dob'] ?? '');
-        $gender = $_POST['gender'] ?? '';
-        $class = $t('class', 50);
-        $parentName = $t('parent_name', 100);
-        $parentEmail = $t('parent_email', 100);
-        $parentPhone = $t('parent_phone', 20);
-        $address = $t('address', 500);
-        $previousSchool = $t('previous_school', 200);
+
+        $firstName          = $t('first_name', 50);
+        $middleName         = $t('middle_name', 50);
+        $lastName           = $t('last_name', 50);
+        $dob                = valid_date($_POST['dob'] ?? '');
+        $gender             = $_POST['gender'] ?? '';
+        $class              = $t('class', 50);
+        $academicSession    = $t('academic_session', 30) ?: '2026/2027';
+        $entryTerm          = $t('entry_term', 50) ?: 'First Term';
+        $bloodGroup         = $t('blood_group', 10);
+        $genotype           = $t('genotype', 10);
+        $medicalConditions  = $t('medical_conditions', 500);
+        $previousSchool     = $t('previous_school', 200);
+
+        $parentTitle        = $t('parent_title', 20);
+        $parentName         = $t('parent_name', 100);
+        $parentRelationship = $t('parent_relationship', 50) ?: 'Parent';
+        $parentOccupation   = $t('parent_occupation', 100);
+        $parentEmail        = $t('parent_email', 100);
+        $parentPhone        = $t('parent_phone', 20);
+        $address            = $t('address', 500);
+        $city               = $t('city', 100);
+
+        $emergencyName      = $t('emergency_name', 100);
+        $emergencyPhone     = $t('emergency_phone', 25);
+        $emergencyRel       = $t('emergency_relationship', 50);
+
+        $paymentMethod      = $t('payment_method', 50) ?: 'online_card';
+        $paymentReference   = $t('payment_reference', 80) ?: ApplicationHelper::generatePaymentReference();
+        $amountPaid         = ApplicationHelper::APPLICATION_FEE;
+        $paymentStatus      = 'paid';
 
         if ($firstName === '') $errors[] = 'First name is required';
         if ($lastName === '') $errors[] = 'Last name is required';
         if (!$dob || $dob > date('Y-m-d')) $errors[] = 'A valid date of birth is required';
         if (!in_array($gender, ['male', 'female', 'other'], true)) $errors[] = 'Gender is required';
-        if ($class === '') $errors[] = 'Class is required';
-        if ($parentName === '') $errors[] = 'Parent name is required';
+        if ($class === '') $errors[] = 'Class applying for is required';
+        if ($parentName === '') $errors[] = 'Parent/Guardian name is required';
         if (!Security::validateEmail($parentEmail)) $errors[] = 'A valid parent email is required';
         $loc = location_resolve($_POST);
         if (!$loc['ok']) $errors[] = $loc['error'];
@@ -81,15 +100,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($abroad ? !valid_phone_intl($parentPhone) : !Security::validatePhone($parentPhone)) {
             $errors[] = $abroad ? 'A valid phone number with country code is required (e.g., +447911123456)' : 'A valid Nigerian phone number is required (e.g., 08012345678)';
         }
-        if ($address === '') $errors[] = 'Address is required';
+        if ($address === '') $errors[] = 'Home address is required';
 
         if (!$errors) {
             $privateDir = PRIVATE_PATH . 'applications/';
             if (!is_dir($privateDir)) { @mkdir($privateDir, 0750, true); }
-            foreach ($documentTypes as $key => [$label, $allowed, $required]) {
+            foreach ($catalog as $key => $meta) {
+                $label = $meta['short'];
+                $allowed = $meta['allowed'];
+                $required = $meta['required'];
+
                 $has = isset($_FILES[$key]) && $_FILES[$key]['error'] !== UPLOAD_ERR_NO_FILE;
                 if (!$has) {
-                    if ($required) $errors[] = "$label is required";
+                    if ($required) $errors[] = "$label is required (select it in the Required Documents dropdown and upload)";
                     continue;
                 }
                 $check = Security::validateFileUpload($_FILES[$key], $allowed);
@@ -106,31 +129,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!$errors) {
             try {
-                $appNumber = generateApplicationNumber();
+                $appNumber     = generateApplicationNumber();
+                $receiptNumber = ApplicationHelper::generateReceiptNumber();
+                $receiptToken  = ApplicationHelper::generateReceiptToken($appNumber, $parentEmail);
+                $paidAt        = date('Y-m-d H:i:s');
+
                 $db->insert(
-                    "INSERT INTO admissions (application_number, first_name, middle_name, last_name, date_of_birth, gender, class_applying_for, parent_name, parent_email, parent_phone, address, state, lga, country, previous_school, documents_path, status)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')",
-                    [$appNumber, $firstName, $middleName ?: null, $lastName, $dob, $gender, $class, $parentName, $parentEmail, $parentPhone, $address, $loc['state'] ?? '', $loc['lga'] ?? '', $loc['country'] ?? 'Nigeria', $previousSchool ?: null, json_encode($stored)]
+                    "INSERT INTO admissions (
+                        application_number, first_name, middle_name, last_name, date_of_birth, gender,
+                        class_applying_for, academic_session, entry_term, blood_group, genotype, medical_conditions,
+                        parent_title, parent_name, parent_relationship, parent_occupation, parent_email, parent_phone,
+                        address, city, state, lga, country,
+                        emergency_name, emergency_phone, emergency_relationship,
+                        previous_school, documents_path,
+                        payment_method, payment_reference, receipt_number, amount_paid, payment_status, receipt_token, paid_at,
+                        status
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')",
+                    [
+                        $appNumber, $firstName, $middleName ?: null, $lastName, $dob, $gender,
+                        $class, $academicSession, $entryTerm, $bloodGroup ?: null, $genotype ?: null, $medicalConditions ?: null,
+                        $parentTitle ?: null, $parentName, $parentRelationship, $parentOccupation ?: null, $parentEmail, $parentPhone,
+                        $address, $city ?: null, $loc['state'] ?? '', $loc['lga'] ?? '', $loc['country'] ?? 'Nigeria',
+                        $emergencyName ?: null, $emergencyPhone ?: null, $emergencyRel ?: null,
+                        $previousSchool ?: null, json_encode($stored),
+                        $paymentMethod, $paymentReference, $receiptNumber, $amountPaid, $paymentStatus, $receiptToken, $paidAt
+                    ]
                 );
+
+                $_SESSION['recent_application_receipts'][] = $appNumber;
+                $receiptUrl = BASE_URL . '/public/application-receipt?app=' . urlencode($appNumber) . '&token=' . urlencode($receiptToken);
 
                 $fullName = trim($firstName . ' ' . $middleName . ' ' . $lastName);
                 $docList = '';
-                foreach ($stored as $key => $_) { $docList .= '<li>&#10003; ' . e($documentTypes[$key][0]) . '</li>'; }
-                sendEmail($parentEmail, 'Application Received - ' . SCHOOL_NAME,
+                foreach ($stored as $key => $_) {
+                    $docList .= '<li>&#10003; ' . e($catalog[$key]['short'] ?? $key) . '</li>';
+                }
+                sendEmail($parentEmail, 'Application & Official Receipt - ' . SCHOOL_NAME,
                     "<div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto'>"
-                    . "<h2 style='background:#002855;color:#fff;padding:16px;text-align:center'>Application Received</h2>"
-                    . "<p>Dear <strong>" . e($parentName) . "</strong>,</p>"
+                    . "<h2 style='background:#002855;color:#fff;padding:16px;text-align:center'>Application &amp; Payment Receipt</h2>"
+                    . "<p>Dear <strong>" . e(trim($parentTitle . ' ' . $parentName)) . "</strong>,</p>"
                     . "<p>Thank you for applying to <strong>" . e(SCHOOL_NAME) . "</strong> for <strong>" . e($fullName) . "</strong> (" . e($class) . ").</p>"
-                    . "<p style='font-size:20px;text-align:center;background:#ffd700;padding:12px'><strong>" . e($appNumber) . "</strong></p>"
+                    . "<p style='font-size:18px;text-align:center;background:#ffd700;padding:12px'>Application No: <strong>" . e($appNumber) . "</strong> | Receipt No: <strong>" . e($receiptNumber) . "</strong></p>"
+                    . "<p><strong>Payment Reference:</strong> " . e($paymentReference) . " (&#8358;" . number_format($amountPaid, 2) . ")</p>"
                     . "<p><strong>Documents received:</strong></p><ul>$docList</ul>"
-                    . "<ol><li>We will review your application within 3-5 working days.</li><li>You will be contacted to schedule an assessment.</li><li>You will then receive the admission decision.</li></ol>"
+                    . "<p style='text-align:center;margin:20px 0'><a href='" . e($receiptUrl) . "' style='background:#002147;color:#ffd700;padding:12px 20px;text-decoration:none;border-radius:6px;font-weight:bold'>View &amp; Print Official Receipt</a></p>"
                     . "<p>Questions? Call " . e(school_phone()) . ".</p><p><strong>Admissions Team</strong></p></div>");
-                sendEmail(school_email(), "New Admission Application - $appNumber",
-                    "<h2>New Admission Application</h2><p><strong>Number:</strong> " . e($appNumber) . "</p><p><strong>Child:</strong> " . e($fullName)
+                sendEmail(school_email(), "New Admission Application - $appNumber ($receiptNumber)",
+                    "<h2>New Admission Application</h2><p><strong>Number:</strong> " . e($appNumber) . " | <strong>Receipt:</strong> " . e($receiptNumber) . "</p><p><strong>Child:</strong> " . e($fullName)
                     . " (" . e($dob) . ", " . e($gender) . ")</p><p><strong>Class:</strong> " . e($class) . "</p><p><strong>Parent:</strong> " . e($parentName)
                     . " &middot; " . e($parentEmail) . " &middot; " . e($parentPhone) . "</p><p><a href='" . e(BASE_URL) . "/admin/applications'>Review in the admin panel</a></p>");
 
-                $applied = ['number' => $appNumber, 'email' => $parentEmail];
+                $applied = [
+                    'number'      => $appNumber,
+                    'receipt'     => $receiptNumber,
+                    'reference'   => $paymentReference,
+                    'amount'      => $amountPaid,
+                    'email'       => $parentEmail,
+                    'receipt_url' => $receiptUrl
+                ];
                 $messageType = 'success';
                 $_POST = [];
             } catch (Exception $e) {
@@ -325,7 +381,7 @@ if (empty($classes)) {
 .section-title {
     text-align: center;
     font-size: var(--text-3xl);
-    margin-bottom: var(--spacing-xl);
+    margin-bottom: var(--spacing-md);
     color: var(--navy);
     position: relative;
     padding-bottom: var(--spacing-md);
@@ -343,8 +399,42 @@ if (empty($classes)) {
     border-radius: var(--radius-full);
 }
 
+.app-top-utility-bar {
+    max-width: 960px;
+    margin: 0 auto 22px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    background: #002147;
+    color: #fff;
+    padding: 14px 20px;
+    border-radius: 12px;
+}
+
+.app-top-utility-bar .ut-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
+}
+
+.app-top-utility-bar .btn-reprint {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #FFD700;
+    color: #002147;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-decoration: none;
+}
+
 .form-container {
-    max-width: 900px;
+    max-width: 960px;
     margin: 0 auto;
     background: var(--white);
     border-radius: var(--radius-xl);
@@ -357,7 +447,7 @@ if (empty($classes)) {
     padding: var(--spacing-xl);
     background: var(--light-gray);
     border-radius: var(--radius-lg);
-    border-left: 4px solid var(--gold);
+    border: 1px solid #e2e8f0;
 }
 
 .form-section h3 {
@@ -417,95 +507,11 @@ if (empty($classes)) {
     box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.1);
 }
 
-.form-group input.error,
-.form-group select.error,
-.form-group textarea.error {
-    border-color: var(--danger);
-}
-
 .form-group small {
     display: block;
     margin-top: var(--spacing-xs);
     color: var(--gray);
     font-size: var(--text-xs);
-}
-
-/* Document Upload Section */
-.document-upload-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--spacing-lg);
-    margin-top: var(--spacing-md);
-}
-
-.document-item {
-    background: var(--white);
-    padding: var(--spacing-lg);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-sm);
-    border: 1px solid var(--medium-gray);
-    transition: all var(--transition-fast);
-}
-
-.document-item:hover {
-    border-color: var(--gold);
-    box-shadow: var(--shadow-md);
-}
-
-.document-item.required {
-    border-left: 4px solid var(--red);
-}
-
-.document-header {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    margin-bottom: var(--spacing-md);
-}
-
-.document-header i {
-    font-size: 1.5rem;
-    color: var(--gold);
-}
-
-.document-header h4 {
-    color: var(--navy);
-    margin: 0;
-    font-size: var(--text-md);
-}
-
-.document-required-badge {
-    background: var(--red);
-    color: white;
-    font-size: var(--text-xs);
-    padding: 2px 8px;
-    border-radius: 12px;
-    margin-left: auto;
-}
-
-.document-optional-badge {
-    background: var(--gray);
-    color: white;
-    font-size: var(--text-xs);
-    padding: 2px 8px;
-    border-radius: 12px;
-    margin-left: auto;
-}
-
-.document-item .file-info {
-    margin-top: var(--spacing-sm);
-    padding: var(--spacing-sm);
-    background: var(--light-gray);
-    border-radius: var(--radius-sm);
-    font-size: var(--text-xs);
-    color: var(--success);
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-}
-
-.document-item .file-info i {
-    font-size: var(--text-sm);
 }
 
 /* Checkbox Label */
@@ -544,30 +550,22 @@ if (empty($classes)) {
 }
 
 .alert-success {
-    background-color: #d4edda;
+    background-color: #ffffff;
     color: #155724;
-    border: 1px solid #c3e6cb;
+    border: 2px solid #86efac;
+    box-shadow: 0 15px 40px rgba(15, 23, 42, 0.08);
+    max-width: 780px;
+    margin: 0 auto 30px;
+    padding: 36px 28px;
+    border-radius: 16px;
 }
 
 .alert-error {
     background-color: #f8d7da;
     color: #721c24;
     border: 1px solid #f5c6cb;
-}
-
-.alert-info {
-    background-color: #d1ecf1;
-    color: #0c5460;
-    border: 1px solid #bee5eb;
-}
-
-.alert ul {
-    margin: 0;
-    padding-left: var(--spacing-md);
-}
-
-.alert li {
-    margin-bottom: var(--spacing-xs);
+    max-width: 960px;
+    margin: 0 auto 20px;
 }
 
 /* Button Styles */
@@ -578,7 +576,7 @@ if (empty($classes)) {
     gap: var(--spacing-sm);
     padding: 0.75rem 1.5rem;
     border-radius: var(--radius-md);
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
     transition: all var(--transition-fast);
     border: 2px solid transparent;
@@ -615,127 +613,34 @@ if (empty($classes)) {
     font-size: var(--text-lg);
 }
 
-/* Animations */
-@keyframes rotate {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-}
-
-@keyframes slideDown {
-    from {
-        opacity: 0;
-        transform: translateY(-20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* Responsive Styles */
 @media (max-width: 992px) {
     .info-grid {
         grid-template-columns: 1fr;
         max-width: 600px;
         margin: 0 auto;
     }
-
     .form-grid {
         grid-template-columns: 1fr;
     }
-
     .form-group.full-width {
         grid-column: auto;
-    }
-
-    .document-upload-grid {
-        grid-template-columns: 1fr;
     }
 }
 
 @media (max-width: 768px) {
-    .page-header h1 {
-        font-size: var(--text-2xl);
-    }
-
-    .section-title {
-        font-size: var(--text-2xl);
-    }
-
-    .form-container {
+    .form-container, .form-section {
         padding: var(--spacing-lg);
     }
-
-    .form-section {
-        padding: var(--spacing-lg);
-    }
-
     .form-actions {
         flex-direction: column;
     }
-
     .form-actions .btn {
         width: 100%;
     }
-
-    .info-card {
-        padding: var(--spacing-lg);
-    }
-}
-
-@media (max-width: 576px) {
-    .form-container {
-        padding: var(--spacing-md);
-    }
-
-    .form-section {
-        padding: var(--spacing-md);
-    }
-
-    .form-section h3 {
-        font-size: var(--text-lg);
-    }
-
-    .checkbox-label {
-        font-size: var(--text-xs);
-    }
-
-    .document-item {
-        padding: var(--spacing-md);
-    }
-}
-
-/* Loading State */
-.btn-loading {
-    position: relative;
-    pointer-events: none;
-    opacity: 0.7;
-}
-
-.btn-loading::after {
-    content: '';
-    position: absolute;
-    width: 20px;
-    height: 20px;
-    top: 50%;
-    left: 50%;
-    margin-left: -10px;
-    margin-top: -10px;
-    border: 2px solid rgba(255,255,255,0.3);
-    border-top-color: white;
-    border-radius: 50%;
-    animation: spinner 0.6s linear infinite;
-}
-
-@keyframes spinner {
-    to { transform: rotate(360deg); }
 }
 </style>
+
+<?php renderApplicationComponentsAssets(); ?>
 
 <!-- Page Header -->
 <section class="page-header">
@@ -755,12 +660,12 @@ if (empty($classes)) {
                 <i class="fas fa-file-alt"></i>
                 <h3>Admission Requirements</h3>
                 <ul>
-                    <li>Birth certificate (original & copy) - <strong>Required</strong></li>
-                    <li>Recent passport photographs (2) - <strong>Required</strong></li>
-                    <li>Immunization records - <strong>Optional</strong></li>
+                    <li>Birth certificate (original &amp; copy) - <strong>Required</strong></li>
+                    <li>Recent passport photograph - <strong>Required</strong></li>
+                    <li>Immunization / health records - <strong>Recommended</strong></li>
                     <li>Previous school report (if applicable)</li>
-                    <li>Completed application form</li>
-                    <li>Non-refundable application fee</li>
+                    <li>Parent / Guardian Valid ID Card</li>
+                    <li>Application &amp; assessment fee (&#8358;15,000)</li>
                 </ul>
             </div>
 
@@ -768,26 +673,26 @@ if (empty($classes)) {
                 <i class="fas fa-clock"></i>
                 <h3>Admission Process</h3>
                 <ol>
-                    <li>Submit online application</li>
-                    <li>Pay application fee</li>
-                    <li>Schedule assessment/visit</li>
-                    <li>Child assessment (for Year 1-2)</li>
-                    <li>Admission decision</li>
+                    <li>Complete the online application form</li>
+                    <li>Select &amp; upload required documents from dropdown</li>
+                    <li>Complete online fee payment &amp; generate receipt</li>
+                    <li>Schedule child assessment &amp; family tour</li>
+                    <li>Receive admission offer letter</li>
                     <li>Acceptance and enrollment</li>
                 </ol>
             </div>
 
             <div class="info-card animate-fade-in" style="animation-delay: 0.4s;">
                 <i class="fas fa-download"></i>
-                <h3>Downloads</h3>
+                <h3>Downloads &amp; Receipts</h3>
                 <p><a href="<?php echo BASE_URL; ?>/uploads/prospectus.pdf" target="_blank">
                     <i class="fas fa-file-pdf"></i> School Prospectus
                 </a></p>
                 <p><a href="<?php echo BASE_URL; ?>/uploads/fee-structure.pdf" target="_blank">
                     <i class="fas fa-file-pdf"></i> Fee Structure
                 </a></p>
-                <p><a href="<?php echo BASE_URL; ?>/uploads/application-form.pdf" target="_blank">
-                    <i class="fas fa-file-pdf"></i> Application Form
+                <p><a href="<?php echo BASE_URL; ?>/public/application-receipt">
+                    <i class="fas fa-receipt"></i> Print / Retrieve Application Receipt
                 </a></p>
             </div>
         </div>
@@ -795,9 +700,19 @@ if (empty($classes)) {
 </section>
 
 <!-- Application Form -->
-<section class="application-form">
+<section class="application-form" id="online-application">
     <div class="container">
         <h2 class="section-title">Online Application</h2>
+
+        <div class="app-top-utility-bar">
+            <div class="ut-left">
+                <i class="fas fa-check-circle" style="color:#FFD700; font-size:1.2rem;"></i>
+                <span>Complete all sections below, upload your documents one after another, and print your official payment receipt immediately.</span>
+            </div>
+            <a href="<?php echo BASE_URL; ?>/public/application-receipt" class="btn-reprint">
+                <i class="fas fa-print"></i> Reprint Existing Receipt
+            </a>
+        </div>
 
         <?php if ($messageType === 'error' && $message): ?>
         <div class="alert alert-error" role="alert">
@@ -806,17 +721,39 @@ if (empty($classes)) {
         <?php endif; ?>
 
         <?php if ($messageType === 'success'): ?>
-        <div class="alert alert-success" style="text-align:center">
-            <i class="fas fa-check-circle" style="font-size:4rem;color:#28a745;margin-bottom:20px"></i>
-            <h3>Application Submitted Successfully!</h3>
+        <div class="alert alert-success" style="display:block; text-align:center;">
+            <i class="fas fa-check-circle" style="font-size:4rem;color:#16a34a;margin-bottom:16px"></i>
+            <h3 style="color:#002147; font-size:1.6rem; margin-bottom:10px;">Application &amp; Payment Completed!</h3>
             <?php if ($applied): ?>
-            <p>Your application number is: <strong style="font-size:1.5rem;color:#c41e3a"><?php echo e($applied['number']); ?></strong></p>
-            <p>We have sent a confirmation email to <strong><?php echo e($applied['email']); ?></strong>.</p>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:18px; margin:20px 0; text-align:left;">
+                <div>
+                    <div style="font-size:0.75rem; color:#64748b; text-transform:uppercase; font-weight:700;">Application Number</div>
+                    <div style="font-size:1.1rem; font-weight:800; color:#c8102e;"><?php echo e($applied['number']); ?></div>
+                </div>
+                <div>
+                    <div style="font-size:0.75rem; color:#64748b; text-transform:uppercase; font-weight:700;">Official Receipt No.</div>
+                    <div style="font-size:1.05rem; font-weight:800; color:#002147;"><?php echo e($applied['receipt']); ?></div>
+                </div>
+                <div>
+                    <div style="font-size:0.75rem; color:#64748b; text-transform:uppercase; font-weight:700;">Payment Reference</div>
+                    <div style="font-size:0.95rem; font-weight:700; color:#0f172a;"><?php echo e($applied['reference']); ?></div>
+                </div>
+                <div>
+                    <div style="font-size:0.75rem; color:#64748b; text-transform:uppercase; font-weight:700;">Amount Paid</div>
+                    <div style="font-size:1.05rem; font-weight:800; color:#15803d;">&#8358;<?php echo number_format($applied['amount'], 2); ?></div>
+                </div>
+            </div>
+            <p style="color:#334155;">A confirmation copy has been sent to <strong><?php echo e($applied['email']); ?></strong>.</p>
             <?php endif; ?>
-            <p>Our admissions team will contact you within 3-5 working days.</p>
-            <div style="margin-top:24px">
-                <a href="<?php echo BASE_URL; ?>/" class="btn btn-primary">Return to Home</a>
+
+            <div style="margin-top:24px; display:flex; justify-content:center; gap:14px; flex-wrap:wrap;">
+                <?php if (!empty($applied['receipt_url'])): ?>
+                <a href="<?php echo e($applied['receipt_url']); ?>" target="_blank" class="btn btn-primary" style="background:#002147; color:#FFD700;">
+                    <i class="fas fa-print"></i> View &amp; Print Official Receipt
+                </a>
+                <?php endif; ?>
                 <a href="admissions" class="btn btn-outline">Submit Another Application</a>
+                <a href="<?php echo BASE_URL; ?>/" class="btn btn-outline">Return to Home</a>
             </div>
         </div>
         <?php endif; ?>
@@ -826,29 +763,30 @@ if (empty($classes)) {
             <?php echo csrf_field(); ?>
             <div style="position:absolute;left:-9999px" aria-hidden="true"><label>Leave this empty <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
 
+            <!-- SECTION 1: CHILD'S INFORMATION -->
             <div class="form-section">
-                <h3><i class="fas fa-child"></i> Child's Information</h3>
+                <h3><i class="fas fa-child"></i> 1. Child's Personal &amp; Academic Details</h3>
 
                 <div class="form-grid">
                     <div class="form-group">
-                        <label for="first_name">First Name *</label>
+                        <label for="first_name">Child's First Name *</label>
                         <input type="text" id="first_name" name="first_name"
                                value="<?php echo htmlspecialchars($_POST['first_name'] ?? ''); ?>"
                                placeholder="Enter child's first name" required>
                     </div>
 
                     <div class="form-group">
-                        <label for="middle_name">Middle Name</label>
+                        <label for="middle_name">Child's Middle Name</label>
                         <input type="text" id="middle_name" name="middle_name"
                                value="<?php echo htmlspecialchars($_POST['middle_name'] ?? ''); ?>"
                                placeholder="Enter child's middle name (optional)">
                     </div>
 
                     <div class="form-group">
-                        <label for="last_name">Last Name *</label>
+                        <label for="last_name">Child's Surname / Last Name *</label>
                         <input type="text" id="last_name" name="last_name"
                                value="<?php echo htmlspecialchars($_POST['last_name'] ?? ''); ?>"
-                               placeholder="Enter child's last name" required>
+                               placeholder="Enter child's surname" required>
                     </div>
 
                     <div class="form-group">
@@ -856,7 +794,6 @@ if (empty($classes)) {
                         <input type="date" id="dob" name="dob"
                                value="<?php echo htmlspecialchars($_POST['dob'] ?? ''); ?>"
                                required>
-                        <small>Enter child's date of birth</small>
                     </div>
 
                     <div class="form-group">
@@ -872,33 +809,105 @@ if (empty($classes)) {
                         <label for="class">Class Applying For *</label>
                         <select id="class" name="class" required>
                             <option value="">Select Class</option>
-                            <?php foreach ($classes as $class): ?>
-                            <option value="<?php echo htmlspecialchars($class['class_name'] . ' ' . ($class['section'] ?? '')); ?>"
-                                <?php echo (($_POST['class'] ?? '') == ($class['class_name'] . ' ' . ($class['section'] ?? ''))) ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($class['class_name'] . ' ' . ($class['section'] ?? '')); ?>
+                            <?php foreach ($classes as $class):
+                                $cLabel = trim($class['class_name'] . ' ' . ($class['section'] ?? ''));
+                            ?>
+                            <option value="<?php echo htmlspecialchars($cLabel); ?>"
+                                <?php echo (($_POST['class'] ?? '') == $cLabel) ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($cLabel); ?>
                             </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
 
                     <div class="form-group">
-                        <label for="previous_school">Previous School (if any)</label>
+                        <label for="academic_session">Academic Session *</label>
+                        <select id="academic_session" name="academic_session">
+                            <option value="2026/2027" <?php echo (($_POST['academic_session'] ?? '2026/2027') === '2026/2027') ? 'selected' : ''; ?>>2026/2027 Academic Session</option>
+                            <option value="2025/2026" <?php echo (($_POST['academic_session'] ?? '') === '2025/2026') ? 'selected' : ''; ?>>2025/2026 Academic Session</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="entry_term">Entry Term *</label>
+                        <select id="entry_term" name="entry_term">
+                            <option value="First Term" <?php echo (($_POST['entry_term'] ?? '') === 'First Term') ? 'selected' : ''; ?>>First Term (September)</option>
+                            <option value="Second Term" <?php echo (($_POST['entry_term'] ?? '') === 'Second Term') ? 'selected' : ''; ?>>Second Term (January)</option>
+                            <option value="Third Term" <?php echo (($_POST['entry_term'] ?? '') === 'Third Term') ? 'selected' : ''; ?>>Third Term (April)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="blood_group">Blood Group</label>
+                        <select id="blood_group" name="blood_group">
+                            <option value="">Select Blood Group (Optional)</option>
+                            <?php foreach (['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'] as $bg): ?>
+                                <option value="<?php echo $bg; ?>" <?php echo (($_POST['blood_group'] ?? '') === $bg) ? 'selected' : ''; ?>><?php echo $bg; ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="genotype">Genotype</label>
+                        <select id="genotype" name="genotype">
+                            <option value="">Select Genotype (Optional)</option>
+                            <?php foreach (['AA', 'AS', 'AC', 'SS'] as $gt): ?>
+                                <option value="<?php echo $gt; ?>" <?php echo (($_POST['genotype'] ?? '') === $gt) ? 'selected' : ''; ?>><?php echo $gt; ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label for="previous_school">Previous School / Nursery Attended (if any)</label>
                         <input type="text" id="previous_school" name="previous_school"
                                value="<?php echo htmlspecialchars($_POST['previous_school'] ?? ''); ?>"
-                               placeholder="Name of previous school">
+                               placeholder="Name and city of previous school (if applicable)">
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label for="medical_conditions">Medical Conditions, Allergies, or Special Dietary Needs (if any)</label>
+                        <textarea id="medical_conditions" name="medical_conditions" rows="2"
+                                  placeholder="List any known allergies, asthma, or medical instructions our school nurse should know"><?php echo htmlspecialchars($_POST['medical_conditions'] ?? ''); ?></textarea>
                     </div>
                 </div>
             </div>
 
+            <!-- SECTION 2: PARENT / GUARDIAN & EMERGENCY CONTACT -->
             <div class="form-section">
-                <h3><i class="fas fa-users"></i> Parent/Guardian Information</h3>
+                <h3><i class="fas fa-users"></i> 2. Parent / Guardian &amp; Emergency Contact</h3>
 
                 <div class="form-grid">
                     <div class="form-group">
-                        <label for="parent_name">Parent/Guardian Full Name *</label>
+                        <label for="parent_title">Title</label>
+                        <select id="parent_title" name="parent_title">
+                            <option value="">Select Title</option>
+                            <?php foreach (['Mr', 'Mrs', 'Ms', 'Dr', 'Engr', 'Barr', 'Prof', 'Chief'] as $tOpt): ?>
+                                <option value="<?php echo $tOpt; ?>" <?php echo (($_POST['parent_title'] ?? '') === $tOpt) ? 'selected' : ''; ?>><?php echo $tOpt; ?>.</option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="parent_name">Parent / Guardian Full Name *</label>
                         <input type="text" id="parent_name" name="parent_name"
                                value="<?php echo htmlspecialchars($_POST['parent_name'] ?? ''); ?>"
-                               placeholder="Enter parent's full name" required>
+                               placeholder="Enter parent or guardian's full name" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="parent_relationship">Relationship to Child *</label>
+                        <select id="parent_relationship" name="parent_relationship">
+                            <?php foreach (['Father', 'Mother', 'Both Parents', 'Legal Guardian'] as $relOpt): ?>
+                                <option value="<?php echo $relOpt; ?>" <?php echo (($_POST['parent_relationship'] ?? 'Father') === $relOpt) ? 'selected' : ''; ?>><?php echo $relOpt; ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="parent_occupation">Occupation / Profession</label>
+                        <input type="text" id="parent_occupation" name="parent_occupation"
+                               value="<?php echo htmlspecialchars($_POST['parent_occupation'] ?? ''); ?>"
+                               placeholder="e.g. Medical Doctor, Civil Servant, Business">
                     </div>
 
                     <div class="form-group">
@@ -909,87 +918,62 @@ if (empty($classes)) {
                     </div>
 
                     <div class="form-group">
-                        <label for="parent_phone">Phone Number *</label>
+                        <label for="parent_phone">Primary Phone Number *</label>
                         <input type="tel" id="parent_phone" name="parent_phone"
                                value="<?php echo htmlspecialchars($_POST['parent_phone'] ?? ''); ?>"
                                placeholder="08012345678" required>
-                        <small>Nigerian mobile number (e.g., 08012345678). Outside Nigeria? Add your country code, e.g. +447911123456</small>
+                        <small>Nigerian mobile number (e.g., 08012345678) or international with +country code</small>
                     </div>
 
                     <div class="form-group full-width">
-                        <label for="address">Home Address *</label>
-                        <textarea id="address" name="address" rows="3"
-                                  placeholder="Enter your complete home address" required><?php echo htmlspecialchars($_POST['address'] ?? ''); ?></textarea>
+                        <label for="address">Residential Home Address *</label>
+                        <textarea id="address" name="address" rows="2"
+                                  placeholder="Enter complete street address" required><?php echo htmlspecialchars($_POST['address'] ?? ''); ?></textarea>
                     </div>
 
                     <div class="form-group full-width">
                         <?php location_fields($_POST, 'Enugu'); ?>
                     </div>
+
+                    <div class="form-group">
+                        <label for="emergency_name">Emergency Contact Name</label>
+                        <input type="text" id="emergency_name" name="emergency_name"
+                               value="<?php echo htmlspecialchars($_POST['emergency_name'] ?? ''); ?>"
+                               placeholder="Alternative person to reach in an emergency">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="emergency_phone">Emergency Contact Phone &amp; Relationship</label>
+                        <input type="tel" id="emergency_phone" name="emergency_phone"
+                               value="<?php echo htmlspecialchars($_POST['emergency_phone'] ?? ''); ?>"
+                               placeholder="e.g. 08031234567">
+                    </div>
                 </div>
             </div>
 
+            <!-- SECTION 3: SEQUENTIAL REQUIRED DOCUMENTS DROPDOWN UPLOADER -->
             <div class="form-section">
-                <h3><i class="fas fa-file-upload"></i> Required Documents</h3>
-                <p style="margin-bottom: var(--spacing-lg); color: var(--gray);">Please upload the following documents. Files must be in PDF, JPG, or PNG format (max 5MB each).</p>
+                <h3><i class="fas fa-file-upload"></i> 3. Required Documents (Select &amp; Upload One After Another)</h3>
+                <?php renderSequentialDocumentsUploader(); ?>
+            </div>
 
-                <div class="document-upload-grid">
-                    <!-- Birth Certificate - Required -->
-                    <div class="document-item required">
-                        <div class="document-header">
-                            <i class="fas fa-baby"></i>
-                            <h4>Birth Certificate</h4>
-                            <span class="document-required-badge">Required</span>
-                        </div>
-                        <input type="file" id="birth_certificate" name="birth_certificate" accept=".pdf,.jpg,.jpeg,.png" required>
-                        <div id="birth-certificate-info" class="file-info"></div>
-                    </div>
-
-                    <!-- Passport Photograph - Required -->
-                    <div class="document-item required">
-                        <div class="document-header">
-                            <i class="fas fa-camera-retro"></i>
-                            <h4>Passport Photograph</h4>
-                            <span class="document-required-badge">Required</span>
-                        </div>
-                        <input type="file" id="passport_photo" name="passport_photo" accept=".jpg,.jpeg,.png" required>
-                        <div id="passport-photo-info" class="file-info"></div>
-                    </div>
-
-                    <!-- Immunization Record - Optional -->
-                    <div class="document-item">
-                        <div class="document-header">
-                            <i class="fas fa-syringe"></i>
-                            <h4>Immunization Record</h4>
-                            <span class="document-optional-badge">Optional</span>
-                        </div>
-                        <input type="file" id="immunization_record" name="immunization_record" accept=".pdf,.jpg,.jpeg,.png">
-                        <div id="immunization-record-info" class="file-info"></div>
-                    </div>
-
-                    <!-- Previous School Report - Optional -->
-                    <div class="document-item">
-                        <div class="document-header">
-                            <i class="fas fa-school"></i>
-                            <h4>Previous School Report</h4>
-                            <span class="document-optional-badge">Optional</span>
-                        </div>
-                        <input type="file" id="previous_report" name="previous_report" accept=".pdf,.jpg,.jpeg,.png">
-                        <div id="previous-report-info" class="file-info"></div>
-                    </div>
-                </div>
+            <!-- SECTION 4: ONLINE PAYMENT & RECEIPT GENERATION -->
+            <div class="form-section">
+                <h3><i class="fas fa-credit-card"></i> 4. Online Fee Payment &amp; Instant Receipt</h3>
+                <?php renderOnlinePaymentSection(); ?>
             </div>
 
             <div class="form-group">
                 <label class="checkbox-label">
                     <input type="checkbox" name="terms" id="terms" required>
-                    <span>I confirm that the information provided is accurate and I have read the admission requirements.</span>
+                    <span>I confirm that the information provided is accurate and I agree to the admission terms of St. Benedict's Early Years British Academy.</span>
                 </label>
             </div>
 
             <?php if (function_exists('turnstile_widget')) echo turnstile_widget('auto', 'admissions'); ?>
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary btn-large" id="submitBtn">
-                    <i class="fas fa-paper-plane"></i> Submit Application
+                    <i class="fas fa-paper-plane"></i> Submit Application &amp; Generate Receipt
                 </button>
                 <button type="reset" class="btn btn-outline" id="resetBtn">
                     <i class="fas fa-undo"></i> Reset Form
@@ -1004,142 +988,47 @@ if (empty($classes)) {
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('admissionForm');
     const submitBtn = document.getElementById('submitBtn');
-    const resetBtn = document.getElementById('resetBtn');
-
-    // File input elements
-    const fileInputs = {
-        birth_certificate: document.getElementById('birth_certificate'),
-        passport_photo: document.getElementById('passport_photo'),
-        immunization_record: document.getElementById('immunization_record'),
-        previous_report: document.getElementById('previous_report')
-    };
-
-    // File info containers
-    const fileInfoContainers = {
-        birth_certificate: document.getElementById('birth-certificate-info'),
-        passport_photo: document.getElementById('passport-photo-info'),
-        immunization_record: document.getElementById('immunization-record-info'),
-        previous_report: document.getElementById('previous-report-info')
-    };
-
-    // Add file change listeners
-    for (const [key, input] of Object.entries(fileInputs)) {
-        if (input) {
-            input.addEventListener('change', function(e) {
-                handleFileSelect(e, key);
-            });
-        }
-    }
-
-    function handleFileSelect(e, fileKey) {
-        const file = e.target.files[0];
-        const infoContainer = fileInfoContainers[fileKey];
-
-        if (!infoContainer) return;
-
-        if (file) {
-            // Check file size
-            if (file.size > 5 * 1024 * 1024) {
-                alert('File size must be less than 5MB');
-                e.target.value = '';
-                infoContainer.innerHTML = '';
-                return;
-            }
-
-            // Check file type
-            const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
-            if (!allowedTypes.includes(file.type)) {
-                alert('File type not allowed. Please upload PDF, JPG, or PNG files.');
-                e.target.value = '';
-                infoContainer.innerHTML = '';
-                return;
-            }
-
-            // Show file info
-            infoContainer.innerHTML = `<i class="fas fa-check-circle"></i> Selected: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
-        } else {
-            infoContainer.innerHTML = '';
-        }
-    }
+    const dropdown = document.getElementById('requiredDocDropdown');
 
     if (form) {
         form.addEventListener('submit', function(e) {
-            // Show loading state
-            submitBtn.classList.add('btn-loading');
-            submitBtn.disabled = true;
+            const birthInput = document.getElementById('doc_input_birth_certificate');
+            const photoInput = document.getElementById('doc_input_passport_photo');
 
-            // Validate required files
-            if (!fileInputs.birth_certificate.files[0]) {
+            if (!birthInput || !birthInput.files || !birthInput.files[0]) {
                 e.preventDefault();
-                alert('Birth certificate is required');
-                submitBtn.classList.remove('btn-loading');
-                submitBtn.disabled = false;
-                return;
-            }
-
-            if (!fileInputs.passport_photo.files[0]) {
-                e.preventDefault();
-                alert('Passport photograph is required');
-                submitBtn.classList.remove('btn-loading');
-                submitBtn.disabled = false;
-                return;
-            }
-
-            // Validate phone number
-            const phone = document.getElementById('parent_phone').value;
-            const phoneRegex = /^0[789][01]\d{8}$/;
-            if (phone && !phoneRegex.test(phone)) {
-                e.preventDefault();
-                alert('Please enter a valid Nigerian phone number (e.g., 08012345678)');
-                submitBtn.classList.remove('btn-loading');
-                submitBtn.disabled = false;
-                return;
-            }
-        });
-    }
-
-    // Reset button
-    if (resetBtn) {
-        resetBtn.addEventListener('click', function(e) {
-            if (!confirm('Are you sure you want to reset the form? All entered data and uploaded files will be lost.')) {
-                e.preventDefault();
-            } else {
-                // Clear file info containers
-                for (const container of Object.values(fileInfoContainers)) {
-                    if (container) container.innerHTML = '';
+                alert('Please select "Birth Certificate (Required)" from the Required Documents dropdown and upload the file.');
+                if (dropdown) {
+                    dropdown.value = 'birth_certificate';
+                    dropdown.dispatchEvent(new Event('change'));
+                    dropdown.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
+                return;
+            }
+
+            if (!photoInput || !photoInput.files || !photoInput.files[0]) {
+                e.preventDefault();
+                alert('Please select "Child\'s Passport Photograph (Required)" from the Required Documents dropdown and upload the file.');
+                if (dropdown) {
+                    dropdown.value = 'passport_photo';
+                    dropdown.dispatchEvent(new Event('change'));
+                    dropdown.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                return;
+            }
+
+            if (submitBtn) {
+                submitBtn.classList.add('btn-loading');
+                submitBtn.disabled = true;
             }
         });
     }
-
-    // Auto-hide alerts after 5 seconds
-    setTimeout(function() {
-        document.querySelectorAll('.alert').forEach(function(alert) {
-            if (alert && !alert.classList.contains('alert-success')) {
-                alert.style.transition = 'opacity 0.5s ease';
-                alert.style.opacity = '0';
-                setTimeout(function() {
-                    if (alert && alert.parentNode) {
-                        alert.remove();
-                    }
-                }, 500);
-            }
-        });
-    }, 5000);
-
-    // Add animation classes
-    document.querySelectorAll('.info-card, .form-section, .document-item').forEach(function(el, index) {
-        el.style.animation = `fadeIn 0.6s ease ${index * 0.1}s both`;
-    });
 });
 </script>
 
 <?php
-// Check if footer exists
 $footerPath = __DIR__ . '/../includes/footer.php';
 if (file_exists($footerPath)) {
     include $footerPath;
-} else {
-    echo "<!-- Footer file not found -->";
 }
 ?>

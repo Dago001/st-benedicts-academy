@@ -196,7 +196,7 @@ $submissions = $db->getRows(
 }
 
 .assignment-card.overdue {
-    border-left: 4px solid #dc3545;
+    border: 1px solid #e2e8f0;
 }
 
 .assignment-header {
@@ -295,7 +295,7 @@ $submissions = $db->getRows(
     background: #f8f9fa;
     border-radius: 5px;
     font-size: 0.85rem;
-    border-left: 3px solid #ffd700;
+    border: 1px solid #e2e8f0;
 }
 
 .feedback strong {

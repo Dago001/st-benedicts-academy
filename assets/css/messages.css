@@ -46,7 +46,7 @@
 
 .conversation-item.active {
     background: #e3f2fd;
-    border-left: 3px solid var(--navy);
+    border: 1px solid #e2e8f0;
 }
 
 .conversation-item.unread {

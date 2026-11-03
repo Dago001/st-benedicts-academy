@@ -2,7 +2,10 @@
 // admin/applications.php - review admission applications (full form + quick enquiries)
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/security.php';
+require_once __DIR__ . '/../includes/ApplicationHelper.php';
 Security::requireRole('admin');
+
+ApplicationHelper::ensureSchema();
 
 $db = db();
 $statuses = ['pending', 'reviewing', 'accepted', 'rejected'];
@@ -12,8 +15,16 @@ if (isset($_GET['file'])) {
     $id = (int)($_GET['id'] ?? 0);
     $path = null;
     if ($_GET['file'] === 'app') {
-        $row = $db->getRow('SELECT birth_certificate_path, passport_photo_path FROM applications WHERE id = ?', [$id]);
-        $name = $row ? (($_GET['doc'] ?? '') === 'photo' ? $row['passport_photo_path'] : $row['birth_certificate_path']) : null;
+        $row = $db->getRow('SELECT birth_certificate_path, passport_photo_path, documents_path FROM applications WHERE id = ?', [$id]);
+        $docKey = $_GET['doc'] ?? '';
+        $docs = ($row && !empty($row['documents_path'])) ? (json_decode($row['documents_path'], true) ?: []) : [];
+        if (isset($docs[$docKey])) {
+            $name = $docs[$docKey];
+        } elseif ($docKey === 'photo' || $docKey === 'passport_photo') {
+            $name = $row['passport_photo_path'] ?? null;
+        } else {
+            $name = $row['birth_certificate_path'] ?? null;
+        }
         $path = $name ? PRIVATE_PATH . 'applications/' . basename($name) : null;
     } elseif ($_GET['file'] === 'enq') {
         $row = $db->getRow('SELECT documents_path FROM admissions WHERE id = ?', [$id]);
@@ -59,10 +70,12 @@ $where = $filter ? 'WHERE status = ?' : '';
 $params = $filter ? [$filter] : [];
 $apps = $db->getRows("SELECT id, application_number, CONCAT(child_first_name, ' ', child_last_name) AS child, child_dob, child_gender, class_applying AS class_name,
         CONCAT(parent_first_name, ' ', parent_last_name) AS parent_name, parent_email, parent_phone, address, city, state, lga, country, previous_school,
-        reason_applying, birth_certificate_path, passport_photo_path, status, remarks, created_at
+        reason_applying, birth_certificate_path, passport_photo_path, documents_path,
+        receipt_number, payment_reference, amount_paid, payment_status, status, remarks, created_at
         FROM applications $where ORDER BY created_at DESC LIMIT 200", $params);
 $enquiries = $db->getRows("SELECT id, application_number, CONCAT(first_name, ' ', last_name) AS child, date_of_birth AS child_dob, gender AS child_gender,
-        class_applying_for AS class_name, parent_name, parent_email, parent_phone, address, '' AS city, state, lga, country, previous_school, documents_path, status, remarks, submitted_at AS created_at
+        class_applying_for AS class_name, parent_name, parent_email, parent_phone, address, city, state, lga, country, previous_school, documents_path,
+        receipt_number, payment_reference, amount_paid, payment_status, status, remarks, submitted_at AS created_at
         FROM admissions $where ORDER BY submitted_at DESC LIMIT 200", $params);
 
 $pageTitle = 'Admission Applications';
@@ -77,32 +90,60 @@ render_alert($message, $messageType);
     <?php foreach ($statuses as $s): ?><a class="btn btn-sm <?php echo $filter === $s ? 'btn-primary' : 'btn-outline'; ?>" href="applications?status=<?php echo e($s); ?>"><?php echo e(ucfirst($s)); ?></a><?php endforeach; ?>
 </div></div>
 <?php
-$sections = [['Online applications', 'app', $apps], ['Admission enquiries', 'enq', $enquiries]];
+$sections = [['Online applications', 'app', $apps], ['Admission enquiries & portal applications', 'enq', $enquiries]];
 foreach ($sections as [$title, $kind, $rows]): ?>
 <div class="card"><div class="card-header"><h3><?php echo e($title); ?> (<?php echo count($rows); ?>)</h3></div><div class="card-body">
 <?php if (!$rows): ?><p class="text-muted">Nothing here.</p><?php endif; ?>
-<?php foreach ($rows as $a): ?>
+<?php foreach ($rows as $a):
+    $payStatus = strtolower($a['payment_status'] ?? 'paid');
+    $amtPaid = (float)($a['amount_paid'] ?? ApplicationHelper::APPLICATION_FEE);
+?>
     <details class="app-item">
         <summary>
             <strong><?php echo e($a['child']); ?></strong> &middot; <?php echo e($a['class_name']); ?>
-            <span class="badge badge-<?php echo ['pending' => 'warning', 'reviewing' => 'info', 'accepted' => 'success', 'rejected' => 'danger'][$a['status']]; ?>"><?php echo e(ucfirst($a['status'])); ?></span>
+            <span class="badge badge-<?php echo ['pending' => 'warning', 'reviewing' => 'info', 'accepted' => 'success', 'rejected' => 'danger'][$a['status']] ?? 'info'; ?>"><?php echo e(ucfirst($a['status'])); ?></span>
+            <span class="badge badge-<?php echo $payStatus === 'paid' ? 'success' : 'warning'; ?>"><?php echo $payStatus === 'paid' ? 'Fee Paid (₦' . number_format($amtPaid) . ')' : 'Fee Pending'; ?></span>
             <small class="text-muted"><?php echo e($a['application_number']); ?> &middot; <?php echo e(formatDate($a['created_at'], 'd M Y')); ?></small>
         </summary>
         <div class="detail-grid">
-            <?php foreach (['Date of birth' => formatDate($a['child_dob'], 'd M Y'), 'Gender' => ucfirst((string)$a['child_gender']), 'Parent' => $a['parent_name'],
-                'Email' => $a['parent_email'], 'Phone' => $a['parent_phone'], 'Address' => trim($a['address'] . ' ' . ($a['city'] ?? '')), 'Location' => location_label($a['country'] ?? '', $a['state'] ?? '', $a['lga'] ?? ''),
-                'Previous school' => $a['previous_school'], 'Reason' => $a['reason_applying'] ?? ''] as $l => $v): ?>
+            <?php foreach ([
+                'Date of birth'     => formatDate($a['child_dob'], 'd M Y'),
+                'Gender'            => ucfirst((string)$a['child_gender']),
+                'Parent'            => $a['parent_name'],
+                'Email'             => $a['parent_email'],
+                'Phone'             => $a['parent_phone'],
+                'Address'           => trim($a['address'] . ' ' . ($a['city'] ?? '')),
+                'Location'          => location_label($a['country'] ?? '', $a['state'] ?? '', $a['lga'] ?? ''),
+                'Previous school'   => $a['previous_school'],
+                'Receipt Number'    => $a['receipt_number'] ?? '-',
+                'Payment Reference' => $a['payment_reference'] ?? '-',
+                'Amount Paid'       => '₦' . number_format($amtPaid, 2),
+                'Reason'            => $a['reason_applying'] ?? ''
+            ] as $l => $v): ?>
             <div class="detail-row"><span class="detail-label"><?php echo e($l); ?></span><span class="detail-value"><?php echo e($v !== '' && $v !== null ? $v : '-'); ?></span></div>
             <?php endforeach; ?>
         </div>
-        <p>
-            <?php if ($kind === 'app'): ?>
-                <?php if ($a['birth_certificate_path']): ?><a class="btn btn-sm btn-outline" target="_blank" rel="noopener" href="?file=app&id=<?php echo (int)$a['id']; ?>&doc=birth"><i class="fas fa-file"></i> Birth certificate</a><?php endif; ?>
-                <?php if ($a['passport_photo_path']): ?><a class="btn btn-sm btn-outline" target="_blank" rel="noopener" href="?file=app&id=<?php echo (int)$a['id']; ?>&doc=photo"><i class="fas fa-image"></i> Passport photo</a><?php endif; ?>
-            <?php else:
-                $docs = $a['documents_path'] ? (json_decode($a['documents_path'], true) ?: []) : [];
-                foreach ($docs as $key => $file): ?><a class="btn btn-sm btn-outline" target="_blank" rel="noopener" href="?file=enq&id=<?php echo (int)$a['id']; ?>&doc=<?php echo urlencode($key); ?>"><i class="fas fa-file"></i> <?php echo e(ucwords(str_replace('_', ' ', $key))); ?></a><?php endforeach;
-            endif; ?>
+        <p style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px;">
+            <?php
+            $docs = !empty($a['documents_path']) ? (json_decode($a['documents_path'], true) ?: []) : [];
+            if ($kind === 'app') {
+                if (empty($docs['birth_certificate']) && !empty($a['birth_certificate_path'])) {
+                    $docs['birth_certificate'] = $a['birth_certificate_path'];
+                }
+                if (empty($docs['passport_photo']) && !empty($a['passport_photo_path'])) {
+                    $docs['passport_photo'] = $a['passport_photo_path'];
+                }
+            }
+            foreach ($docs as $key => $file):
+                if (!$file) continue;
+            ?>
+                <a class="btn btn-sm btn-outline" target="_blank" rel="noopener" href="?file=<?php echo e($kind); ?>&id=<?php echo (int)$a['id']; ?>&doc=<?php echo urlencode($key); ?>">
+                    <i class="fas fa-file-alt"></i> <?php echo e(ucwords(str_replace('_', ' ', $key))); ?>
+                </a>
+            <?php endforeach; ?>
+            <a class="btn btn-sm btn-primary" target="_blank" rel="noopener" href="<?php echo BASE_URL; ?>/public/application-receipt?app=<?php echo urlencode($a['application_number']); ?>">
+                <i class="fas fa-print"></i> View / Print Receipt
+            </a>
             <a class="btn btn-sm btn-outline" href="mailto:<?php echo e($a['parent_email']); ?>"><i class="fas fa-envelope"></i> Email parent</a>
         </p>
         <form method="POST" class="form-row">

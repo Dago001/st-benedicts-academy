@@ -413,15 +413,15 @@
 
 .log-entry {
     padding: 10px;
-    border-left: 3px solid transparent;
+    border: 1px solid #e2e8f0; border-radius: 6px;
     margin-bottom: 5px;
     background: var(--light-gray);
 }
 
-.log-entry.info { border-left-color: var(--info); }
-.log-entry.success { border-left-color: var(--success); }
-.log-entry.warning { border-left-color: var(--warning); }
-.log-entry.error { border-left-color: var(--danger); }
+.log-entry.info { border-color: #e2e8f0; }
+.log-entry.success { border-color: #e2e8f0; }
+.log-entry.warning { border-color: #e2e8f0; }
+.log-entry.error { border-color: #e2e8f0; }
 
 .log-time {
     font-size: 11px;

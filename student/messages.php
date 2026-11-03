@@ -522,7 +522,7 @@ define('ANNOUNCEMENT_UPLOAD_PATH', BASE_URL . '/uploads/announcements/');
     box-shadow: 0 2px 10px rgba(0,0,0,0.05);
     overflow: hidden;
     transition: all 0.3s ease;
-    border-left: 4px solid transparent;
+    border: 1px solid #e2e8f0;
     position: relative;
 }
 
@@ -532,19 +532,19 @@ define('ANNOUNCEMENT_UPLOAD_PATH', BASE_URL . '/uploads/announcements/');
 }
 
 .announcement-card.priority-urgent {
-    border-left-color: var(--danger);
+    border-color: #e2e8f0;
 }
 
 .announcement-card.priority-high {
-    border-left-color: var(--warning);
+    border-color: #e2e8f0;
 }
 
 .announcement-card.priority-normal {
-    border-left-color: var(--navy);
+    border-color: #e2e8f0;
 }
 
 .announcement-card.priority-low {
-    border-left-color: var(--gray);
+    border-color: #e2e8f0;
 }
 
 .announcement-card.unread {

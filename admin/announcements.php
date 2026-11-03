@@ -440,7 +440,7 @@ $announcements = $db->getRows(
     padding: 10px;
     background: #f8f9fa;
     border-radius: 4px;
-    border-left: 3px solid var(--gold);
+    border: 1px solid #e2e8f0;
 }
 
 .current-attachment i {

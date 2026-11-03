@@ -215,7 +215,7 @@ $announcements = $db->getRows(
     color: rgba(255,255,255,0.8);
     text-decoration: none;
     transition: all 0.3s ease;
-    border-left: 3px solid transparent;
+    border: 1px solid #e2e8f0;
 }
 
 .sidebar-nav li a i {
@@ -227,13 +227,13 @@ $announcements = $db->getRows(
 .sidebar-nav li:hover a {
     background: rgba(255,255,255,0.1);
     color: white;
-    border-left-color: var(--gold);
+    border-color: #e2e8f0;
 }
 
 .sidebar-nav li.active a {
     background: rgba(255,215,0,0.15);
     color: var(--gold);
-    border-left-color: var(--gold);
+    border-color: #e2e8f0;
 }
 
 /* Main Content */
@@ -618,19 +618,19 @@ $announcements = $db->getRows(
     background: var(--light);
     border-radius: 8px;
     margin-bottom: 10px;
-    border-left: 3px solid transparent;
+    border: 1px solid #e2e8f0;
 }
 
 .announcement-item.priority-urgent {
-    border-left-color: var(--danger);
+    border-color: #e2e8f0;
 }
 
 .announcement-item.priority-high {
-    border-left-color: var(--warning);
+    border-color: #e2e8f0;
 }
 
 .announcement-item.priority-normal {
-    border-left-color: var(--navy);
+    border-color: #e2e8f0;
 }
 
 .announcement-icon {
