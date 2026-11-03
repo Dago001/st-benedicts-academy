@@ -2,7 +2,7 @@
 // includes/header.php
 // Expects config/config.php + config/security.php to be loaded by the page.
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
-$assetVersion = '29';
+$assetVersion = '30';
 
 /** <link>/<script nonce="<?php echo CSP_NONCE; ?>"> only for assets that actually exist, so a missing file never causes a 404. */
 if (!function_exists('asset_exists')) {
@@ -91,7 +91,7 @@ if (function_exists('enforce_maintenance_mode')) {
             </div>
         </div>
     </div>
-    <script src="<?php echo BASE_URL; ?>/assets/js/preloader.js?v=<?php echo $assetVersion; ?>"></script>
+    <script nonce="<?php echo CSP_NONCE; ?>" src="<?php echo BASE_URL; ?>/assets/js/preloader.js?v=<?php echo $assetVersion; ?>"></script>
     <?php if (function_exists('maintenance_admin_banner')) maintenance_admin_banner(); ?>
     <a class="skip-link" href="#main-content">Skip to content</a>
     <div class="site-wrapper">
