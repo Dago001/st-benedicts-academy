@@ -3,7 +3,7 @@
 // Expects config/config.php + config/security.php to be loaded by the page.
 require_once __DIR__ . '/layout.php';
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
-$assetVersion = '31';
+$assetVersion = '32';
 
 /** <link>/<script nonce="<?php echo CSP_NONCE; ?>"> only for assets that actually exist, so a missing file never causes a 404. */
 if (!function_exists('asset_exists')) {
@@ -111,8 +111,22 @@ if (function_exists('enforce_maintenance_mode')) {
 
                 <ul class="nav-menu" id="navMenu">
                     <?php
-                    // Phones: structured sectioned portal navigation (identical to desktop sidebar categories)
+                    // Phones: structured sectioned portal navigation (interactive collapsible dropdowns)
                     $portalSections = $portalRole ? nav_sections($portalRole) : [];
+                    $sectionIcons = [
+                        'MAIN' => 'fa-home',
+                        'STUDENTS' => 'fa-user-graduate',
+                        'FEES' => 'fa-money-bill-wave',
+                        'FEES & PAYMENTS' => 'fa-money-bill-wave',
+                        'ACADEMICS' => 'fa-book-reader',
+                        'MY ACADEMICS' => 'fa-graduation-cap',
+                        'MY CHILDREN' => 'fa-child',
+                        'FINANCE' => 'fa-coins',
+                        'STAFF / PAYROLL' => 'fa-user-tie',
+                        'COMMUNICATION' => 'fa-bullhorn',
+                        'ADMIN' => 'fa-sliders-h',
+                        'ACCOUNT' => 'fa-user-cog',
+                    ];
                     if (!empty($portalSections)):
                         $portalCurrent = $currentPage;
                         $portalAlias = [
@@ -129,26 +143,68 @@ if (function_exists('enforce_maintenance_mode')) {
                         $portalActive = $portalAlias[$portalCurrent] ?? $portalCurrent;
                         $baseRoleDir = in_array($portalRole, ['super_admin', 'admin', 'head_teacher', 'supervisor'], true) ? 'admin' : $portalRole;
                     ?>
-                    <?php foreach ($portalSections as $sectionHeading => $items): ?>
-                        <li class="nav-portal-heading" aria-hidden="true"><?php echo e($sectionHeading); ?></li>
-                        <?php foreach ($items as $item):
-                            $file = $item[0];
-                            $label = $item[1];
-                            $icon = $item[2];
-                            $accent = $item[3] ?? '';
-                            $url = (strpos($file, '/') !== false || strpos($file, 'http') === 0)
-                                ? (strpos($file, '../') === 0 ? BASE_URL . substr($file, 2) : $file)
-                                : BASE_URL . '/' . $baseRoleDir . '/' . $file;
-                            $checkKey = explode('?', $file)[0];
-                            $isActive = ($inPortal && $portalActive === $checkKey);
-                        ?>
-                        <li class="nav-portal<?php echo $isActive ? ' active' : ''; ?>">
-                            <a href="<?php echo e($url); ?>" class="nav-portal-link <?php echo e($accent); ?><?php echo $isActive ? ' is-active' : ''; ?>"<?php echo $isActive ? ' aria-current="page"' : ''; ?>>
-                                <i class="fas <?php echo e($icon); ?> nav-portal-icon"></i>
-                                <span class="nav-portal-text"><?php echo e($label); ?></span>
-                            </a>
-                        </li>
-                        <?php endforeach; ?>
+                    <?php foreach ($portalSections as $sectionHeading => $items):
+                        $isMain = ($sectionHeading === 'MAIN');
+                        $secIcon = $sectionIcons[$sectionHeading] ?? 'fa-folder';
+                        $sectionHasActive = false;
+                        foreach ($items as $it) {
+                            $ck = explode('?', $it[0])[0];
+                            if ($inPortal && $portalActive === $ck) {
+                                $sectionHasActive = true;
+                                break;
+                            }
+                        }
+                    ?>
+                        <?php if ($isMain): ?>
+                            <?php foreach ($items as $item):
+                                $file = $item[0];
+                                $label = $item[1];
+                                $icon = $item[2];
+                                $accent = $item[3] ?? '';
+                                $url = (strpos($file, '/') !== false || strpos($file, 'http') === 0)
+                                    ? (strpos($file, '../') === 0 ? BASE_URL . substr($file, 2) : $file)
+                                    : BASE_URL . '/' . $baseRoleDir . '/' . $file;
+                                $checkKey = explode('?', $file)[0];
+                                $isActive = ($inPortal && $portalActive === $checkKey);
+                            ?>
+                            <li class="nav-portal nav-portal-direct<?php echo $isActive ? ' active' : ''; ?>">
+                                <a href="<?php echo e($url); ?>" class="nav-portal-link <?php echo e($accent); ?><?php echo $isActive ? ' is-active' : ''; ?>"<?php echo $isActive ? ' aria-current="page"' : ''; ?>>
+                                    <i class="fas <?php echo e($icon); ?> nav-portal-icon"></i>
+                                    <span class="nav-portal-text"><?php echo e($label); ?></span>
+                                </a>
+                            </li>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <li class="nav-portal nav-portal-section <?php echo $sectionHasActive ? 'open' : ''; ?>">
+                                <button type="button" class="nav-portal-section-toggle" aria-expanded="<?php echo $sectionHasActive ? 'true' : 'false'; ?>">
+                                    <span class="section-title-wrap">
+                                        <i class="fas <?php echo e($secIcon); ?> section-icon"></i>
+                                        <span class="section-name"><?php echo e($sectionHeading); ?></span>
+                                    </span>
+                                    <i class="fas fa-chevron-down section-chevron"></i>
+                                </button>
+                                <ul class="nav-portal-submenu" <?php echo $sectionHasActive ? '' : 'style="display: none;"'; ?>>
+                                    <?php foreach ($items as $item):
+                                        $file = $item[0];
+                                        $label = $item[1];
+                                        $icon = $item[2];
+                                        $accent = $item[3] ?? '';
+                                        $url = (strpos($file, '/') !== false || strpos($file, 'http') === 0)
+                                            ? (strpos($file, '../') === 0 ? BASE_URL . substr($file, 2) : $file)
+                                            : BASE_URL . '/' . $baseRoleDir . '/' . $file;
+                                        $checkKey = explode('?', $file)[0];
+                                        $isActive = ($inPortal && $portalActive === $checkKey);
+                                    ?>
+                                    <li class="nav-portal-subitem<?php echo $isActive ? ' active' : ''; ?>">
+                                        <a href="<?php echo e($url); ?>" class="nav-portal-link <?php echo e($accent); ?><?php echo $isActive ? ' is-active' : ''; ?>"<?php echo $isActive ? ' aria-current="page"' : ''; ?>>
+                                            <i class="fas <?php echo e($icon); ?> nav-portal-icon"></i>
+                                            <span class="nav-portal-text"><?php echo e($label); ?></span>
+                                        </a>
+                                    </li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            </li>
+                        <?php endif; ?>
                     <?php endforeach; ?>
                     <?php if (!$inPortal): ?>
                     <li class="nav-portal-heading" aria-hidden="true">Website</li>

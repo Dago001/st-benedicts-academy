@@ -211,7 +211,7 @@ body.in-portal .main-nav .dropdown {
 }
 
 /* Hide public links in portal navigation */
-body.in-portal .nav-menu > li:not(.dropdown):not(.nav-item):not(.nav-portal) {
+body.in-portal .nav-menu > li:not(.dropdown):not(.nav-item):not(.nav-portal):not(.nav-portal-section):not(.nav-portal-direct) {
     display: none !important;
 }
 

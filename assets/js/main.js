@@ -54,6 +54,42 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Collapsible Navigation & Sidebar Dropdown Sections (STUDENTS, FEES, ACADEMICS, etc.)
+    function initNavSectionDropdowns() {
+        // Mobile navigation menu section dropdowns
+        document.querySelectorAll('.nav-portal-section-toggle').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const parent = btn.closest('.nav-portal-section');
+                if (!parent) return;
+                const submenu = parent.querySelector('.nav-portal-submenu');
+                const isOpen = parent.classList.toggle('open');
+                btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                if (submenu) {
+                    submenu.style.display = isOpen ? 'block' : 'none';
+                }
+            });
+        });
+
+        // PC / Tablet sidebar section dropdowns
+        document.querySelectorAll('.sidebar-section-toggle').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const parent = btn.closest('.nav-section-dropdown');
+                if (!parent) return;
+                const submenu = parent.querySelector('.sidebar-submenu');
+                const isOpen = parent.classList.toggle('open');
+                btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                if (submenu) {
+                    submenu.style.display = isOpen ? 'block' : 'none';
+                }
+            });
+        });
+    }
+    initNavSectionDropdowns();
+
     // Dashboard sidebar drawer (phones / tablets)
     const sidebarToggle = document.getElementById('sidebarToggle');
     const sidebarOverlay = document.getElementById('sidebarOverlay');

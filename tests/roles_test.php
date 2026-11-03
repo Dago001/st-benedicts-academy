@@ -196,11 +196,13 @@ test('polish.css defines preloader aura and ring animation', strpos($polishCss, 
 
 echo "\n=== 7. MOBILE RESPONSIVE DASHBOARD & SECTIONED NAVIGATION MENU ===\n";
 test('includes/header.php uses nav_sections() for mobile navigation', strpos($headerPhp, 'nav_sections($portalRole)') !== false);
-test('includes/header.php outputs nav-portal-heading for mobile sections', strpos($headerPhp, 'class="nav-portal-heading"') !== false);
+test('includes/header.php outputs nav-portal-section for collapsible dropdowns', strpos($headerPhp, 'class="nav-portal nav-portal-section') !== false);
+test('includes/header.php outputs nav-portal-section-toggle', strpos($headerPhp, 'class="nav-portal-section-toggle"') !== false);
 test('includes/header.php applies accent classes in mobile navigation', strpos($headerPhp, 'class="nav-portal-link') !== false);
+test('includes/layout.php outputs sidebar-section-toggle for collapsible categories', strpos($layoutPhp, 'class="sidebar-section-toggle"') !== false);
 
 $mobileCss = file_get_contents(__DIR__ . '/../assets/css/mobile.css');
-test('mobile.css defines nav-portal-heading with uppercase letter-spacing', strpos($mobileCss, '.nav-portal-heading') !== false);
+test('mobile.css defines .nav-portal-section-toggle with uppercase letter-spacing', strpos($mobileCss, '.nav-portal-section-toggle') !== false);
 test('mobile.css defines active rounded solid blue pill for mobile nav', strpos($mobileCss, 'body .nav-menu .nav-portal.active a') !== false && strpos($mobileCss, '#0066ff') !== false);
 test('mobile.css has NO forced uniform gold icon rule', strpos($mobileCss, 'body .nav-menu .nav-portal a i { width: 22px; text-align: center; color: var(--gold, #ffd700); }') === false);
 test('mobile.css defines row layout for dashboard header (title left, user pill right)', strpos($mobileCss, 'body .dashboard-header') !== false && strpos($mobileCss, 'flex-direction: row !important;') !== false);
@@ -208,6 +210,10 @@ test('mobile.css defines 2x2 stats-grid on mobile (< 768px)', strpos($mobileCss,
 
 $mainJs = file_get_contents(__DIR__ . '/../assets/js/main.js');
 test('main.js closes mobile navMenu when any link is clicked', strpos($mainJs, "navMenu.querySelectorAll('a').forEach") !== false);
+test('main.js defines initNavSectionDropdowns for collapsible section dropdowns', strpos($mainJs, "initNavSectionDropdowns") !== false);
+
+$sidebarModernCss = file_get_contents(__DIR__ . '/../assets/css/sidebar-modern.css');
+test('sidebar-modern.css defines .sidebar-section-toggle and .section-toggle-caret', strpos($sidebarModernCss, '.sidebar-section-toggle') !== false && strpos($sidebarModernCss, '.section-toggle-caret') !== false);
 
 echo "\n==========================================\n";
 echo "$pass passed, $fail failed\n";

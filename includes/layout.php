@@ -220,12 +220,69 @@ if (!function_exists('render_sidebar')) {
             <button type="button" class="sidebar-close-btn" id="sidebarClose" aria-label="Close menu"><i class="fas fa-times"></i></button>
         </div>
 
-        <!-- Categorized Nav Menu -->
+        <!-- Categorized Nav Menu (with interactive collapsible dropdowns) -->
         <nav class="sidebar-nav-scroll" aria-label="Main Navigation">
-            <?php foreach ($sections as $sectionTitle => $items): ?>
-                <div class="nav-section-group">
+            <?php
+            $sectionIcons = [
+                'MAIN' => 'fa-home',
+                'STUDENTS' => 'fa-user-graduate',
+                'FEES' => 'fa-money-bill-wave',
+                'FEES & PAYMENTS' => 'fa-money-bill-wave',
+                'ACADEMICS' => 'fa-book-reader',
+                'MY ACADEMICS' => 'fa-graduation-cap',
+                'MY CHILDREN' => 'fa-child',
+                'FINANCE' => 'fa-coins',
+                'STAFF / PAYROLL' => 'fa-user-tie',
+                'COMMUNICATION' => 'fa-bullhorn',
+                'ADMIN' => 'fa-sliders-h',
+                'ACCOUNT' => 'fa-user-cog',
+            ];
+            foreach ($sections as $sectionTitle => $items):
+                $isMain = ($sectionTitle === 'MAIN');
+                $secIcon = $sectionIcons[$sectionTitle] ?? 'fa-folder';
+                $sectionHasActive = false;
+                foreach ($items as $it) {
+                    $ck = explode('?', $it[0])[0];
+                    if ($active === $ck) {
+                        $sectionHasActive = true;
+                        break;
+                    }
+                }
+            ?>
+                <?php if ($isMain): ?>
+                <div class="nav-section-group nav-group-direct">
                     <div class="nav-section-heading"><?php echo e($sectionTitle); ?></div>
                     <ul class="nav-section-list">
+                        <?php foreach ($items as $item):
+                            $file = $item[0];
+                            $label = $item[1];
+                            $icon = $item[2];
+                            $accent = $item[3] ?? '';
+                            $url = (strpos($file, '/') !== false || strpos($file, 'http') === 0)
+                                ? (strpos($file, '../') === 0 ? BASE_URL . substr($file, 2) : $file)
+                                : BASE_URL . '/' . $baseRoleDir . '/' . $file;
+                            $checkKey = explode('?', $file)[0];
+                            $isActive = ($active === $checkKey);
+                        ?>
+                        <li class="nav-section-item <?php echo $isActive ? 'active' : ''; ?>">
+                            <a href="<?php echo e($url); ?>" class="nav-link-btn <?php echo e($accent); ?><?php echo $isActive ? ' is-active' : ''; ?>"<?php echo $isActive ? ' aria-current="page"' : ''; ?>>
+                                <i class="fas <?php echo e($icon); ?> nav-item-icon"></i>
+                                <span class="nav-item-label"><?php echo e($label); ?></span>
+                            </a>
+                        </li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+                <?php else: ?>
+                <div class="nav-section-group nav-section-dropdown <?php echo $sectionHasActive ? 'open' : ''; ?>">
+                    <button type="button" class="sidebar-section-toggle" aria-expanded="<?php echo $sectionHasActive ? 'true' : 'false'; ?>">
+                        <span class="section-toggle-left">
+                            <i class="fas <?php echo e($secIcon); ?> section-toggle-icon"></i>
+                            <span class="section-toggle-title"><?php echo e($sectionTitle); ?></span>
+                        </span>
+                        <i class="fas fa-chevron-down section-toggle-caret"></i>
+                    </button>
+                    <ul class="nav-section-list sidebar-submenu" <?php echo $sectionHasActive ? '' : 'style="display: none;"'; ?>>
                         <?php foreach ($items as $item):
                             $file = $item[0];
                             $label = $item[1];
@@ -249,6 +306,7 @@ if (!function_exists('render_sidebar')) {
                         <?php endforeach; ?>
                     </ul>
                 </div>
+                <?php endif; ?>
             <?php endforeach; ?>
         </nav>
 
