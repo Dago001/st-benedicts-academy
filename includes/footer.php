@@ -4,10 +4,14 @@ $isLandingPage = empty($inPortal) && (
     ($currentPage ?? basename($_SERVER['PHP_SELF'] ?? '', '.php')) === 'index' &&
     !preg_match('#/(admin|teacher|parent|student|public)/#i', $_SERVER['SCRIPT_NAME'] ?? '')
 );
+$isBackendPortal = !empty($inPortal) ||
+    (isset($_SESSION['user_id']) && preg_match('#/(admin|teacher|parent|student)/#i', $_SERVER['SCRIPT_NAME'] ?? '')) ||
+    preg_match('#/(admin|teacher|parent|student)/#i', $_SERVER['SCRIPT_NAME'] ?? '');
 ?>
         </main>
 
-        <!-- Footer -->
+        <?php if (!$isBackendPortal): ?>
+        <!-- Footer (Public / Frontend Pages Only) -->
         <footer class="main-footer<?php echo $isLandingPage ? '' : ' footer-minimal'; ?>">
             <div class="footer-container">
                 <?php if ($isLandingPage): ?>
@@ -90,6 +94,7 @@ $isLandingPage = empty($inPortal) && (
                 </div>
             </div>
         </footer>
+        <?php endif; ?>
     </div>
 
     <?php if (!Security::isLoggedIn() && !defined('NO_CHATBOT')) { include __DIR__ . '/chatbot_widget.php'; } ?>

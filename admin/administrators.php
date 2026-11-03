@@ -260,60 +260,60 @@ $pageTitle = 'Admin & System Administrator Roles';
 $extraCSS = ['admin.css', 'dashboard.css'];
 include __DIR__ . '/../includes/header.php';
 
-$addBtnHtml = '<button type="button" class="btn btn-primary" id="btnCreateAdminHeader" onclick="openAddModal()"><i class="fas fa-user-plus"></i> Create New Administrator</button>';
+$addBtnHtml = '<button type="button" class="btn btn-primary" id="btnCreateAdminHeader" onclick="openAddModal()" style="font-size: 12.5px; padding: 6px 14px; font-weight: 600;"><i class="fas fa-user-plus"></i> Create New Administrator</button>';
 dashboard_open('admin', 'Admin & System Roles', $addBtnHtml);
 render_alert($message, $messageType);
 ?>
 
 <div style="max-width: 1100px; margin: 0 auto;">
     <!-- Metric Cards for Administrative Roles -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
-        <div class="card" style="margin: 0; padding: 20px; border-radius: 10px; border: 1px solid #e2e8f0; background: #ffffff;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px;">
+        <div class="card" style="margin: 0; padding: 14px 18px; border-radius: 8px; border: 1px solid #e2e8f0; background: #ffffff;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
-                    <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase;">System Administrators</div>
-                    <div style="font-size: 24px; font-weight: 800; color: #002855; margin-top: 4px;">
+                    <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">System Administrators</div>
+                    <div style="font-size: 20px; font-weight: 800; color: #002855; margin-top: 3px;">
                         <?php echo count(array_filter($admins, function($a) { return $a['role'] === 'super_admin'; })); ?>
                     </div>
-                    <div style="font-size: 12px; color: #b45309; margin-top: 4px;">
+                    <div style="font-size: 11px; color: #b45309; margin-top: 3px;">
                         <i class="fas fa-crown"></i> Full System Authority
                     </div>
                 </div>
-                <div style="background: #fef3c7; color: #d97706; width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+                <div style="background: #fef3c7; color: #d97706; width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 17px;">
                     <i class="fas fa-user-shield"></i>
                 </div>
             </div>
         </div>
 
-        <div class="card" style="margin: 0; padding: 20px; border-radius: 10px; border: 1px solid #e2e8f0; background: #ffffff;">
+        <div class="card" style="margin: 0; padding: 14px 18px; border-radius: 8px; border: 1px solid #e2e8f0; background: #ffffff;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
-                    <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase;">Administrators</div>
-                    <div style="font-size: 24px; font-weight: 800; color: #002855; margin-top: 4px;">
+                    <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Administrators</div>
+                    <div style="font-size: 20px; font-weight: 800; color: #002855; margin-top: 3px;">
                         <?php echo count(array_filter($admins, function($a) { return $a['role'] === 'admin'; })); ?>
                     </div>
-                    <div style="font-size: 12px; color: #0284c7; margin-top: 4px;">
+                    <div style="font-size: 11px; color: #0284c7; margin-top: 3px;">
                         <i class="fas fa-shield-alt"></i> School Operations
                     </div>
                 </div>
-                <div style="background: #e0f2fe; color: #0284c7; width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+                <div style="background: #e0f2fe; color: #0284c7; width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 17px;">
                     <i class="fas fa-users-cog"></i>
                 </div>
             </div>
         </div>
 
-        <div class="card" style="margin: 0; padding: 20px; border-radius: 10px; border: 1px solid #e2e8f0; background: #ffffff;">
+        <div class="card" style="margin: 0; padding: 14px 18px; border-radius: 8px; border: 1px solid #e2e8f0; background: #ffffff;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
-                    <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase;">Head Teachers & Leads</div>
-                    <div style="font-size: 24px; font-weight: 800; color: #002855; margin-top: 4px;">
+                    <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Head Teachers & Leads</div>
+                    <div style="font-size: 20px; font-weight: 800; color: #002855; margin-top: 3px;">
                         <?php echo count(array_filter($admins, function($a) { return in_array($a['role'], ['head_teacher', 'supervisor'], true); })); ?>
                     </div>
-                    <div style="font-size: 12px; color: #7c3aed; margin-top: 4px;">
+                    <div style="font-size: 11px; color: #7c3aed; margin-top: 3px;">
                         <i class="fas fa-graduation-cap"></i> Academic Leadership
                     </div>
                 </div>
-                <div style="background: #ede9fe; color: #7c3aed; width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+                <div style="background: #ede9fe; color: #7c3aed; width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 17px;">
                     <i class="fas fa-chalkboard-teacher"></i>
                 </div>
             </div>
@@ -321,80 +321,80 @@ render_alert($message, $messageType);
     </div>
 
     <!-- Administrative Roster Table -->
-    <div class="card" style="border-radius: 10px; border: 1px solid #e2e8f0;">
-        <div class="card-header" style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-            <h3 style="margin: 0; font-size: 17px; color: #002855;">
+    <div class="card" style="border-radius: 8px; border: 1px solid #e2e8f0;">
+        <div class="card-header" style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <h3 style="margin: 0; font-size: 15px; color: #002855; font-weight: 700;">
                 <i class="fas fa-user-shield" style="margin-right: 8px; color: #c41e3a;"></i> Active Administrative Users & Permissions
             </h3>
-            <button type="button" class="btn btn-sm btn-primary" id="btnCreateAdminTable" onclick="openAddModal()">
+            <button type="button" class="btn btn-sm btn-primary" id="btnCreateAdminTable" onclick="openAddModal()" style="font-size: 12px; padding: 5px 12px; font-weight: 600;">
                 <i class="fas fa-plus"></i> Add Admin / System Administrator
             </button>
         </div>
         <div class="card-body" style="padding: 0;">
             <div style="overflow-x: auto;">
-                <table class="table" style="width: 100%; border-collapse: collapse; margin: 0; font-size: 14px;">
+                <table class="table" style="width: 100%; border-collapse: collapse; margin: 0; font-size: 13px;">
                     <thead>
                         <tr style="background: #f1f5f9; text-align: left; border-bottom: 1px solid #e2e8f0;">
-                            <th style="padding: 12px 18px; color: #475569;">Name</th>
-                            <th style="padding: 12px 18px; color: #475569;">Role</th>
-                            <th style="padding: 12px 18px; color: #475569;">Email & Username</th>
-                            <th style="padding: 12px 18px; color: #475569;">Phone</th>
-                            <th style="padding: 12px 18px; color: #475569;">Status</th>
-                            <th style="padding: 12px 18px; color: #475569;">Last Login</th>
-                            <th style="padding: 12px 18px; color: #475569; text-align: right;">Actions</th>
+                            <th style="padding: 10px 14px; font-size: 12px; color: #475569;">Name</th>
+                            <th style="padding: 10px 14px; font-size: 12px; color: #475569;">Role</th>
+                            <th style="padding: 10px 14px; font-size: 12px; color: #475569;">Email & Username</th>
+                            <th style="padding: 10px 14px; font-size: 12px; color: #475569;">Phone</th>
+                            <th style="padding: 10px 14px; font-size: 12px; color: #475569;">Status</th>
+                            <th style="padding: 10px 14px; font-size: 12px; color: #475569;">Last Login</th>
+                            <th style="padding: 10px 14px; font-size: 12px; color: #475569; text-align: right;">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($admins)): ?>
-                            <tr><td colspan="7" style="padding: 24px; text-align: center; color: #64748b;">No administrative users found.</td></tr>
+                            <tr><td colspan="7" style="padding: 20px; text-align: center; color: #64748b; font-size: 13px;">No administrative users found.</td></tr>
                         <?php else: ?>
                             <?php foreach ($admins as $u): ?>
                                 <tr style="border-bottom: 1px solid #f1f5f9;">
-                                    <td style="padding: 12px 18px; font-weight: 600; color: #002855;">
+                                    <td style="padding: 10px 14px; font-weight: 600; color: #002855;">
                                         <?php echo e($u['first_name'] . ' ' . $u['last_name']); ?>
                                         <?php if ((int)$u['id'] === $currentUserId): ?>
-                                            <span style="font-size: 11px; background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">You</span>
+                                            <span style="font-size: 10px; background: #e0f2fe; color: #0369a1; padding: 2px 5px; border-radius: 4px; margin-left: 4px;">You</span>
                                         <?php endif; ?>
                                     </td>
-                                    <td style="padding: 12px 18px;">
+                                    <td style="padding: 10px 14px;">
                                         <?php if ($u['role'] === 'super_admin'): ?>
-                                            <span style="display: inline-flex; align-items: center; gap: 4px; background: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 12px;">
+                                            <span style="display: inline-flex; align-items: center; gap: 4px; background: #fef3c7; color: #92400e; padding: 3px 8px; border-radius: 5px; font-weight: 700; font-size: 11px;">
                                                 <i class="fas fa-crown"></i> System Administrator
                                             </span>
                                         <?php elseif ($u['role'] === 'admin'): ?>
-                                            <span style="display: inline-flex; align-items: center; gap: 4px; background: #e0f2fe; color: #075985; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 12px;">
+                                            <span style="display: inline-flex; align-items: center; gap: 4px; background: #e0f2fe; color: #075985; padding: 3px 8px; border-radius: 5px; font-weight: 700; font-size: 11px;">
                                                 <i class="fas fa-shield-alt"></i> Administrator
                                             </span>
                                         <?php elseif ($u['role'] === 'head_teacher'): ?>
-                                            <span style="display: inline-flex; align-items: center; gap: 4px; background: #ede9fe; color: #5b21b6; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 12px;">
+                                            <span style="display: inline-flex; align-items: center; gap: 4px; background: #ede9fe; color: #5b21b6; padding: 3px 8px; border-radius: 5px; font-weight: 700; font-size: 11px;">
                                                 <i class="fas fa-graduation-cap"></i> Head Teacher
                                             </span>
                                         <?php else: ?>
-                                            <span style="display: inline-flex; align-items: center; gap: 4px; background: #ccfbf1; color: #115e59; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 12px;">
+                                            <span style="display: inline-flex; align-items: center; gap: 4px; background: #ccfbf1; color: #115e59; padding: 3px 8px; border-radius: 5px; font-weight: 700; font-size: 11px;">
                                                 <i class="fas fa-search"></i> Supervisor
                                             </span>
                                         <?php endif; ?>
                                     </td>
-                                    <td style="padding: 12px 18px;">
+                                    <td style="padding: 10px 14px;">
                                         <div style="font-weight: 500; color: #1e293b;"><?php echo e($u['email']); ?></div>
-                                        <div style="font-size: 12px; color: #64748b;">User: <code><?php echo e($u['username']); ?></code></div>
+                                        <div style="font-size: 11px; color: #64748b;">User: <code><?php echo e($u['username']); ?></code></div>
                                     </td>
-                                    <td style="padding: 12px 18px; color: #475569;">
+                                    <td style="padding: 10px 14px; color: #475569; font-size: 12px;">
                                         <?php echo e($u['phone'] ?: 'N/A'); ?>
                                     </td>
-                                    <td style="padding: 12px 18px;">
+                                    <td style="padding: 10px 14px;">
                                         <?php if ($u['is_active']): ?>
-                                            <span style="background: #dcfce7; color: #15803d; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">Active</span>
+                                            <span style="background: #dcfce7; color: #15803d; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600;">Active</span>
                                         <?php else: ?>
-                                            <span style="background: #fee2e2; color: #b91c1c; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">Inactive</span>
+                                            <span style="background: #fee2e2; color: #b91c1c; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600;">Inactive</span>
                                         <?php endif; ?>
                                     </td>
-                                    <td style="padding: 12px 18px; font-size: 12px; color: #64748b;">
+                                    <td style="padding: 10px 14px; font-size: 11px; color: #64748b;">
                                         <?php echo $u['last_login'] ? date('M j, Y g:ia', strtotime($u['last_login'])) : 'Never'; ?>
                                     </td>
-                                    <td style="padding: 12px 18px; text-align: right; white-space: nowrap;">
+                                    <td style="padding: 10px 14px; text-align: right; white-space: nowrap;">
                                         <!-- Edit button -->
-                                        <button type="button" class="btn btn-sm btn-outline btn-edit-admin" style="padding: 4px 8px; font-size: 12px; margin-right: 4px;"
+                                        <button type="button" class="btn btn-sm btn-outline btn-edit-admin" style="padding: 3px 8px; font-size: 11.5px; margin-right: 3px;"
                                                 data-admin='<?php echo htmlspecialchars(json_encode($u), ENT_QUOTES, 'UTF-8'); ?>'
                                                 onclick='openEditModal(<?php echo json_encode($u, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>)'>
                                             <i class="fas fa-edit"></i> Edit
@@ -405,7 +405,7 @@ render_alert($message, $messageType);
                                             <?php echo csrf_field(); ?>
                                             <input type="hidden" name="action" value="reset_password">
                                             <input type="hidden" name="user_id" value="<?php echo (int)$u['id']; ?>">
-                                            <button type="submit" class="btn btn-sm btn-outline" style="padding: 4px 8px; font-size: 12px; margin-right: 4px;"
+                                            <button type="submit" class="btn btn-sm btn-outline" style="padding: 3px 8px; font-size: 11.5px; margin-right: 3px;"
                                                     onclick="return confirm('Generate and email a new temporary password to <?php echo e($u['email']); ?>?')">
                                                 <i class="fas fa-key"></i> Reset PW
                                             </button>
@@ -417,7 +417,7 @@ render_alert($message, $messageType);
                                                 <?php echo csrf_field(); ?>
                                                 <input type="hidden" name="action" value="toggle_status">
                                                 <input type="hidden" name="user_id" value="<?php echo (int)$u['id']; ?>">
-                                                <button type="submit" class="btn btn-sm btn-outline" style="padding: 4px 8px; font-size: 12px; margin-right: 4px;"
+                                                <button type="submit" class="btn btn-sm btn-outline" style="padding: 3px 7px; font-size: 11px; margin-right: 3px;"
                                                         title="<?php echo $u['is_active'] ? 'Deactivate' : 'Activate'; ?>">
                                                     <i class="fas <?php echo $u['is_active'] ? 'fa-ban text-warning' : 'fa-check text-success'; ?>"></i>
                                                 </button>
@@ -428,7 +428,7 @@ render_alert($message, $messageType);
                                                 <?php echo csrf_field(); ?>
                                                 <input type="hidden" name="action" value="delete">
                                                 <input type="hidden" name="user_id" value="<?php echo (int)$u['id']; ?>">
-                                                <button type="submit" class="btn btn-sm btn-outline text-danger" style="padding: 4px 8px; font-size: 12px;">
+                                                <button type="submit" class="btn btn-sm btn-outline text-danger" style="padding: 3px 7px; font-size: 11px;">
                                                     <i class="fas fa-trash-alt"></i>
                                                 </button>
                                             </form>
@@ -446,78 +446,78 @@ render_alert($message, $messageType);
 
 <!-- Modal: Create / Edit Administrator -->
 <div id="adminModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" style="display: none;">
-    <div class="modal-dialog" style="background: #ffffff; border-radius: 14px; max-width: 580px; width: 100%; box-shadow: 0 25px 60px -12px rgba(0, 20, 50, 0.45); overflow: hidden; margin: auto;">
-        <div class="modal-header" style="background: #002855; color: #ffffff; padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: none;">
-            <h3 id="modalTitle" style="margin: 0; font-size: 18px; color: #ffffff; font-weight: 700;">Create Administrator</h3>
-            <button type="button" class="modal-close" onclick="closeAdminModal()" aria-label="Close modal" style="background: transparent; border: none; color: #ffffff; font-size: 24px; cursor: pointer; padding: 4px 8px; line-height: 1;">&times;</button>
+    <div class="modal-dialog" style="background: #ffffff; border-radius: 12px; max-width: 500px; width: 100%; max-height: calc(100vh - 40px); display: flex; flex-direction: column; box-shadow: 0 20px 50px rgba(0, 20, 50, 0.4); overflow: hidden; margin: auto;">
+        <div class="modal-header" style="background: #002855; color: #ffffff; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; border-bottom: none; flex-shrink: 0;">
+            <h3 id="modalTitle" style="margin: 0; font-size: 15px; color: #ffffff; font-weight: 700;">Create Administrator</h3>
+            <button type="button" class="modal-close" onclick="closeAdminModal()" aria-label="Close modal" style="background: transparent; border: none; color: #ffffff; font-size: 20px; cursor: pointer; padding: 2px 6px; line-height: 1;">&times;</button>
         </div>
-        <form method="POST" id="adminForm" style="padding: 24px;">
+        <form method="POST" id="adminForm" style="padding: 16px 20px; overflow-y: auto; -webkit-overflow-scrolling: touch; flex: 1;">
             <?php echo csrf_field(); ?>
             <input type="hidden" name="action" id="formAction" value="add">
             <input type="hidden" name="user_id" id="formUserId" value="">
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
                 <div>
-                    <label style="display: block; font-weight: 600; font-size: 13px; color: #334155; margin-bottom: 5px;">First Name *</label>
-                    <input type="text" name="first_name" id="formFirstName" class="form-control" required style="width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px;">
+                    <label style="display: block; font-weight: 600; font-size: 12px; color: #334155; margin-bottom: 3px;">First Name *</label>
+                    <input type="text" name="first_name" id="formFirstName" class="form-control" required style="width: 100%; padding: 6px 10px; font-size: 13px; border: 1px solid #cbd5e1; border-radius: 6px;">
                 </div>
                 <div>
-                    <label style="display: block; font-weight: 600; font-size: 13px; color: #334155; margin-bottom: 5px;">Last Name *</label>
-                    <input type="text" name="last_name" id="formLastName" class="form-control" required style="width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px;">
+                    <label style="display: block; font-weight: 600; font-size: 12px; color: #334155; margin-bottom: 3px;">Last Name *</label>
+                    <input type="text" name="last_name" id="formLastName" class="form-control" required style="width: 100%; padding: 6px 10px; font-size: 13px; border: 1px solid #cbd5e1; border-radius: 6px;">
                 </div>
             </div>
 
-            <div style="margin-bottom: 14px;">
-                <label style="display: block; font-weight: 600; font-size: 13px; color: #334155; margin-bottom: 5px;">Role Type *</label>
-                <select name="role" id="formRole" class="form-control" required style="width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-weight: 600;">
+            <div style="margin-bottom: 10px;">
+                <label style="display: block; font-weight: 600; font-size: 12px; color: #334155; margin-bottom: 3px;">Role Type *</label>
+                <select name="role" id="formRole" class="form-control" required style="width: 100%; padding: 6px 10px; font-size: 13px; border: 1px solid #cbd5e1; border-radius: 6px; font-weight: 600;">
                     <option value="super_admin" style="font-weight: 700; color: #d97706;">⭐ System Administrator (Full System Authority)</option>
                     <option value="admin" style="font-weight: 700; color: #0284c7;" selected>🛡️ Admin (School Operations & Management)</option>
                     <option value="head_teacher" style="color: #7c3aed;">🎓 Head Teacher (Academic Lead & Approval Authority)</option>
                     <option value="supervisor" style="color: #0d9488;">🔍 Academic Supervisor (Curriculum & Supervision)</option>
                 </select>
-                <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
-                    Both <strong>System Administrator</strong> and <strong>Admin</strong> have access to all backend portals. System Administrator additionally manages server-level controls.
+                <div style="font-size: 11px; color: #64748b; margin-top: 3px; line-height: 1.35;">
+                    Both <strong>System Administrator</strong> and <strong>Admin</strong> access backend portals. System Administrator also manages server controls.
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
                 <div>
-                    <label style="display: block; font-weight: 600; font-size: 13px; color: #334155; margin-bottom: 5px;">Email Address *</label>
-                    <input type="email" name="email" id="formEmail" class="form-control" required placeholder="admin@domain.com" style="width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px;">
+                    <label style="display: block; font-weight: 600; font-size: 12px; color: #334155; margin-bottom: 3px;">Email Address *</label>
+                    <input type="email" name="email" id="formEmail" class="form-control" required placeholder="admin@domain.com" style="width: 100%; padding: 6px 10px; font-size: 13px; border: 1px solid #cbd5e1; border-radius: 6px;">
                 </div>
                 <div>
-                    <label style="display: block; font-weight: 600; font-size: 13px; color: #334155; margin-bottom: 5px;">Phone Number</label>
-                    <input type="text" name="phone" id="formPhone" class="form-control" placeholder="08012345678" style="width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px;">
+                    <label style="display: block; font-weight: 600; font-size: 12px; color: #334155; margin-bottom: 3px;">Phone Number</label>
+                    <input type="text" name="phone" id="formPhone" class="form-control" placeholder="08012345678" style="width: 100%; padding: 6px 10px; font-size: 13px; border: 1px solid #cbd5e1; border-radius: 6px;">
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
                 <div>
-                    <label style="display: block; font-weight: 600; font-size: 13px; color: #334155; margin-bottom: 5px;">Username</label>
-                    <input type="text" name="username" id="formUsername" class="form-control" placeholder="Leave empty to auto-generate" style="width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px;">
+                    <label style="display: block; font-weight: 600; font-size: 12px; color: #334155; margin-bottom: 3px;">Username</label>
+                    <input type="text" name="username" id="formUsername" class="form-control" placeholder="Leave empty to auto-generate" style="width: 100%; padding: 6px 10px; font-size: 13px; border: 1px solid #cbd5e1; border-radius: 6px;">
                 </div>
                 <div>
-                    <label style="display: block; font-weight: 600; font-size: 13px; color: #334155; margin-bottom: 5px;">
+                    <label style="display: block; font-weight: 600; font-size: 12px; color: #334155; margin-bottom: 3px;">
                         <span id="passLabel">One-Time Password</span>
                     </label>
-                    <input type="text" name="password" id="formPassword" class="form-control" placeholder="Leave empty for auto-generated" style="width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px;">
+                    <input type="text" name="password" id="formPassword" class="form-control" placeholder="Leave empty for auto-generated" style="width: 100%; padding: 6px 10px; font-size: 13px; border: 1px solid #cbd5e1; border-radius: 6px;">
                 </div>
             </div>
 
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; margin-bottom: 18px;">
-                <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #1e293b; margin: 0; cursor: pointer;">
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 12px; margin-bottom: 14px;">
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #1e293b; margin: 0; cursor: pointer;">
                     <input type="checkbox" name="send_email" id="formSendEmail" value="1" checked>
-                    <span><strong>Send credentials email to phone inbox</strong> (includes login URL and one-time password)</span>
+                    <span><strong>Send credentials email to phone inbox</strong> (login URL & password)</span>
                 </label>
-                <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #1e293b; margin-top: 8px; cursor: pointer;">
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #1e293b; margin-top: 6px; cursor: pointer;">
                     <input type="checkbox" name="is_active" id="formIsActive" value="1" checked>
                     <span>Account is active (can log in immediately)</span>
                 </label>
             </div>
 
-            <div style="display: flex; justify-content: flex-end; gap: 10px;">
-                <button type="button" class="btn btn-secondary" onclick="closeAdminModal()">Cancel</button>
-                <button type="submit" class="btn btn-primary" id="submitBtn">
+            <div style="display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px;">
+                <button type="button" class="btn btn-secondary" onclick="closeAdminModal()" style="font-size: 12px; padding: 6px 14px;">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="submitBtn" style="font-size: 12px; padding: 6px 16px; font-weight: 600;">
                     <i class="fas fa-save"></i> Save Administrator
                 </button>
             </div>

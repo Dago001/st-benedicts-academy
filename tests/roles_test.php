@@ -280,6 +280,19 @@ test('admin/administrators.php role select contains super_admin option', strpos(
 test('admin/administrators.php role select contains admin option', strpos($adminPageContent, 'value="admin"') !== false);
 test('includes/SystemSchema.php ensures super_admin exists or upgrades default admin', strpos(file_get_contents(__DIR__ . '/../includes/SystemSchema.php'), "UPDATE users SET role = 'super_admin'") !== false);
 
+echo "\n=== 10. BACKEND DESKTOP HEADER PILL, FOOTER REMOVAL & FIXED SIDEBAR ===\n";
+test('includes/layout.php defines render_user_dropdown function', function_exists('render_user_dropdown'));
+$layoutContent = file_get_contents(__DIR__ . '/../includes/layout.php');
+test('includes/layout.php renders user dropdown in dashboard_open', strpos($layoutContent, 'render_user_dropdown()') !== false);
+test('includes/header.php exposes window.CURRENT_USER', strpos(file_get_contents(__DIR__ . '/../includes/header.php'), 'window.CURRENT_USER =') !== false);
+$footerContent = file_get_contents(__DIR__ . '/../includes/footer.php');
+test('includes/footer.php skips main-footer on backend portals', strpos($footerContent, '$isBackendPortal') !== false && strpos($footerContent, 'if (!$isBackendPortal):') !== false);
+$polishCss = file_get_contents(__DIR__ . '/../assets/css/polish.css');
+test('polish.css hides main-footer for authenticated backend users', strpos($polishCss, 'body.is-auth .main-footer') !== false);
+test('polish.css pins desktop sidebar fixed at top: 0 with 100vh height', strpos($polishCss, 'aside.modern-school-sidebar') !== false && strpos($polishCss, 'position: fixed !important') !== false);
+test('polish.css hides user dropdown on mobile view (< 769px)', strpos($polishCss, 'body .dashboard-header .user-dropdown-wrapper') !== false && strpos($polishCss, 'display: none !important') !== false);
+test('main.js includes automatic userDropdown fallback injection for dashboard-header', strpos(file_get_contents(__DIR__ . '/../assets/js/main.js'), 'dashboardHeader.appendChild(wrap)') !== false);
+
 echo "\n==========================================\n";
 echo "$pass passed, $fail failed\n";
 exit($fail ? 1 : 0);

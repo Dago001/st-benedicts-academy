@@ -336,13 +336,62 @@ if (!function_exists('render_alert')) {
     }
 }
 
+if (!function_exists('render_user_dropdown')) {
+    /** Global Desktop User Profile Header Pill & Popover */
+    function render_user_dropdown() {
+        if (!Security::isLoggedIn()) return '';
+        $name = $_SESSION['user_name'] ?? Security::roleTitle();
+        $roleTitle = Security::roleBadge();
+        $profUrl = BASE_URL . '/profile';
+        $logoutUrl = BASE_URL . '/logout';
+
+        return '<div class="user-dropdown-wrapper" id="userDropdownWrapper">
+            <button type="button" class="user-dropdown-toggle" id="userDropdownToggle" aria-haspopup="true" aria-expanded="false" title="' . e($name) . ' (' . e($roleTitle) . ')">
+                <span class="user-avatar-circle">
+                    <i class="fas fa-user-circle"></i>
+                </span>
+                <span class="user-meta-info">
+                    <span class="user-display-name">' . e($name) . '</span>
+                    <small class="user-display-role">' . e($roleTitle) . '</small>
+                </span>
+                <i class="fas fa-chevron-down user-dropdown-caret"></i>
+            </button>
+            <div class="user-dropdown-popover" id="userDropdownPopover" role="menu">
+                <div class="user-popover-header">
+                    <div class="popover-avatar">
+                        <i class="fas fa-user-circle"></i>
+                    </div>
+                    <div class="popover-details">
+                        <span class="popover-name">' . e($name) . '</span>
+                        <span class="popover-role">' . e($roleTitle) . '</span>
+                    </div>
+                </div>
+                <div class="user-popover-divider"></div>
+                <a href="' . $profUrl . '" class="user-popover-link" role="menuitem">
+                    <i class="fas fa-user-cog"></i>
+                    <span>Profile &amp; Settings</span>
+                </a>
+                <div class="user-popover-divider"></div>
+                <a href="' . $logoutUrl . '" class="user-popover-link logout" role="menuitem">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </a>
+            </div>
+        </div>';
+    }
+}
+
 if (!function_exists('dashboard_open')) {
     /** Start a dashboard page: container + sidebar + main + header row. */
     function dashboard_open($role, $title, $actionsHtml = '') {
         echo '<div class="dashboard-container">';
         render_sidebar($role);
-        echo '<main class="dashboard-main"><div class="dashboard-header' . ($title === 'Dashboard' ? ' is-home' : '') . '"><h1>' . e($title) . '</h1>';
+        echo '<main class="dashboard-main"><div class="dashboard-header' . ($title === 'Dashboard' ? ' is-home' : '') . '">';
+        echo '<h1>' . e($title) . '</h1>';
+        echo '<div class="header-right-cluster">';
         if ($actionsHtml !== '') echo '<div class="header-actions">' . $actionsHtml . '</div>';
+        echo render_user_dropdown();
+        echo '</div>';
         echo '</div>';
         if (!empty($_SESSION['must_change_password'])) {
             $profUrl = BASE_URL . '/profile';

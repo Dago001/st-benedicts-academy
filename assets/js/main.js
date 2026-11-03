@@ -127,29 +127,83 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Dashboard User Profile Dropdown
-    const userDropdownWrapper = document.getElementById('userDropdownWrapper');
-    const userDropdownToggle = document.getElementById('userDropdownToggle');
-    if (userDropdownWrapper && userDropdownToggle && !userDropdownToggle.dataset.dropdownBound) {
-        userDropdownToggle.dataset.dropdownBound = '1';
-        userDropdownToggle.addEventListener('click', function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            const isOpen = userDropdownWrapper.classList.toggle('open');
-            userDropdownToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-        });
-        document.addEventListener('click', function (e) {
-            if (!userDropdownWrapper.contains(e.target)) {
-                userDropdownWrapper.classList.remove('open');
-                userDropdownToggle.setAttribute('aria-expanded', 'false');
-            }
-        });
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape' && userDropdownWrapper.classList.contains('open')) {
-                userDropdownWrapper.classList.remove('open');
-                userDropdownToggle.setAttribute('aria-expanded', 'false');
-            }
-        });
+    function initUserDropdown() {
+        let userDropdownWrapper = document.getElementById('userDropdownWrapper');
+        const dashboardHeader = document.querySelector('.dashboard-header');
+
+        // Automatic fallback: if header exists on page but dropdown pill is missing, inject it on desktop
+        if (!userDropdownWrapper && dashboardHeader && window.CURRENT_USER) {
+            const wrap = document.createElement('div');
+            wrap.className = 'user-dropdown-wrapper';
+            wrap.id = 'userDropdownWrapper';
+            const uName = String(window.CURRENT_USER.name || 'User').replace(/[&<>"']/g, function(m) {
+                return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m];
+            });
+            const uRole = String(window.CURRENT_USER.badge || window.CURRENT_USER.role || 'Member').replace(/[&<>"']/g, function(m) {
+                return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m];
+            });
+            const baseUrl = window.BASE_URL || '';
+            wrap.innerHTML = `
+                <button type="button" class="user-dropdown-toggle" id="userDropdownToggle" aria-haspopup="true" aria-expanded="false" title="${uName} (${uRole})">
+                    <span class="user-avatar-circle">
+                        <i class="fas fa-user-circle"></i>
+                    </span>
+                    <span class="user-meta-info">
+                        <span class="user-display-name">${uName}</span>
+                        <small class="user-display-role">${uRole}</small>
+                    </span>
+                    <i class="fas fa-chevron-down user-dropdown-caret"></i>
+                </button>
+                <div class="user-dropdown-popover" id="userDropdownPopover" role="menu">
+                    <div class="user-popover-header">
+                        <div class="popover-avatar">
+                            <i class="fas fa-user-circle"></i>
+                        </div>
+                        <div class="popover-details">
+                            <span class="popover-name">${uName}</span>
+                            <span class="popover-role">${uRole}</span>
+                        </div>
+                    </div>
+                    <div class="user-popover-divider"></div>
+                    <a href="${baseUrl}/profile" class="user-popover-link" role="menuitem">
+                        <i class="fas fa-user-cog"></i>
+                        <span>Profile &amp; Settings</span>
+                    </a>
+                    <div class="user-popover-divider"></div>
+                    <a href="${baseUrl}/logout" class="user-popover-link logout" role="menuitem">
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span>Logout</span>
+                    </a>
+                </div>
+            `;
+            dashboardHeader.appendChild(wrap);
+            userDropdownWrapper = wrap;
+        }
+
+        const userDropdownToggle = document.getElementById('userDropdownToggle');
+        if (userDropdownWrapper && userDropdownToggle && !userDropdownToggle.dataset.dropdownBound) {
+            userDropdownToggle.dataset.dropdownBound = '1';
+            userDropdownToggle.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const isOpen = userDropdownWrapper.classList.toggle('open');
+                userDropdownToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            });
+            document.addEventListener('click', function (e) {
+                if (!userDropdownWrapper.contains(e.target)) {
+                    userDropdownWrapper.classList.remove('open');
+                    userDropdownToggle.setAttribute('aria-expanded', 'false');
+                }
+            });
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && userDropdownWrapper.classList.contains('open')) {
+                    userDropdownWrapper.classList.remove('open');
+                    userDropdownToggle.setAttribute('aria-expanded', 'false');
+                }
+            });
+        }
     }
+    initUserDropdown();
 
     // aria-expanded for the main menu toggle
     if (mobileToggle && navMenu) {

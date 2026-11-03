@@ -56,6 +56,11 @@ if (function_exists('enforce_maintenance_mode')) {
     <script nonce="<?php echo CSP_NONCE; ?>">
         window.BASE_URL = <?php echo json_encode(BASE_URL, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         window.CSRF_TOKEN = <?php echo json_encode(Security::generateCSRFToken(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        window.CURRENT_USER = <?php echo json_encode($isLoggedIn ? [
+            'name' => $_SESSION['user_name'] ?? Security::roleTitle(),
+            'role' => Security::roleTitle(),
+            'badge' => Security::roleBadge()
+        ] : null, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
     </script>
 
     <?php if ($isLoggedIn): ?>
