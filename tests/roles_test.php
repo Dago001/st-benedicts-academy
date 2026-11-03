@@ -272,6 +272,13 @@ test('admin/administrators.php handles super_admin creation', strpos($adminPageC
 test('admin/administrators.php handles admin creation', strpos($adminPageContent, "'admin'") !== false);
 test('admin/administrators.php dispatches welcome email with one-time password', strpos($adminPageContent, 'send_account_welcome_email') !== false);
 test('admin/administrators.php sets must_change_password', strpos($adminPageContent, 'must_change_password') !== false);
+test('admin/administrators.php script tag has CSP_NONCE attribute to prevent browser blocking', strpos($adminPageContent, '<script nonce="<?php echo CSP_NONCE; ?>">') !== false);
+test('admin/administrators.php header button has id btnCreateAdminHeader and openAddModal', strpos($adminPageContent, 'id="btnCreateAdminHeader"') !== false && strpos($adminPageContent, 'onclick="openAddModal()"') !== false);
+test('admin/administrators.php table button has id btnCreateAdminTable and openAddModal', strpos($adminPageContent, 'id="btnCreateAdminTable"') !== false);
+test('admin/administrators.php modal opens with active and show classes', strpos($adminPageContent, "modal.classList.add('active', 'show')") !== false);
+test('admin/administrators.php role select contains super_admin option', strpos($adminPageContent, 'value="super_admin"') !== false);
+test('admin/administrators.php role select contains admin option', strpos($adminPageContent, 'value="admin"') !== false);
+test('includes/SystemSchema.php ensures super_admin exists or upgrades default admin', strpos(file_get_contents(__DIR__ . '/../includes/SystemSchema.php'), "UPDATE users SET role = 'super_admin'") !== false);
 
 echo "\n==========================================\n";
 echo "$pass passed, $fail failed\n";

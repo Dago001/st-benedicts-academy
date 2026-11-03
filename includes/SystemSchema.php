@@ -30,6 +30,14 @@ class SystemSchema
                 $db->exec("ALTER TABLE users MODIFY COLUMN role VARCHAR(30) NOT NULL DEFAULT 'student'");
             } catch (Throwable $e) {}
 
+            // Ensure at least one System Administrator (super_admin) exists
+            try {
+                $countSuperAdmins = (int)$db->query("SELECT COUNT(*) FROM users WHERE role = 'super_admin' AND deleted_at IS NULL")->fetchColumn();
+                if ($countSuperAdmins === 0) {
+                    $db->exec("UPDATE users SET role = 'super_admin' WHERE (email = 'admin@stbenedicts.edu.ng' OR username = 'admin') AND deleted_at IS NULL LIMIT 1");
+                }
+            } catch (Throwable $e) {}
+
             // Ensure deleted_at, profile_image and must_change_password exist on users
             $userCols = self::getTableColumns($db, 'users');
             if (!in_array('deleted_at', $userCols, true)) {

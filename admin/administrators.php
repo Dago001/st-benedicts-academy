@@ -33,14 +33,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $isActive  = isset($_POST['is_active']) ? 1 : 0;
         $sendEmail = isset($_POST['send_email']);
 
-        // Allowed admin roles
-        $allowedRoles = ['admin', 'head_teacher', 'supervisor'];
-        if ($isSuperAdmin) {
-            $allowedRoles[] = 'super_admin';
-        }
+        // Allowed admin roles (both super_admin and admin can provision administrative users)
+        $allowedRoles = ['super_admin', 'admin', 'head_teacher', 'supervisor'];
 
         if (!in_array($role, $allowedRoles, true)) {
-            flash_redirect('You do not have permission to assign that role.', 'error', 'administrators');
+            flash_redirect('Please select a valid administrator role.', 'error', 'administrators');
         }
 
         if (empty($firstName) || empty($lastName) || empty($email)) {
@@ -135,14 +132,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash_redirect('Administrative user not found.', 'error', 'administrators');
         }
 
-        // Non-super-admins cannot edit super_admins
-        if ($target['role'] === 'super_admin' && !$isSuperAdmin) {
-            flash_redirect('Only a System Administrator can modify another System Administrator account.', 'error', 'administrators');
-        }
-
-        // Non-super-admins cannot elevate users to super_admin
-        if ($role === 'super_admin' && !$isSuperAdmin) {
-            flash_redirect('Only a System Administrator can assign the System Administrator role.', 'error', 'administrators');
+        $allowedRoles = ['super_admin', 'admin', 'head_teacher', 'supervisor'];
+        if (!in_array($role, $allowedRoles, true)) {
+            flash_redirect('Please select a valid administrator role.', 'error', 'administrators');
         }
 
         // Check duplicate email / username
@@ -268,7 +260,7 @@ $pageTitle = 'Admin & System Administrator Roles';
 $extraCSS = ['admin.css', 'dashboard.css'];
 include __DIR__ . '/../includes/header.php';
 
-$addBtnHtml = '<button type="button" class="btn btn-primary" onclick="openAddModal()"><i class="fas fa-user-plus"></i> Create New Administrator</button>';
+$addBtnHtml = '<button type="button" class="btn btn-primary" id="btnCreateAdminHeader" onclick="openAddModal()"><i class="fas fa-user-plus"></i> Create New Administrator</button>';
 dashboard_open('admin', 'Admin & System Roles', $addBtnHtml);
 render_alert($message, $messageType);
 ?>
@@ -334,7 +326,7 @@ render_alert($message, $messageType);
             <h3 style="margin: 0; font-size: 17px; color: #002855;">
                 <i class="fas fa-user-shield" style="margin-right: 8px; color: #c41e3a;"></i> Active Administrative Users & Permissions
             </h3>
-            <button type="button" class="btn btn-sm btn-primary" onclick="openAddModal()">
+            <button type="button" class="btn btn-sm btn-primary" id="btnCreateAdminTable" onclick="openAddModal()">
                 <i class="fas fa-plus"></i> Add Admin / System Administrator
             </button>
         </div>
@@ -402,7 +394,8 @@ render_alert($message, $messageType);
                                     </td>
                                     <td style="padding: 12px 18px; text-align: right; white-space: nowrap;">
                                         <!-- Edit button -->
-                                        <button type="button" class="btn btn-sm btn-outline" style="padding: 4px 8px; font-size: 12px; margin-right: 4px;"
+                                        <button type="button" class="btn btn-sm btn-outline btn-edit-admin" style="padding: 4px 8px; font-size: 12px; margin-right: 4px;"
+                                                data-admin='<?php echo htmlspecialchars(json_encode($u), ENT_QUOTES, 'UTF-8'); ?>'
                                                 onclick='openEditModal(<?php echo json_encode($u, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>)'>
                                             <i class="fas fa-edit"></i> Edit
                                         </button>
@@ -452,11 +445,11 @@ render_alert($message, $messageType);
 </div>
 
 <!-- Modal: Create / Edit Administrator -->
-<div id="adminModal" class="modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 10000; align-items: center; justify-content: center; padding: 20px;">
-    <div class="modal-dialog" style="background: #ffffff; border-radius: 12px; max-width: 560px; width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.2); overflow: hidden; animation: stbModalFadeIn 0.2s ease-out;">
-        <div class="modal-header" style="background: #002855; color: #ffffff; padding: 18px 24px; display: flex; justify-content: space-between; align-items: center;">
+<div id="adminModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" style="display: none;">
+    <div class="modal-dialog" style="background: #ffffff; border-radius: 14px; max-width: 580px; width: 100%; box-shadow: 0 25px 60px -12px rgba(0, 20, 50, 0.45); overflow: hidden; margin: auto;">
+        <div class="modal-header" style="background: #002855; color: #ffffff; padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: none;">
             <h3 id="modalTitle" style="margin: 0; font-size: 18px; color: #ffffff; font-weight: 700;">Create Administrator</h3>
-            <button type="button" onclick="closeAdminModal()" style="background: transparent; border: none; color: #ffffff; font-size: 20px; cursor: pointer; padding: 4px 8px;">&times;</button>
+            <button type="button" class="modal-close" onclick="closeAdminModal()" aria-label="Close modal" style="background: transparent; border: none; color: #ffffff; font-size: 24px; cursor: pointer; padding: 4px 8px; line-height: 1;">&times;</button>
         </div>
         <form method="POST" id="adminForm" style="padding: 24px;">
             <?php echo csrf_field(); ?>
@@ -477,10 +470,8 @@ render_alert($message, $messageType);
             <div style="margin-bottom: 14px;">
                 <label style="display: block; font-weight: 600; font-size: 13px; color: #334155; margin-bottom: 5px;">Role Type *</label>
                 <select name="role" id="formRole" class="form-control" required style="width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-weight: 600;">
-                    <?php if ($isSuperAdmin): ?>
-                        <option value="super_admin" style="font-weight: 700; color: #d97706;">⭐ System Administrator (Full Super Admin Authority)</option>
-                    <?php endif; ?>
-                    <option value="admin" style="font-weight: 700; color: #0284c7;" selected>🛡️ Admin (General School Administration)</option>
+                    <option value="super_admin" style="font-weight: 700; color: #d97706;">⭐ System Administrator (Full System Authority)</option>
+                    <option value="admin" style="font-weight: 700; color: #0284c7;" selected>🛡️ Admin (School Operations & Management)</option>
                     <option value="head_teacher" style="color: #7c3aed;">🎓 Head Teacher (Academic Lead & Approval Authority)</option>
                     <option value="supervisor" style="color: #0d9488;">🔍 Academic Supervisor (Curriculum & Supervision)</option>
                 </select>
@@ -534,8 +525,35 @@ render_alert($message, $messageType);
     </div>
 </div>
 
-<script>
+<style>
+#adminModal {
+    display: none;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(10, 25, 47, 0.72) !important;
+    backdrop-filter: blur(6px) !important;
+    -webkit-backdrop-filter: blur(6px) !important;
+    z-index: 99999 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 20px !important;
+    box-sizing: border-box !important;
+}
+#adminModal.active,
+#adminModal.show {
+    display: flex !important;
+}
+</style>
+
+<script nonce="<?php echo CSP_NONCE; ?>">
 function openAddModal() {
+    var modal = document.getElementById('adminModal');
+    if (!modal) return;
     document.getElementById('modalTitle').textContent = 'Create Admin or System Administrator';
     document.getElementById('formAction').value = 'add';
     document.getElementById('formUserId').value = '';
@@ -550,13 +568,19 @@ function openAddModal() {
     document.getElementById('formIsActive').checked = true;
     document.getElementById('formSendEmail').checked = true;
     document.getElementById('submitBtn').innerHTML = '<i class="fas fa-user-plus"></i> Create Administrator';
-    document.getElementById('adminModal').style.display = 'flex';
+    modal.classList.add('active', 'show');
+    modal.style.setProperty('display', 'flex', 'important');
 }
 
 function openEditModal(user) {
-    document.getElementById('modalTitle').textContent = 'Edit Administrator (' + user.first_name + ' ' + user.last_name + ')';
+    var modal = document.getElementById('adminModal');
+    if (!modal) return;
+    if (typeof user === 'string') {
+        try { user = JSON.parse(user); } catch (e) { console.error(e); return; }
+    }
+    document.getElementById('modalTitle').textContent = 'Edit Administrator (' + (user.first_name || '') + ' ' + (user.last_name || '') + ')';
     document.getElementById('formAction').value = 'edit';
-    document.getElementById('formUserId').value = user.id;
+    document.getElementById('formUserId').value = user.id || '';
     document.getElementById('formFirstName').value = user.first_name || '';
     document.getElementById('formLastName').value = user.last_name || '';
     document.getElementById('formEmail').value = user.email || '';
@@ -564,20 +588,69 @@ function openEditModal(user) {
     document.getElementById('formUsername').value = user.username || '';
     document.getElementById('formPassword').value = '';
     document.getElementById('passLabel').textContent = 'New Password (leave blank to keep current)';
-    document.getElementById('formRole').value = user.role;
-    document.getElementById('formIsActive').checked = parseInt(user.is_active) === 1;
+    document.getElementById('formRole').value = user.role || 'admin';
+    document.getElementById('formIsActive').checked = parseInt(user.is_active, 10) === 1;
     document.getElementById('formSendEmail').checked = false;
     document.getElementById('submitBtn').innerHTML = '<i class="fas fa-save"></i> Save Changes';
-    document.getElementById('adminModal').style.display = 'flex';
+    modal.classList.add('active', 'show');
+    modal.style.setProperty('display', 'flex', 'important');
 }
 
 function closeAdminModal() {
-    document.getElementById('adminModal').style.display = 'none';
+    var modal = document.getElementById('adminModal');
+    if (!modal) return;
+    modal.classList.remove('active', 'show');
+    modal.style.setProperty('display', 'none', 'important');
 }
 
-// Close when clicking outside dialog
-document.getElementById('adminModal').addEventListener('click', function(e) {
-    if (e.target === this) closeAdminModal();
+window.openAddModal = openAddModal;
+window.openEditModal = openEditModal;
+window.closeAdminModal = closeAdminModal;
+
+document.addEventListener('DOMContentLoaded', function() {
+    var b1 = document.getElementById('btnCreateAdminHeader');
+    if (b1) {
+        b1.addEventListener('click', function(e) {
+            e.preventDefault();
+            openAddModal();
+        });
+    }
+    var b2 = document.getElementById('btnCreateAdminTable');
+    if (b2) {
+        b2.addEventListener('click', function(e) {
+            e.preventDefault();
+            openAddModal();
+        });
+    }
+
+    var modal = document.getElementById('adminModal');
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeAdminModal();
+            }
+        });
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeAdminModal();
+        }
+    });
+
+    document.querySelectorAll('.btn-edit-admin').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            var data = this.getAttribute('data-admin');
+            if (data) {
+                try {
+                    openEditModal(JSON.parse(data));
+                } catch (err) {
+                    console.error('Error parsing admin data', err);
+                }
+            }
+        });
+    });
 });
 </script>
 
