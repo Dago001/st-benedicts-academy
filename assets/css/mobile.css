@@ -323,15 +323,41 @@ body.in-portal .stats-grid, .dashboard-main .stats-grid { grid-template-columns:
     }
 }
 
-/* Desktop dashboard: sidebar sticks beside the content and stops at the footer (it used to be fixed and covered the footer) */
+/* Desktop dashboard: fixed 270px sidebar on left; content pushed right by 270px */
 @media (min-width: 992px) {
-    body .dashboard-container { align-items: flex-start; }
-    body .sidebar {
-        position: sticky; top: var(--header-height, 80px); left: auto;
-        flex: 0 0 var(--sidebar-width, 280px); align-self: flex-start; z-index: 1;
-        height: calc(100vh - var(--header-height, 80px)); max-height: calc(100vh - var(--header-height, 80px));
+    body .dashboard-container {
+        display: flex !important;
+        align-items: stretch !important;
+        min-height: 100vh !important;
+        position: relative !important;
+        background: #f8fafc !important;
     }
-    body .dashboard-main, body .dashboard-main.expanded { margin-left: 0 !important; flex: 1 1 0; max-width: none; min-width: 0; }
+    body aside.sidebar,
+    body aside.modern-school-sidebar,
+    body .sidebar.modern-school-sidebar,
+    body .sidebar {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        bottom: 0 !important;
+        height: 100vh !important;
+        width: 270px !important;
+        z-index: 1050 !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        margin: 0 !important;
+    }
+    body .dashboard-main,
+    body.is-auth .dashboard-main,
+    body.in-portal .dashboard-main,
+    body .dashboard-main.expanded {
+        margin-left: 270px !important;
+        width: calc(100% - 270px) !important;
+        max-width: calc(100% - 270px) !important;
+        min-width: 0 !important;
+        flex: 1 1 auto !important;
+        box-sizing: border-box !important;
+    }
 }
 
 /* Stat cards: equal columns that never leave a lone card on its own row */

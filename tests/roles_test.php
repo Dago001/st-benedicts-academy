@@ -291,6 +291,7 @@ $polishCss = file_get_contents(__DIR__ . '/../assets/css/polish.css');
 test('polish.css hides main-footer for authenticated backend users', strpos($polishCss, 'body.is-auth .main-footer') !== false);
 test('polish.css pins desktop sidebar fixed at top: 0 with 100vh height', strpos($polishCss, 'aside.modern-school-sidebar') !== false && strpos($polishCss, 'position: fixed !important') !== false);
 test('polish.css hides user dropdown on mobile view (< 769px)', strpos($polishCss, 'body .dashboard-header .user-dropdown-wrapper') !== false && strpos($polishCss, 'display: none !important') !== false);
+test('mobile.css offsets dashboard-main by 270px on desktop to prevent sidebar overlap', strpos(file_get_contents(__DIR__ . '/../assets/css/mobile.css'), 'margin-left: 270px !important') !== false);
 test('main.js includes automatic userDropdown fallback injection for dashboard-header', strpos(file_get_contents(__DIR__ . '/../assets/js/main.js'), 'dashboardHeader.appendChild(wrap)') !== false);
 
 echo "\n=== 11. LANDING PAGE CORE PILLARS, MVG COMPACT CONTROLS & FOOTER CENTERING ===\n";
@@ -346,6 +347,7 @@ test('ApplicationHelper::getDocumentCatalog does NOT contain passport_photo in S
 test('public/apply.php removed age limitation "between 2 and 7 years old"', strpos($applyContent, 'between 2 and 7 years old') === false);
 test('application-components.php completely removed seqActiveDocBanner section', strpos($componentsContent, 'id="seqActiveDocBanner"') === false && strpos($componentsContent, 'class="seq-active-doc-banner"') === false);
 test('public/apply.php has compact professional styling for form-navigation buttons', strpos($applyContent, '.form-navigation .btn,') !== false && strpos($applyContent, 'padding: 10px 22px !important;') !== false);
+test('public/apply.php form has novalidate attribute to prevent silent validation aborts', strpos($applyContent, 'id="applicationForm" novalidate') !== false);
 
 
 echo "\n==========================================\n";

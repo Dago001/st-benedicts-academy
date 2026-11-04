@@ -373,7 +373,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
 
         <div class="application-card">
-            <form method="POST" enctype="multipart/form-data" id="applicationForm">
+            <form method="POST" enctype="multipart/form-data" id="applicationForm" novalidate>
                 <?php echo csrf_field(); ?>
                 <div style="position:absolute;left:-9999px" aria-hidden="true"><label>Leave this empty <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
 
@@ -1147,10 +1147,33 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Guard on Form Submission: Require online payment to be completed if Paystack is selected
+    // Guard on Form Submission: Validate terms, check payment, and submit cleanly
     const appForm = document.getElementById('applicationForm');
     if (appForm) {
         appForm.addEventListener('submit', function(e) {
+            // 1. Check Declaration & Terms checkboxes
+            const decl = appForm.querySelector('input[name="declaration"]');
+            const terms = appForm.querySelector('input[name="terms"]');
+            if ((decl && !decl.checked) || (terms && !terms.checked)) {
+                e.preventDefault();
+                alert('Please accept both the Declaration and Terms & Conditions checkboxes before submitting.');
+                decl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return false;
+            }
+
+            // 2. Validate all steps 1-3
+            for (let s = 1; s <= 3; s++) {
+                if (!validateStep(s)) {
+                    e.preventDefault();
+                    document.querySelectorAll('.form-step').forEach(st => st.classList.remove('active'));
+                    document.getElementById('step' + s)?.classList.add('active');
+                    currentStep = s;
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    return false;
+                }
+            }
+
+            // 3. Payment verification check
             const selectedMethodRadio = document.querySelector('input[name="payment_method"]:checked');
             const methodVal = selectedMethodRadio ? selectedMethodRadio.value : 'paystack_card';
             const verifiedUi = document.getElementById('input_payment_verified_ui')?.value;
@@ -1159,12 +1182,48 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (isOnlineMethod && verifiedUi !== '1') {
                 e.preventDefault();
-                alert("Online Payment Required Before Submission:\n\nYou selected online payment via Paystack, but payment of ₦15,000 has not been made or verified.\n\nPlease click the 'Pay ₦15,000 on Paystack' button to complete payment before submitting.\n\nAlternatively, if you prefer to make payment at the school admissions office, please select 'Pay at School & Print Application Slip'.");
-                const paySec = document.getElementById('onlinePaymentSection');
-                if (paySec) {
-                    paySec.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                const choice = confirm(
+                    "Online Payment Required Before Submission:\n\n" +
+                    "You have selected online payment via Paystack, but payment of ₦15,000 has not been made or verified yet.\n\n" +
+                    "• Click 'OK' to switch to 'Pay at School & Print Application Slip' now so you can submit immediately and pay at the school.\n" +
+                    "• Click 'Cancel' to pay online with Paystack before submitting."
+                );
+
+                if (choice) {
+                    const schoolRadio = document.querySelector('input[name="payment_method"][value="pay_at_school"]');
+                    if (schoolRadio) {
+                        const opt = schoolRadio.closest('.pay-method-option');
+                        if (opt) {
+                            opt.click();
+                        } else {
+                            schoolRadio.checked = true;
+                            const payStatusInp = document.getElementById('input_payment_status');
+                            if (payStatusInp) payStatusInp.value = 'pending_school_payment';
+                        }
+                    }
+                    setTimeout(function() {
+                        const submitBtn = appForm.querySelector('button[type="submit"]');
+                        if (submitBtn) {
+                            submitBtn.disabled = true;
+                            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting Application...';
+                        }
+                        appForm.submit();
+                    }, 100);
+                    return true;
+                } else {
+                    const paySec = document.getElementById('onlinePaymentSection');
+                    if (paySec) {
+                        paySec.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                    return false;
                 }
-                return false;
+            }
+
+            // 4. Submission visual feedback
+            const submitBtn = appForm.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting Application...';
             }
         });
     }
