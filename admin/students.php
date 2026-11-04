@@ -33,36 +33,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'add':
             case 'edit':
                 // Sanitize and validate input
-                $username = Security::sanitize($_POST['username'] ?? '');
-                $email = Security::sanitize($_POST['email'] ?? '');
+                $email = trim(strtolower(Security::sanitize($_POST['email'] ?? '')));
                 $firstName = Security::sanitize($_POST['first_name'] ?? '');
                 $lastName = Security::sanitize($_POST['last_name'] ?? '');
                 $phone = Security::sanitize($_POST['phone'] ?? '');
-                $password = $_POST['password'] ?? '';
+                $password = trim($_POST['password'] ?? '');
+
+                // Auto-generate clean username from name or email (login is by Email)
+                $rawUser = trim(Security::sanitize($_POST['username'] ?? ''));
+                if (empty($rawUser)) {
+                    $prefix = !empty($email) ? explode('@', $email)[0] : strtolower($firstName . '.' . $lastName);
+                    $username = strtolower(preg_replace('/[^a-z0-9._-]/i', '', $prefix)) ?: 'std.' . mt_rand(100, 999);
+                } else {
+                    $username = substr(preg_replace('/[^a-z0-9._@-]/i', '', $rawUser), 0, 50);
+                }
+
+                // Auto-generate One-Time Password if empty on add
+                if ($postAction === 'add' && empty($password)) {
+                    $password = 'Std@' . mt_rand(1000, 9999);
+                }
 
                 // Validate required fields
-                if (empty($username) || empty($email) || empty($firstName) || empty($lastName)) {
-                    $message = 'Please fill in all required fields';
+                if (empty($firstName) || empty($lastName)) {
+                    $message = 'Please fill in First Name and Last Name';
                     $messageType = 'error';
                     break;
                 }
-                if (!valid_username($username)) {
-                    $message = 'Username must be 3-50 letters, numbers, dots, dashes or underscores';
-                    $messageType = 'error';
-                    break;
-                }
-                if (!Security::validateEmail($email)) {
+                if ($email !== '' && !Security::validateEmail($email)) {
                     $message = 'Please enter a valid email address';
                     $messageType = 'error';
                     break;
                 }
                 if ($phone !== '' && !Security::validatePhone($phone)) {
                     $message = 'Please enter a valid Nigerian phone number';
-                    $messageType = 'error';
-                    break;
-                }
-                if ($postAction === 'add' && empty($password)) {
-                    $message = 'Password is required for new students';
                     $messageType = 'error';
                     break;
                 }
@@ -537,21 +540,31 @@ $students = $db->getRows(
                     </div>
 
                     <div class="form-section">
-                        <h3><i class="fas fa-lock"></i> Login Information</h3>
+                        <h3><i class="fas fa-key"></i> Portal Login &amp; One-Time Password</h3>
+                        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px 16px; margin-bottom: 18px; font-size: 0.88rem; color: #166534; line-height: 1.5;">
+                            <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 3px; color: #15803d; display: flex; align-items: center; gap: 8px;">
+                                <i class="fas fa-envelope-circle-check"></i> Email-Based Login &amp; Automated One-Time Password (OTP)
+                            </div>
+                            Students sign in using their <strong>Official Email Address</strong> (or Admission Number). A secure temporary <strong>One-Time Password (OTP)</strong> will be automatically generated and emailed to them upon creation.
+                        </div>
+
                         <div class="form-row">
-                            <div class="form-group">
-                                <label for="username">Username *</label>
-                                <input type="text" id="username" name="username" class="form-control"
-                                       value="<?php echo htmlspecialchars($student['username'] ?? ''); ?>" required>
+                            <div class="form-group col-md-6">
+                                <label for="login_email_display_std">Login Email / Official Email</label>
+                                <input type="text" id="login_email_display_std" class="form-control" readonly
+                                       value="<?php echo htmlspecialchars($student['email'] ?? ($student['official_email'] ?? '')); ?>"
+                                       placeholder="Auto-generated official student email"
+                                       style="background: #f8fafc; font-weight: 600; color: #002855;">
+                                <small class="form-text text-muted">The student or parent uses this email to log in.</small>
                             </div>
 
-                            <div class="form-group">
-                                <label for="password">Password <?php echo $action === 'add' ? '*' : ''; ?></label>
-                                <input type="password" id="password" name="password" class="form-control"
-                                       <?php echo $action === 'add' ? 'required' : ''; ?>>
-                                <?php if ($action === 'edit'): ?>
-                                <small class="form-text text-muted">Leave blank to keep current password</small>
-                                <?php endif; ?>
+                            <div class="form-group col-md-6">
+                                <label for="password"><?php echo $action === 'add' ? 'One-Time Password (OTP)' : 'New Password'; ?></label>
+                                <input type="text" id="password" name="password" class="form-control"
+                                       placeholder="<?php echo $action === 'add' ? 'Leave empty to auto-generate &amp; email' : 'Leave empty to keep current password'; ?>">
+                                <small class="form-text text-muted">
+                                    <?php echo $action === 'add' ? 'Leave blank to automatically generate a secure one-time password and dispatch via email.' : 'Leave blank to retain current password.'; ?>
+                                </small>
                             </div>
                         </div>
                     </div>

@@ -451,7 +451,7 @@ if (!function_exists('valid_datetime')) {
     }
 }
 if (!function_exists('valid_username')) {
-    function valid_username($u) { return (bool)preg_match('/^[A-Za-z0-9._-]{3,50}$/', (string)$u); }
+    function valid_username($u) { return (bool)preg_match('/^[A-Za-z0-9._@-]{3,80}$/', (string)$u); }
 }
 if (!function_exists('strong_password')) {
     /** Returns an error string or null when the password is acceptable. */

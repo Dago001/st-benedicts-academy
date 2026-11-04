@@ -33,32 +33,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'add':
             case 'edit':
                 // Sanitize and validate input
-                $username = Security::sanitize($_POST['username'] ?? '');
-                $email = Security::sanitize($_POST['email'] ?? '');
+                $email = trim(strtolower(Security::sanitize($_POST['email'] ?? '')));
                 $firstName = Security::sanitize($_POST['first_name'] ?? '');
                 $lastName = Security::sanitize($_POST['last_name'] ?? '');
                 $phone = Security::sanitize($_POST['phone'] ?? '');
-                $password = $_POST['password'] ?? '';
+                $password = trim($_POST['password'] ?? '');
                 $occupation = Security::sanitize($_POST['occupation'] ?? '');
                 $address = Security::sanitize($_POST['address'] ?? '');
                 $emergencyContact = Security::sanitize($_POST['emergency_contact'] ?? '');
                 $relationship = Security::sanitize($_POST['relationship'] ?? '');
                 $isActive = isset($_POST['is_active']) ? 1 : 0;
+                $sendEmail = isset($_POST['send_email']) || ($postAction === 'add' && !isset($_POST['send_email_submitted']));
+
+                // Auto-generate clean username from email or name (login is by Email)
+                $rawUser = trim(Security::sanitize($_POST['username'] ?? ''));
+                if (empty($rawUser)) {
+                    $prefix = explode('@', $email)[0];
+                    $username = strtolower(preg_replace('/[^a-z0-9._-]/i', '', $prefix)) ?: 'prt.' . mt_rand(100, 999);
+                } else {
+                    $username = substr(preg_replace('/[^a-z0-9._@-]/i', '', $rawUser), 0, 50);
+                }
+
+                // Auto-generate One-Time Password if empty on add
+                if ($postAction === 'add' && empty($password)) {
+                    $password = 'Prt@' . mt_rand(1000, 9999);
+                }
 
                 // Validate required fields
-                if (empty($username) || empty($email) || empty($firstName) || empty($lastName)) {
-                    $message = 'Please fill in all required fields';
+                if (empty($email) || empty($firstName) || empty($lastName)) {
+                    $message = 'Please fill in all required fields (First Name, Last Name, Email)';
                     $messageType = 'error';
                     break;
                 }
 
                 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
                     $message = 'Please enter a valid email address';
-                    $messageType = 'error';
-                    break;
-                }
-                if (!valid_username($username)) {
-                    $message = 'Username must be 3-50 letters, numbers, dots, dashes or underscores';
                     $messageType = 'error';
                     break;
                 }
@@ -73,27 +82,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     break;
                 }
 
-                if ($postAction === 'add' && empty($password)) {
-                    $message = 'Password is required for new parents';
-                    $messageType = 'error';
-                    break;
-                }
-
                 try {
                     $db->beginTransaction();
 
                     if ($postAction === 'add') {
-                        // Check if username or email already exists
+                        // Check if email already exists
                         $existing = $db->getRow(
-                            "SELECT id FROM users WHERE username = ? OR email = ?",
-                            [$username, $email]
+                            "SELECT id FROM users WHERE email = ? AND deleted_at IS NULL",
+                            [$email]
                         );
 
                         if ($existing) {
-                            throw new Exception("Username or email already exists");
+                            throw new Exception("An account with that email already exists");
                         }
 
-                        // Create user
+                        // Ensure unique username
+                        $uExists = $db->getRow("SELECT id FROM users WHERE username = ? AND deleted_at IS NULL", [$username]);
+                        if ($uExists) {
+                            $username = substr($username, 0, 42) . '.' . mt_rand(10, 99);
+                        }
+
+                        // Create user with must_change_password = 1
                         $userId = $db->insert(
                             "INSERT INTO users (username, email, password_hash, first_name, last_name, phone, role, is_active, must_change_password)
                              VALUES (?, ?, ?, ?, ?, ?, 'parent', ?, 1)",
@@ -848,29 +857,46 @@ textarea.form-control {
                     </div>
 
                     <div class="form-section">
-                        <h3><i class="fas fa-lock"></i> Login Information</h3>
+                        <h3><i class="fas fa-key"></i> Portal Login &amp; One-Time Password</h3>
+                        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px 16px; margin-bottom: 18px; font-size: 0.88rem; color: #166534; line-height: 1.5;">
+                            <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 3px; color: #15803d; display: flex; align-items: center; gap: 8px;">
+                                <i class="fas fa-envelope-circle-check"></i> Email-Based Login &amp; Automated One-Time Password (OTP)
+                            </div>
+                            All parents sign in using their <strong>Email Address</strong>. A secure temporary <strong>One-Time Password (OTP)</strong> will be automatically generated and dispatched to the parent's email upon creation.
+                        </div>
+
                         <div class="form-row">
                             <div class="form-group col-md-6">
-                                <label for="username">Username *</label>
-                                <input type="text" id="username" name="username" class="form-control"
-                                       value="<?php echo htmlspecialchars($parent['username'] ?? ''); ?>" required>
+                                <label for="login_email_display_parent">Login Email Address *</label>
+                                <input type="text" id="login_email_display_parent" class="form-control" readonly
+                                       value="<?php echo htmlspecialchars($parent['email'] ?? ''); ?>"
+                                       placeholder="Synced with email entered above"
+                                       style="background: #f8fafc; font-weight: 600; color: #002855;">
+                                <small class="form-text text-muted">This email is the parent's primary login credential.</small>
                             </div>
 
                             <div class="form-group col-md-6">
-                                <label for="password">Password <?php echo $action === 'add' ? '*' : ''; ?></label>
-                                <input type="password" id="password" name="password" class="form-control"
-                                       <?php echo $action === 'add' ? 'required' : ''; ?>>
-                                <?php if ($action === 'edit'): ?>
-                                <small class="form-text text-muted">Leave blank to keep current password</small>
-                                <?php endif; ?>
+                                <label for="password"><?php echo $action === 'add' ? 'One-Time Password (OTP)' : 'New Password'; ?></label>
+                                <input type="text" id="password" name="password" class="form-control"
+                                       placeholder="<?php echo $action === 'add' ? 'Leave empty to auto-generate &amp; email' : 'Leave empty to keep current password'; ?>">
+                                <small class="form-text text-muted">
+                                    <?php echo $action === 'add' ? 'Leave blank to automatically generate a secure one-time password and email it to the parent.' : 'Leave blank to retain current password.'; ?>
+                                </small>
                             </div>
                         </div>
 
+                        <div class="form-group" style="margin-top: 10px;">
+                            <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; cursor: pointer;">
+                                <input type="checkbox" name="send_email" value="1" checked>
+                                <span><strong>Send credentials email</strong> with one-time password to parent's email inbox</span>
+                            </label>
+                        </div>
+
                         <div class="form-group">
-                            <label class="checkbox-label">
+                            <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; cursor: pointer;">
                                 <input type="checkbox" name="is_active" value="1"
                                        <?php echo (!isset($parent['is_active']) || $parent['is_active']) ? 'checked' : ''; ?>>
-                                Active Account
+                                Active Account (can log in immediately)
                             </label>
                         </div>
                     </div>

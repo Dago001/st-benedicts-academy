@@ -33,12 +33,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'add':
             case 'edit':
                 // Sanitize and validate input
-                $username = Security::sanitize($_POST['username'] ?? '');
-                $email = Security::sanitize($_POST['email'] ?? '');
+                $email = trim(strtolower(Security::sanitize($_POST['email'] ?? '')));
                 $firstName = Security::sanitize($_POST['first_name'] ?? '');
                 $lastName = Security::sanitize($_POST['last_name'] ?? '');
                 $phone = Security::sanitize($_POST['phone'] ?? '');
-                $password = $_POST['password'] ?? '';
+                $password = trim($_POST['password'] ?? '');
                 $employeeId = Security::sanitize($_POST['employee_id'] ?? '');
                 $qualification = Security::sanitize($_POST['qualification'] ?? '');
                 $specialization = Security::sanitize($_POST['specialization'] ?? '');
@@ -46,21 +45,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $address = Security::sanitize($_POST['address'] ?? '');
                 $emergencyContact = Security::sanitize($_POST['emergency_contact'] ?? '');
                 $isActive = isset($_POST['is_active']) ? 1 : 0;
+                $sendEmail = isset($_POST['send_email']) || ($postAction === 'add' && !isset($_POST['send_email_submitted']));
+
+                // Auto-generate clean username from email or name (login is by Email)
+                $rawUser = trim(Security::sanitize($_POST['username'] ?? ''));
+                if (empty($rawUser)) {
+                    $prefix = explode('@', $email)[0];
+                    $username = strtolower(preg_replace('/[^a-z0-9._-]/i', '', $prefix)) ?: 'tch.' . mt_rand(100, 999);
+                } else {
+                    $username = substr(preg_replace('/[^a-z0-9._@-]/i', '', $rawUser), 0, 50);
+                }
+
+                // Auto-generate One-Time Password if left empty for new teacher
+                if ($postAction === 'add' && empty($password)) {
+                    $password = 'Tch@' . mt_rand(1000, 9999);
+                }
 
                 // Validate required fields
-                if (empty($username) || empty($email) || empty($firstName) || empty($lastName) || empty($employeeId)) {
-                    $message = 'Please fill in all required fields';
+                if (empty($email) || empty($firstName) || empty($lastName) || empty($employeeId)) {
+                    $message = 'Please fill in all required fields (Name, Email Address, Employee ID)';
                     $messageType = 'error';
                     break;
                 }
 
                 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
                     $message = 'Please enter a valid email address';
-                    $messageType = 'error';
-                    break;
-                }
-                if (!valid_username($username)) {
-                    $message = 'Username must be 3-50 letters, numbers, dots, dashes or underscores';
                     $messageType = 'error';
                     break;
                 }
@@ -75,24 +84,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     break;
                 }
 
-                if ($postAction === 'add' && empty($password)) {
-                    $message = 'Password is required for new teachers';
-                    $messageType = 'error';
-                    break;
-                }
-
                 try {
                     $db->beginTransaction();
 
                     if ($postAction === 'add') {
-                        // Check if username, email or employee_id already exists
-                        $existing = $db->getRow(
-                            "SELECT id FROM users WHERE username = ? OR email = ?",
-                            [$username, $email]
+                        // Check if email already exists
+                        $existingEmail = $db->getRow(
+                            "SELECT id FROM users WHERE email = ? AND deleted_at IS NULL",
+                            [$email]
                         );
 
-                        if ($existing) {
-                            throw new Exception("Username or email already exists");
+                        if ($existingEmail) {
+                            throw new Exception("An account with that email address already exists");
+                        }
+
+                        // Ensure unique username
+                        $uExists = $db->getRow("SELECT id FROM users WHERE username = ? AND deleted_at IS NULL", [$username]);
+                        if ($uExists) {
+                            $username = substr($username, 0, 42) . '.' . mt_rand(10, 99);
                         }
 
                         $existingEmp = $db->getRow(
@@ -104,7 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             throw new Exception("Employee ID already exists");
                         }
 
-                        // Create user
+                        // Create user with must_change_password = 1 for one-time password
                         $userId = $db->insert(
                             "INSERT INTO users (username, email, password_hash, first_name, last_name, phone, role, is_active, must_change_password)
                              VALUES (?, ?, ?, ?, ?, ?, 'teacher', ?, 1)",
@@ -147,10 +156,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'username'   => $username,
                             'role'       => 'teacher',
                         ];
-                        send_account_welcome_email($teacherUser, $password, 'teacher');
+                        if ($sendEmail) {
+                            send_account_welcome_email($teacherUser, $password, 'teacher');
+                        }
 
                         Security::logAudit('ADDED_TEACHER', 'teachers', $teacherId);
-                        $message = 'Teacher added successfully and welcome email dispatched with login credentials.';
+                        $message = "Teacher added successfully! Login email is {$email} and one-time password has been sent to their inbox.";
                         $messageType = 'success';
 
                     } else {
@@ -164,10 +175,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             throw new Exception("Employee ID already exists");
                         }
 
-                        // Check if username or email already exists for other users
+                        // Check if email already exists for other users
                         $existing = $db->getRow(
-                            "SELECT id FROM users WHERE (username = ? OR email = ?) AND id != ?",
-                            [$username, $email, $userId]
+                            "SELECT id FROM users WHERE email = ? AND id != ? AND deleted_at IS NULL",
+                            [$email, $userId]
                         );
 
                         if ($existing) {
@@ -455,30 +466,47 @@ if (!function_exists('generateEmployeeId')) {
                     </div>
 
                     <div class="form-section">
-                        <h3><i class="fas fa-lock"></i> Login Information</h3>
+                        <h3><i class="fas fa-key"></i> Portal Login &amp; One-Time Password</h3>
+                        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px 16px; margin-bottom: 18px; font-size: 0.88rem; color: #166534; line-height: 1.5;">
+                            <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 3px; color: #15803d; display: flex; align-items: center; gap: 8px;">
+                                <i class="fas fa-envelope-circle-check"></i> Email-Based Login &amp; Automated One-Time Password (OTP)
+                            </div>
+                            All teachers sign in using their <strong>Email Address</strong>. A secure temporary <strong>One-Time Password (OTP)</strong> will be automatically generated and dispatched to the teacher's email upon creation.
+                        </div>
+
                         <div class="form-row">
-                            <div class="form-group">
-                                <label for="username">Username *</label>
-                                <input type="text" id="username" name="username" class="form-control"
-                                       value="<?php echo htmlspecialchars($teacher['username'] ?? ''); ?>" required>
+                            <div class="form-group col-md-6">
+                                <label for="login_email_display">Login Email Address *</label>
+                                <input type="text" id="login_email_display" class="form-control" readonly
+                                       value="<?php echo htmlspecialchars($teacher['email'] ?? ''); ?>"
+                                       placeholder="Synced with email entered above"
+                                       style="background: #f8fafc; font-weight: 600; color: #002855;">
+                                <small class="form-text text-muted">This official email is the teacher's login username.</small>
                             </div>
 
-                            <div class="form-group">
-                                <label for="password">Password <?php echo $action === 'add' ? '*' : ''; ?></label>
-                                <input type="password" id="password" name="password" class="form-control"
-                                       <?php echo $action === 'add' ? 'required' : ''; ?>>
-                                <?php if ($action === 'edit'): ?>
-                                <small class="form-text text-muted">Leave blank to keep current password</small>
-                                <?php endif; ?>
+                            <div class="form-group col-md-6">
+                                <label for="password"><?php echo $action === 'add' ? 'One-Time Password (OTP)' : 'New Password'; ?></label>
+                                <input type="text" id="password" name="password" class="form-control"
+                                       placeholder="<?php echo $action === 'add' ? 'Leave empty to auto-generate &amp; email' : 'Leave empty to keep current password'; ?>">
+                                <small class="form-text text-muted">
+                                    <?php echo $action === 'add' ? 'Leave blank to automatically generate a secure one-time password and email it to the teacher.' : 'Leave blank to retain current password.'; ?>
+                                </small>
                             </div>
+                        </div>
 
-                            <div class="form-group">
-                                <label class="checkbox-label">
-                                    <input type="checkbox" name="is_active" value="1"
-                                           <?php echo (!isset($teacher['is_active']) || $teacher['is_active']) ? 'checked' : ''; ?>>
-                                    Active Account
-                                </label>
-                            </div>
+                        <div class="form-group" style="margin-top: 10px;">
+                            <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; cursor: pointer;">
+                                <input type="checkbox" name="send_email" value="1" checked>
+                                <span><strong>Send credentials email</strong> with one-time password to teacher's email inbox</span>
+                            </label>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; cursor: pointer;">
+                                <input type="checkbox" name="is_active" value="1"
+                                       <?php echo (!isset($teacher['is_active']) || $teacher['is_active']) ? 'checked' : ''; ?>>
+                                Active Account (can log in immediately)
+                            </label>
                         </div>
                     </div>
 
@@ -863,6 +891,17 @@ document.addEventListener('keydown', function(event) {
 
 // Initialize DataTable if available
 $(document).ready(function() {
+    const emailInp = document.getElementById('email');
+    const loginDisplay = document.getElementById('login_email_display');
+    if (emailInp && loginDisplay) {
+        emailInp.addEventListener('input', function() {
+            loginDisplay.value = this.value;
+        });
+        if (emailInp.value) {
+            loginDisplay.value = emailInp.value;
+        }
+    }
+
     if (typeof $.fn.DataTable !== 'undefined') {
         $('#teachersTable').DataTable({
             pageLength: 25,

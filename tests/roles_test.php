@@ -248,6 +248,11 @@ $emailDiagContent = file_get_contents(__DIR__ . '/../admin/email-diagnostics.php
 test('admin/email-diagnostics.php supports send_test_email action', strpos($emailDiagContent, "'send_test_email'") !== false);
 test('admin/email-diagnostics.php displays mail@stbenedictsacademy.com.ng', strpos($emailDiagContent, 'mail@stbenedictsacademy.com.ng') !== false);
 
+test('valid_username accepts email addresses with @ symbol', valid_username('admin@stbenedicts.edu.ng') && valid_username('teacher.one@school.com'));
+test('admin/teachers.php supports automated One-Time Password and email login', strpos(file_get_contents(__DIR__ . '/../admin/teachers.php'), 'One-Time Password (OTP)') !== false);
+test('admin/parents.php supports automated One-Time Password and email login', strpos(file_get_contents(__DIR__ . '/../admin/parents.php'), 'One-Time Password (OTP)') !== false);
+test('admin/students.php supports automated One-Time Password and email login', strpos(file_get_contents(__DIR__ . '/../admin/students.php'), 'One-Time Password (OTP)') !== false);
+
 // Resilience: Auth::login & login.php error handling
 $loginFile = file_get_contents(__DIR__ . '/../login.php');
 test('login.php wraps POST processing in try-catch to prevent 500 error', strpos($loginFile, 'catch (Throwable $e)') !== false);
