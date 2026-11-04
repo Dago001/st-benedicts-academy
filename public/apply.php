@@ -938,9 +938,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 .form-navigation {
     display: flex;
     justify-content: space-between;
+    align-items: center;
+    gap: 16px;
     margin-top: 30px;
     padding-top: 20px;
     border-top: 1px solid var(--light-gray);
+    flex-wrap: wrap;
+}
+
+.form-navigation .btn,
+.form-navigation button {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    padding: 10px 22px !important;
+    font-size: 0.9rem !important;
+    font-weight: 600 !important;
+    line-height: 1.4 !important;
+    min-height: auto !important;
+    height: auto !important;
+    border-radius: 8px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+    transition: all 0.2s ease !important;
+    cursor: pointer !important;
+}
+
+.form-navigation .btn-outline {
+    background: #ffffff !important;
+    border: 1.5px solid #cbd5e1 !important;
+    color: #334155 !important;
+}
+
+.form-navigation .btn-outline:hover:not(:disabled) {
+    background: #f1f5f9 !important;
+    border-color: #94a3b8 !important;
+    color: #0f172a !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1) !important;
+}
+
+.form-navigation .btn-primary {
+    background: #002147 !important;
+    border: 1.5px solid #002147 !important;
+    color: #ffffff !important;
+}
+
+.form-navigation .btn-primary:hover:not(:disabled) {
+    background: #003366 !important;
+    border-color: #003366 !important;
+    color: #ffffff !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 10px rgba(0, 33, 71, 0.25) !important;
+}
+
+.form-navigation .btn-success {
+    background: #16a34a !important;
+    border: 1.5px solid #15803d !important;
+    color: #ffffff !important;
+}
+
+.form-navigation .btn-success:hover:not(:disabled) {
+    background: #15803d !important;
+    border-color: #166534 !important;
+    color: #ffffff !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 10px rgba(22, 163, 74, 0.3) !important;
 }
 
 /* Terms Section */
@@ -1023,11 +1086,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     .form-navigation {
         flex-direction: column;
-        gap: 10px;
+        align-items: stretch;
+        gap: 12px;
     }
 
-    .form-navigation button {
-        width: 100%;
+    .form-navigation button,
+    .form-navigation .btn {
+        width: 100% !important;
+        justify-content: center !important;
     }
 }
 </style>
@@ -1062,16 +1128,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     filenameLabel.textContent = file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
                     clearBtn.style.display = 'inline-block';
 
-                    // Sync with Step 4 native passport_photo input if available
-                    const step4Inp = document.getElementById('doc_input_passport_photo');
-                    if (step4Inp && window.DataTransfer) {
-                        try {
-                            const dt = new DataTransfer();
-                            dt.items.add(file);
-                            step4Inp.files = dt.files;
-                            step4Inp.dispatchEvent(new Event('change'));
-                        } catch(e) {}
-                    }
+
                 };
                 reader.readAsDataURL(file);
             }

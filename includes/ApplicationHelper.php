@@ -25,15 +25,6 @@ class ApplicationHelper
                 'accept'   => '.pdf,.jpg,.jpeg,.png',
                 'hint'     => 'Official Birth Certificate or NPC Attestation (PDF, JPG, PNG — Max 5MB)'
             ],
-            'passport_photo' => [
-                'key'      => 'passport_photo',
-                'label'    => 'Child\'s Passport Photograph (Required)',
-                'short'    => 'Passport Photograph',
-                'required' => true,
-                'allowed'  => ['jpg', 'jpeg', 'png'],
-                'accept'   => '.jpg,.jpeg,.png',
-                'hint'     => 'Recent clear passport-sized photograph of the child (JPG, PNG — Max 5MB)'
-            ],
             'immunization_record' => [
                 'key'      => 'immunization_record',
                 'label'    => 'Immunization / Health Record (Recommended)',

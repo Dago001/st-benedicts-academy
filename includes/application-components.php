@@ -45,16 +45,7 @@ function renderSequentialDocumentsUploader(): void
             </div>
         </div>
 
-        <div class="seq-active-doc-banner" id="seqActiveDocBanner">
-            <div class="seq-active-doc-info">
-                <span class="seq-active-badge" id="seqActiveBadge">Required</span>
-                <strong id="seqActiveTitle">Birth Certificate</strong>
-                <span class="seq-active-hint" id="seqActiveHint">Official Birth Certificate or NPC Attestation (PDF, JPG, PNG — Max 5MB)</span>
-            </div>
-            <div class="seq-active-status" id="seqActiveStatus">
-                <span class="status-pill pending"><i class="fas fa-arrow-up"></i> Ready to pick file</span>
-            </div>
-        </div>
+
 
         <!-- Underlying native file inputs preserved for multipart/form-data and E2E tests -->
         <div class="seq-hidden-inputs" aria-hidden="true">
@@ -74,7 +65,7 @@ function renderSequentialDocumentsUploader(): void
         <div class="seq-uploaded-queue-wrap">
             <div class="seq-queue-heading">
                 <span><i class="fas fa-list-check"></i> Uploaded Documents Queue</span>
-                <span class="seq-req-note">Required: <strong>Birth Certificate</strong> &amp; <strong>Passport Photograph</strong></span>
+                <span class="seq-req-note">Required: <strong>Birth Certificate</strong></span>
             </div>
             <div id="seqUploadedList" class="seq-uploaded-list">
                 <div class="seq-empty-state" id="seqEmptyState">
@@ -360,42 +351,6 @@ function renderApplicationComponentsAssets(): void
         .btn-seq-upload:hover {
             background: #a00d25;
             transform: translateY(-1px);
-        }
-        .seq-active-doc-banner {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 14px;
-            flex-wrap: wrap;
-            background: #f8fafc;
-            border: 1px dashed #94a3b8;
-            border-radius: 10px;
-            padding: 14px 16px;
-            margin-bottom: 18px;
-        }
-        .seq-active-doc-info {
-            display: flex;
-            flex-direction: column;
-            gap: 3px;
-        }
-        .seq-active-badge {
-            display: inline-block;
-            width: fit-content;
-            font-size: 0.7rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            padding: 2px 8px;
-            border-radius: 4px;
-            background: #fee2e2;
-            color: #b91c1c;
-        }
-        .seq-active-badge.optional {
-            background: #e2e8f0;
-            color: #475569;
-        }
-        .seq-active-hint {
-            font-size: 0.82rem;
-            color: #64748b;
         }
         .status-pill {
             display: inline-flex;
@@ -860,6 +815,7 @@ function renderApplicationComponentsAssets(): void
 
         if (dropdown && triggerBtn) {
             function updateActiveBanner() {
+                if (!activeBadge || !activeTitle) return;
                 const opt = dropdown.options[dropdown.selectedIndex];
                 if (!opt) return;
                 const key = opt.value;
@@ -872,12 +828,14 @@ function renderApplicationComponentsAssets(): void
                 activeBadge.textContent = isReq ? 'Required Document' : 'Optional Document';
                 activeBadge.className = 'seq-active-badge' + (isReq ? '' : ' optional');
                 activeTitle.textContent = shortName;
-                activeHint.textContent = hint;
+                if (activeHint) activeHint.textContent = hint;
 
-                if (hasFile) {
-                    activeStatus.innerHTML = '<span class="status-pill done"><i class="fas fa-check-circle"></i> Uploaded (' + inputEl.files[0].name + ')</span>';
-                } else {
-                    activeStatus.innerHTML = '<span class="status-pill pending"><i class="fas fa-arrow-up"></i> Ready to pick file</span>';
+                if (activeStatus) {
+                    if (hasFile) {
+                        activeStatus.innerHTML = '<span class="status-pill done"><i class="fas fa-check-circle"></i> Uploaded (' + inputEl.files[0].name + ')</span>';
+                    } else {
+                        activeStatus.innerHTML = '<span class="status-pill pending"><i class="fas fa-arrow-up"></i> Ready to pick file</span>';
+                    }
                 }
             }
 

@@ -340,6 +340,14 @@ test('parent/fees.php has Pay Fees for Another Student / Ward section', strpos($
 test('parent/fees.php allows student lookup by admission number', strpos($parentFeesContent, 'other_student') !== false && strpos($parentFeesContent, 'other_student_admission') !== false);
 test('parent/fees.php provides payment narration format for other students', strpos($parentFeesContent, 'FEE - ') !== false);
 
+require_once __DIR__ . '/../includes/ApplicationHelper.php';
+$catalog = ApplicationHelper::getDocumentCatalog();
+test('ApplicationHelper::getDocumentCatalog does NOT contain passport_photo in Step 4 dropdown', !isset($catalog['passport_photo']));
+test('public/apply.php removed age limitation "between 2 and 7 years old"', strpos($applyContent, 'between 2 and 7 years old') === false);
+test('application-components.php completely removed seqActiveDocBanner section', strpos($componentsContent, 'id="seqActiveDocBanner"') === false && strpos($componentsContent, 'class="seq-active-doc-banner"') === false);
+test('public/apply.php has compact professional styling for form-navigation buttons', strpos($applyContent, '.form-navigation .btn,') !== false && strpos($applyContent, 'padding: 10px 22px !important;') !== false);
+
+
 echo "\n==========================================\n";
 echo "$pass passed, $fail failed\n";
 exit($fail ? 1 : 0);
