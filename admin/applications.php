@@ -643,46 +643,38 @@ if ($credModal):
     <div class="payment-kpi-card">
         <div class="kpi-label"><i class="fas fa-receipt"></i> Total Payment Records</div>
         <div class="kpi-val"><?php echo (int)$totalLedgerCount; ?></div>
-        <div class="kpi-sub">All Paystack &amp; Bank Transfer transactions</div>
     </div>
     <div class="payment-kpi-card">
         <div class="kpi-label"><i class="fas fa-check-circle" style="color:#16a34a;"></i> Verified / Paid Payments</div>
         <div class="kpi-val" style="color:#15803d;">₦<?php echo number_format($verifiedTotalAmount, 2); ?></div>
-        <div class="kpi-sub"><?php echo (int)$verifiedCount; ?> confirmed payment(s)</div>
     </div>
     <div class="payment-kpi-card">
         <div class="kpi-label"><i class="fas fa-clock" style="color:#d97706;"></i> Pending Verification</div>
         <div class="kpi-val" style="color:#b45309;"><?php echo (int)$pendingVerifyCount; ?></div>
-        <div class="kpi-sub">Awaiting Paystack or Bank confirmation</div>
     </div>
     <div class="payment-kpi-card">
-        <div class="kpi-label"><i class="fas fa-university"></i> School Bank &amp; Gateway</div>
-        <div class="kpi-val" style="font-size:1.05rem;"><?php echo e(school_bank_name()); ?> &bull; <?php echo e(school_account_number()); ?></div>
-        <div class="kpi-sub"><?php echo e(school_account_name()); ?></div>
+        <div class="kpi-label"><i class="fas fa-university"></i> School Bank Account</div>
+        <div class="kpi-val" style="font-size:1.1rem; color:#002147; line-height:1.25;"><?php echo e(school_bank_name()); ?><br><span style="font-size:0.95rem; font-weight:600; color:#475569;"><?php echo e(school_account_number()); ?></span></div>
     </div>
 </div>
 
 <!-- Instant Paystack Reference Verification Bar -->
 <div class="verify-bar-card">
-    <div>
-        <h3 style="color:#FFD700; margin:0 0 4px; font-size:1.05rem;"><i class="fas fa-shield-alt"></i> Verify Any Payment Reference on Paystack</h3>
-        <p style="margin:0; font-size:0.84rem; color:rgba(255,255,255,0.85);">Enter any Paystack Transaction Reference (`PSTK-STB-...`) to query Paystack live and update its backend status automatically.</p>
-    </div>
+    <h3 style="color:#FFD700; margin:0; font-size:1rem;"><i class="fas fa-shield-alt"></i> Verify Paystack Reference</h3>
     <form method="POST" class="verify-bar-form">
         <?php echo csrf_field(); ?>
         <input type="hidden" name="post_action" value="verify_paystack">
         <input type="text" name="payment_reference" placeholder="Enter Reference (e.g. PSTK-STB-2026...)" required>
         <button type="submit" class="btn btn-primary" style="background:#FFD700; color:#002147; border:none; font-weight:700;">
-            <i class="fas fa-sync-alt"></i> Verify Live on Paystack
+            <i class="fas fa-sync-alt"></i> Verify
         </button>
     </form>
 </div>
 
 <!-- Unified Online & Bank Application Payments Ledger -->
 <div class="card" id="payments-ledger">
-    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-        <h3><i class="fas fa-credit-card"></i> All Application &amp; Online Payments Ledger (<?php echo count($paymentsLedger); ?>)</h3>
-        <span class="text-muted" style="font-size:0.84rem;">Shows all Paystack checkouts &amp; Zenith Bank transfers (`<?php echo e(school_account_number()); ?>`)</span>
+    <div class="card-header">
+        <h3><i class="fas fa-credit-card"></i> Payments Ledger (<?php echo count($paymentsLedger); ?>)</h3>
     </div>
     <div class="card-body">
         <?php if (empty($paymentsLedger)): ?>

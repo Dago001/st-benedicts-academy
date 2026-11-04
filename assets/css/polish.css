@@ -21,7 +21,15 @@
     --space-section: clamp(48px, 8vw, 96px);
 }
 
-html { scroll-behavior: auto; }
+html {
+    font-size: 15px;
+    scroll-behavior: auto;
+}
+@media (max-width: 768px) {
+    html {
+        font-size: 14px !important;
+    }
+}
 body { color: var(--ink); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
 h1, h2, h3, h4 { color: var(--brand); letter-spacing: -.01em; text-wrap: balance; }
 p { text-wrap: pretty; }

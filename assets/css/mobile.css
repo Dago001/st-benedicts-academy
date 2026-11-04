@@ -5,7 +5,17 @@
    inline <style> blocks that individual pages carry.
    ========================================================================== */
 
-html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html {
+    font-size: 15px;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+@media (max-width: 768px) {
+    html {
+        font-size: 14px !important;
+    }
+}
 body { overflow-x: hidden; }
 img, video, canvas, svg { max-width: 100%; }
 img { height: auto; }

@@ -68,8 +68,8 @@ $csrf_token = Security::generateCSRFToken();
     <title>Login - <?php echo SITE_NAME; ?></title>
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/fonts.css">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/vendor/fontawesome/all.min.css">
-    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css?v=37">
-    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/mobile.css?v=37">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css?v=38">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/mobile.css?v=38">
     <?php if (function_exists('turnstile_script')) echo turnstile_script(); ?>
     <style>
         /* Page-specific styles - Compact & Balanced (Reduced height by 3 steps) */
