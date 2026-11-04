@@ -57,37 +57,138 @@ try {
     }
 }
 
+$statusCounts = ['pending' => 0, 'reviewing' => 0, 'accepted' => 0, 'rejected' => 0];
+$totalCount = 0;
+try {
+    $countsQuery = $db->getRows("SELECT status, COUNT(*) as cnt FROM admissions GROUP BY status");
+    foreach ($countsQuery as $cq) {
+        $st = strtolower((string)($cq['status'] ?? ''));
+        $cnt = (int)($cq['cnt'] ?? 0);
+        if (isset($statusCounts[$st])) {
+            $statusCounts[$st] = $cnt;
+        }
+        $totalCount += $cnt;
+    }
+} catch (Throwable $e) {
+    // Graceful fallback
+}
+
 $pageTitle = 'Admission Enquiries';
 $extraCSS = ['admin.css', 'dashboard.css'];
 include __DIR__ . '/../includes/header.php';
-dashboard_open('admin', 'Admission Enquiries');
+
+$headerActions = '<a href="applications" class="btn btn-outline" style="white-space:nowrap;"><i class="fas fa-file-invoice-dollar"></i> Review Applications &amp; Payments</a> '
+               . '<a href="new-admission" class="btn btn-primary" style="white-space:nowrap;"><i class="fas fa-user-plus"></i> Direct New Admission</a>';
+
+dashboard_open('admin', 'Admission Enquiries', $headerActions);
 render_alert($message, $messageType);
 ?>
 
-<div class="card" style="margin-bottom: 20px;">
-    <div class="card-body form-inline" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <strong>Filter by Status:</strong>
-            <a class="btn btn-sm <?php echo $filterStatus === '' ? 'btn-primary' : 'btn-outline'; ?>" href="admissions-enquiry">All</a>
-            <a class="btn btn-sm <?php echo $filterStatus === 'pending' ? 'btn-primary' : 'btn-outline'; ?>" href="admissions-enquiry?status=pending">Pending</a>
-            <a class="btn btn-sm <?php echo $filterStatus === 'reviewing' ? 'btn-primary' : 'btn-outline'; ?>" href="admissions-enquiry?status=reviewing">Reviewing</a>
-            <a class="btn btn-sm <?php echo $filterStatus === 'accepted' ? 'btn-primary' : 'btn-outline'; ?>" href="admissions-enquiry?status=accepted">Admitted</a>
-            <a class="btn btn-sm <?php echo $filterStatus === 'rejected' ? 'btn-primary' : 'btn-outline'; ?>" href="admissions-enquiry?status=rejected">Rejected</a>
-        </div>
-        <div style="display:flex; align-items:center; gap:8px;">
-            <a href="applications" class="btn btn-sm btn-outline">
-                <i class="fas fa-file-invoice-dollar"></i> Review Applications &amp; Payments
-            </a>
-            <a href="new-admission" class="btn btn-sm btn-primary">
-                <i class="fas fa-user-plus"></i> Direct New Admission
-            </a>
-        </div>
-    </div>
-</div>
+<style>
+.enquiry-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    padding: 16px 20px;
+    background: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+}
+.enquiry-card-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #002147;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.enquiry-filter-pills {
+    display: inline-flex;
+    align-items: center;
+    background: #f1f5f9;
+    padding: 3px;
+    border-radius: 10px;
+    gap: 2px;
+    flex-wrap: wrap;
+}
+.enquiry-filter-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    font-size: 0.83rem;
+    font-weight: 600;
+    color: #475569;
+    text-decoration: none;
+    border-radius: 8px;
+    transition: all 0.18s ease;
+    white-space: nowrap;
+}
+.enquiry-filter-pill:hover {
+    color: #002147;
+    background: rgba(255, 255, 255, 0.7);
+}
+.enquiry-filter-pill.active {
+    background: #c8102e;
+    color: #ffffff;
+    box-shadow: 0 1px 3px rgba(200, 16, 46, 0.25);
+}
+.enquiry-filter-pill .pill-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.08);
+}
+.enquiry-filter-pill.active .pill-count {
+    background: rgba(255, 255, 255, 0.28);
+    color: #ffffff;
+}
+@media (max-width: 900px) {
+    .enquiry-card-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .enquiry-filter-pills {
+        width: 100%;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+        padding: 4px;
+    }
+}
+</style>
 
 <div class="card">
-    <div class="card-header">
-        <h3><i class="fas fa-clipboard-list"></i> Admission Enquiries &amp; Applications (<?php echo count($enquiries); ?>)</h3>
+    <div class="enquiry-card-header">
+        <h3>
+            <i class="fas fa-clipboard-list"></i>
+            Admission Enquiries &amp; Applications (<?php echo count($enquiries); ?>)
+        </h3>
+        <div class="enquiry-filter-pills" role="tablist">
+            <a class="enquiry-filter-pill <?php echo $filterStatus === '' ? 'active' : ''; ?>" href="admissions-enquiry">
+                All <span class="pill-count"><?php echo $totalCount; ?></span>
+            </a>
+            <a class="enquiry-filter-pill <?php echo $filterStatus === 'pending' ? 'active' : ''; ?>" href="admissions-enquiry?status=pending">
+                Pending <span class="pill-count"><?php echo $statusCounts['pending']; ?></span>
+            </a>
+            <a class="enquiry-filter-pill <?php echo $filterStatus === 'reviewing' ? 'active' : ''; ?>" href="admissions-enquiry?status=reviewing">
+                Reviewing <span class="pill-count"><?php echo $statusCounts['reviewing']; ?></span>
+            </a>
+            <a class="enquiry-filter-pill <?php echo $filterStatus === 'accepted' ? 'active' : ''; ?>" href="admissions-enquiry?status=accepted">
+                Admitted <span class="pill-count"><?php echo $statusCounts['accepted']; ?></span>
+            </a>
+            <a class="enquiry-filter-pill <?php echo $filterStatus === 'rejected' ? 'active' : ''; ?>" href="admissions-enquiry?status=rejected">
+                Rejected <span class="pill-count"><?php echo $statusCounts['rejected']; ?></span>
+            </a>
+        </div>
     </div>
     <div class="card-body">
         <?php if (empty($enquiries)): ?>
