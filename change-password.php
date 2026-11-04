@@ -26,7 +26,6 @@ $userEmail = $_SESSION['user_email'] ?? '';
 $roleTitle = Security::roleBadge();
 
 $error = '';
-$success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -38,11 +37,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $confirmPassword = (string)($_POST['confirm_password'] ?? '');
 
             if ($currentPassword === '' || $newPassword === '' || $confirmPassword === '') {
-                $error = 'Please fill in all required password fields.';
+                $error = 'Please fill in all password fields.';
             } elseif ($newPassword !== $confirmPassword) {
-                $error = 'The new password and confirmation password do not match.';
+                $error = 'New password and confirmation do not match.';
             } elseif ($newPassword === $currentPassword) {
-                $error = 'Your new password cannot be the same as your temporary one-time password.';
+                $error = 'New password cannot be the same as your temporary OTP.';
             } elseif ($pwErr = strong_password($newPassword)) {
                 $error = $pwErr;
             } else {
@@ -54,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     header('Location: ' . BASE_URL . '/' . $baseRoleDir . '/dashboard');
                     exit;
                 } else {
-                    $error = $result['message'] ?? 'Failed to update password. Please check your current temporary password.';
+                    $error = $result['message'] ?? 'Failed to update password. Please check your temporary OTP.';
                 }
             }
         }
@@ -77,366 +76,365 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/polish.css?v=34">
     <style>
         :root {
+            --navy: #002855;
             --brand-navy: #002147;
-            --brand-navy-deep: #001630;
-            --brand-gold: #d4af37;
-            --brand-red: #c41e3a;
+            --gold: #d97706;
+            --red: #c41e3a;
         }
 
-        body.cp-page-body {
+        /* Identical to login.php container sizing & layout */
+        .login-page {
+            background: linear-gradient(135deg, rgba(0, 40, 85, 0.88) 0%, rgba(0, 26, 58, 0.92) 100%),
+                        url('<?php echo BASE_URL; ?>/assets/images/background.png') center/cover no-repeat fixed;
             min-height: 100vh;
             min-height: 100dvh;
-            margin: 0;
-            padding: 24px 16px;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: linear-gradient(135deg, rgba(0, 33, 71, 0.94), rgba(0, 22, 48, 0.97)),
-                        url('<?php echo BASE_URL; ?>/assets/images/background.png') center/cover fixed no-repeat;
+            padding: 16px;
+            position: relative;
+            box-sizing: border-box;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            box-sizing: border-box;
         }
 
-        .cp-card-wrapper {
+        .login-container {
             width: 100%;
-            max-width: 480px;
-            background: #ffffff;
-            border-radius: 16px;
-            box-shadow: 0 20px 50px rgba(0, 15, 35, 0.45);
-            padding: 32px 28px;
+            max-width: 380px;
+            margin: 0 auto;
+        }
+
+        .login-box {
+            background-color: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(12px);
+            border-radius: 14px;
+            padding: 20px 22px;
+            box-shadow: 0 16px 36px rgba(0, 0, 0, 0.28);
+            border: 1px solid rgba(255, 255, 255, 0.35);
             box-sizing: border-box;
         }
 
-        .cp-header {
+        .login-header {
             text-align: center;
-            margin-bottom: 22px;
-        }
-
-        .cp-logo {
-            width: 68px;
-            height: 68px;
-            object-fit: contain;
             margin-bottom: 12px;
-            filter: drop-shadow(0 3px 6px rgba(0,0,0,0.12));
         }
 
-        .cp-title {
-            margin: 0 0 6px 0;
-            font-size: 1.45rem;
+        .login-logo {
+            width: 50px;
+            height: auto;
+            margin: 0 auto 8px;
+            display: block;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+        }
+
+        .login-header h1 {
+            font-size: 1.15rem;
             font-weight: 800;
-            color: var(--brand-navy);
+            color: var(--navy, #002855);
+            margin: 0 0 3px;
+            line-height: 1.25;
             letter-spacing: -0.01em;
         }
 
-        .cp-subtitle {
-            margin: 0;
-            font-size: 0.92rem;
+        .login-header p {
             color: #64748b;
-            line-height: 1.45;
+            font-size: 0.8rem;
+            margin: 0;
+            line-height: 1.2;
         }
 
-        .cp-user-badge {
+        /* Compact User Pill */
+        .user-chip {
             background: #f1f5f9;
             border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            padding: 10px 14px;
-            margin: 18px 0;
+            border-radius: 8px;
+            padding: 6px 10px;
+            margin: 10px 0 8px;
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            gap: 12px;
+            gap: 8px;
         }
 
-        .cp-user-info {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            min-width: 0;
-        }
-
-        .cp-user-icon {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: #002147;
-            color: #ffffff;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.05rem;
+        .chip-avatar {
+            color: var(--navy, #002855);
+            font-size: 1.15rem;
             flex-shrink: 0;
+            display: flex;
+            align-items: center;
         }
 
-        .cp-user-details {
+        .chip-meta {
             min-width: 0;
+            display: flex;
+            flex-direction: column;
+            line-height: 1.2;
         }
 
-        .cp-user-name {
-            display: block;
-            font-size: 0.9rem;
-            font-weight: 700;
+        .chip-meta strong {
+            font-size: 0.82rem;
             color: #0f172a;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
 
-        .cp-user-email {
-            display: block;
-            font-size: 0.78rem;
+        .chip-meta span {
+            font-size: 0.72rem;
             color: #64748b;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
 
-        .cp-role-tag {
-            font-size: 0.75rem;
-            font-weight: 700;
-            background: #e2e8f0;
-            color: #1e293b;
-            padding: 4px 10px;
-            border-radius: 999px;
-            white-space: nowrap;
-            flex-shrink: 0;
-        }
-
-        .cp-notice {
+        /* Compact Notice Banner */
+        .cp-compact-notice {
             background: #fffbeb;
             border: 1px solid #fde68a;
-            border-radius: 10px;
-            padding: 12px 14px;
-            margin-bottom: 20px;
-            font-size: 0.86rem;
+            border-radius: 8px;
+            padding: 6px 10px;
+            margin-bottom: 11px;
+            font-size: 0.75rem;
             color: #92400e;
-            line-height: 1.5;
             display: flex;
-            align-items: flex-start;
-            gap: 10px;
+            align-items: center;
+            gap: 7px;
+            line-height: 1.3;
         }
 
-        .cp-notice i {
-            color: #d97706;
-            margin-top: 2px;
-            font-size: 1rem;
+        .cp-compact-notice i {
+            color: var(--gold, #d97706);
+            font-size: 0.85rem;
             flex-shrink: 0;
         }
 
-        .cp-alert-error {
-            background: #fee2e2;
-            border: 1px solid #fca5a5;
-            border-radius: 10px;
-            padding: 12px 14px;
-            margin-bottom: 20px;
+        .alert-error {
+            background-color: #fee2e2;
             color: #b91c1c;
-            font-size: 0.88rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .cp-form-group {
-            margin-bottom: 16px;
-        }
-
-        .cp-label {
-            display: block;
-            margin-bottom: 6px;
-            font-size: 0.88rem;
-            font-weight: 700;
-            color: #1e293b;
-        }
-
-        .cp-input-group {
-            position: relative;
-            display: flex;
-            align-items: center;
-        }
-
-        .cp-input {
-            width: 100%;
-            height: 44px;
-            padding: 0 42px 0 14px;
-            border: 1.5px solid #cbd5e1;
+            border: 1px solid #fca5a5;
+            padding: 8px 12px;
             border-radius: 8px;
-            font-size: 0.95rem;
-            color: #0f172a;
-            box-sizing: border-box;
-            background: #f8fafc;
+            margin-bottom: 11px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            line-height: 1.3;
+        }
+
+        /* Form elements matching login.php */
+        .login-form .form-group {
+            margin-bottom: 10px;
+        }
+
+        .login-form label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 4px;
+            color: var(--navy, #002855);
+            font-weight: 600;
+            font-size: 0.8rem;
+            line-height: 1.2;
+        }
+
+        .login-form label i {
+            color: var(--gold, #d97706);
+            width: 15px;
+            font-size: 0.82rem;
+        }
+
+        .password-wrapper {
+            position: relative;
+            width: 100%;
+        }
+
+        .password-wrapper input {
+            width: 100%;
+            height: 38px;
+            padding: 6px 36px 6px 12px;
+            border: 1.5px solid #dce4ee;
+            border-radius: 8px;
+            font-size: 0.88rem;
             transition: all 0.2s ease;
+            background-color: #ffffff;
+            box-sizing: border-box;
+            color: #0f172a;
         }
 
-        .cp-input:focus {
+        .password-wrapper input:focus {
             outline: none;
-            border-color: #002147;
-            background: #ffffff;
-            box-shadow: 0 0 0 3px rgba(0, 33, 71, 0.12);
+            border-color: var(--navy, #002855);
+            box-shadow: 0 0 0 3px rgba(0, 40, 85, 0.1);
+            background-color: #ffffff;
         }
 
-        .cp-pw-toggle {
+        .toggle-password {
             position: absolute;
-            right: 12px;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #94a3b8;
+            font-size: 0.9rem;
+            transition: color 0.2s ease;
             background: none;
             border: none;
-            color: #94a3b8;
-            cursor: pointer;
-            padding: 6px;
-            display: inline-flex;
+            padding: 0;
+            display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.95rem;
-            transition: color 0.15s ease;
+            width: 24px;
+            height: 24px;
         }
 
-        .cp-pw-toggle:hover {
-            color: #002147;
+        .toggle-password:hover {
+            color: var(--navy, #002855);
         }
 
-        .cp-requirements {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            padding: 10px 14px;
-            margin-bottom: 22px;
-            font-size: 0.78rem;
-            color: #475569;
-        }
-
-        .cp-requirements ul {
-            margin: 6px 0 0 0;
-            padding-left: 20px;
-        }
-
-        .cp-requirements li {
-            margin-bottom: 2px;
-        }
-
-        .cp-submit-btn {
-            width: 100%;
-            height: 46px;
-            border: none;
-            border-radius: 8px;
-            background: #c41e3a;
-            color: #ffffff;
-            font-size: 0.96rem;
+        .btn-primary {
+            background-color: var(--red, #c41e3a);
+            color: white;
+            padding: 8px 16px;
+            font-size: 0.9rem;
             font-weight: 700;
+            border-radius: 8px;
+            border: none;
             cursor: pointer;
-            display: inline-flex;
+            transition: all 0.2s ease;
+            width: 100%;
+            height: 40px;
+            display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
-            transition: all 0.2s ease;
-            box-shadow: 0 4px 12px rgba(196, 30, 58, 0.25);
+            box-sizing: border-box;
+            margin-top: 6px;
         }
 
-        .cp-submit-btn:hover {
-            background: #9b1429;
+        .btn-primary:hover {
+            background-color: #9b1429;
             transform: translateY(-1px);
-            box-shadow: 0 6px 16px rgba(196, 30, 58, 0.35);
+            box-shadow: 0 4px 12px rgba(196, 30, 58, 0.3);
         }
 
-        .cp-footer-links {
-            text-align: center;
-            margin-top: 18px;
-            font-size: 0.85rem;
+        .login-footer {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 0.8rem;
         }
 
-        .cp-footer-links a {
-            color: #64748b;
+        .login-footer a {
+            color: var(--navy, #002855);
             text-decoration: none;
-            transition: color 0.15s ease;
+            transition: color 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-weight: 500;
         }
 
-        .cp-footer-links a:hover {
-            color: #002147;
-            text-decoration: underline;
+        .login-footer a:hover {
+            color: var(--red, #c41e3a);
+        }
+
+        @media (max-width: 480px) {
+            .login-page {
+                padding: 12px;
+            }
+
+            .login-box {
+                padding: 18px 16px;
+                border-radius: 12px;
+            }
+
+            .login-header h1 {
+                font-size: 1.05rem;
+            }
+
+            .login-logo {
+                width: 44px;
+                margin-bottom: 6px;
+            }
         }
     </style>
 </head>
-<body class="cp-page-body">
-    <div class="cp-card-wrapper">
-        <div class="cp-header">
-            <img src="<?php echo BASE_URL; ?>/assets/images/logo.png" alt="St. Benedict's Academy Crest" class="cp-logo">
-            <h1 class="cp-title">Create Your New Password</h1>
-            <p class="cp-subtitle">Mandatory Security Setup for First-Time Login</p>
-        </div>
-
-        <div class="cp-user-badge">
-            <div class="cp-user-info">
-                <span class="cp-user-icon"><i class="fas fa-user-shield"></i></span>
-                <div class="cp-user-details">
-                    <span class="cp-user-name"><?php echo e($userName); ?></span>
-                    <span class="cp-user-email"><?php echo e($userEmail); ?></span>
-                </div>
+<body class="login-page">
+    <div class="login-container">
+        <div class="login-box">
+            <div class="login-header">
+                <img src="<?php echo BASE_URL; ?>/assets/images/logo.png" alt="St. Benedict's Academy Crest" class="login-logo">
+                <h1>Create New Password</h1>
+                <p>Mandatory First-Time Security Setup</p>
             </div>
-            <span class="cp-role-tag"><?php echo e($roleTitle); ?></span>
-        </div>
 
-        <div class="cp-notice">
-            <i class="fas fa-lock"></i>
-            <div>
-                You logged in with a temporary generated password. To ensure your account security and confidentiality, please set a personal password before accessing your dashboard.
-            </div>
-        </div>
-
-        <?php if (!empty($error)): ?>
-            <div class="cp-alert-error" role="alert">
-                <i class="fas fa-exclamation-circle"></i>
-                <span><?php echo e($error); ?></span>
-            </div>
-        <?php endif; ?>
-
-        <form method="POST" action="<?php echo BASE_URL; ?>/change-password" autocomplete="off" id="changePasswordForm">
-            <?php echo csrf_field(); ?>
-
-            <div class="cp-form-group">
-                <label class="cp-label" for="current_password">Temporary One-Time Password *</label>
-                <div class="cp-input-group">
-                    <input type="password" id="current_password" name="current_password" class="cp-input" placeholder="Enter the OTP you logged in with" required autocomplete="current-password">
-                    <button type="button" class="cp-pw-toggle" onclick="toggleVisibility('current_password', this)" aria-label="Toggle password visibility">
-                        <i class="fas fa-eye"></i>
-                    </button>
+            <!-- Compact User Pill -->
+            <div class="user-chip">
+                <div class="chip-avatar"><i class="fas fa-user-circle"></i></div>
+                <div class="chip-meta">
+                    <strong><?php echo e($userName); ?></strong>
+                    <span><?php echo e($roleTitle); ?> &bull; <?php echo e($userEmail); ?></span>
                 </div>
             </div>
 
-            <div class="cp-form-group">
-                <label class="cp-label" for="new_password">New Confidential Password *</label>
-                <div class="cp-input-group">
-                    <input type="password" id="new_password" name="new_password" class="cp-input" placeholder="At least 8 characters with letters &amp; numbers" required minlength="8" autocomplete="new-password">
-                    <button type="button" class="cp-pw-toggle" onclick="toggleVisibility('new_password', this)" aria-label="Toggle password visibility">
-                        <i class="fas fa-eye"></i>
-                    </button>
+            <!-- Compact Notice -->
+            <div class="cp-compact-notice">
+                <i class="fas fa-shield-alt"></i>
+                <span>Set your personal password (min. 8 chars, letters &amp; numbers)</span>
+            </div>
+
+            <?php if (!empty($error)): ?>
+                <div class="alert alert-error" role="alert">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span><?php echo e($error); ?></span>
                 </div>
-            </div>
+            <?php endif; ?>
 
-            <div class="cp-form-group">
-                <label class="cp-label" for="confirm_password">Confirm New Password *</label>
-                <div class="cp-input-group">
-                    <input type="password" id="confirm_password" name="confirm_password" class="cp-input" placeholder="Re-enter your new password" required minlength="8" autocomplete="new-password">
-                    <button type="button" class="cp-pw-toggle" onclick="toggleVisibility('confirm_password', this)" aria-label="Toggle password visibility">
-                        <i class="fas fa-eye"></i>
-                    </button>
+            <form method="POST" action="<?php echo BASE_URL; ?>/change-password" autocomplete="off" class="login-form" id="changePasswordForm">
+                <?php echo csrf_field(); ?>
+
+                <div class="form-group">
+                    <label for="current_password"><i class="fas fa-key"></i> Current OTP Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="current_password" name="current_password" required autocomplete="current-password" placeholder="Enter temporary OTP">
+                        <button type="button" class="toggle-password" onclick="toggleVisibility('current_password', this)" aria-label="Toggle password">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
                 </div>
+
+                <div class="form-group">
+                    <label for="new_password"><i class="fas fa-lock"></i> New Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="new_password" name="new_password" required minlength="8" autocomplete="new-password" placeholder="Min. 8 chars with letters &amp; numbers">
+                        <button type="button" class="toggle-password" onclick="toggleVisibility('new_password', this)" aria-label="Toggle password">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="confirm_password"><i class="fas fa-check-double"></i> Confirm New Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="confirm_password" name="confirm_password" required minlength="8" autocomplete="new-password" placeholder="Re-enter new password">
+                        <button type="button" class="toggle-password" onclick="toggleVisibility('confirm_password', this)" aria-label="Toggle password">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                    <i class="fas fa-save"></i> Save Password &amp; Continue
+                </button>
+            </form>
+
+            <div class="login-footer">
+                <a href="<?php echo BASE_URL; ?>/logout">
+                    <i class="fas fa-sign-out-alt"></i> Sign out and continue later
+                </a>
             </div>
-
-            <div class="cp-requirements">
-                <strong>Password Requirements:</strong>
-                <ul>
-                    <li>Minimum 8 characters</li>
-                    <li>Must contain at least one letter and one number</li>
-                    <li>Cannot be identical to your temporary OTP</li>
-                </ul>
-            </div>
-
-            <button type="submit" class="cp-submit-btn" id="submitBtn">
-                <i class="fas fa-key"></i>
-                <span>Save Password &amp; Continue</span>
-            </button>
-        </form>
-
-        <div class="cp-footer-links">
-            <a href="<?php echo BASE_URL; ?>/logout"><i class="fas fa-sign-out-alt"></i> Sign out and continue later</a>
         </div>
     </div>
 
