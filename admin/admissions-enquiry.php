@@ -39,10 +39,23 @@ if ($filterStatus !== '') {
     $params[] = $filterStatus;
 }
 
-$enquiries = $db->getRows(
-    "SELECT * FROM admissions {$where} ORDER BY COALESCE(submitted_at, created_at, NOW()) DESC LIMIT 200",
-    $params
-);
+$enquiries = [];
+try {
+    $enquiries = $db->getRows(
+        "SELECT * FROM admissions {$where} ORDER BY submitted_at DESC LIMIT 200",
+        $params
+    );
+} catch (Throwable $e) {
+    try {
+        $enquiries = $db->getRows(
+            "SELECT * FROM admissions {$where} ORDER BY id DESC LIMIT 200",
+            $params
+        );
+    } catch (Throwable $e2) {
+        error_log("admissions-enquiry query error: " . $e2->getMessage());
+        $enquiries = [];
+    }
+}
 
 $pageTitle = 'Admission Enquiries';
 $extraCSS = ['admin.css', 'dashboard.css'];
@@ -107,7 +120,7 @@ render_alert($message, $messageType);
                             $pLabel = $pStatus === 'paid' ? 'Paid (₦' . number_format((float)($enq['amount_paid'] ?? 15000)) . ')' : ($pStatus === 'pay_offline' ? 'Pay at School' : 'Pending');
                             $dobText = !empty($enq['date_of_birth']) ? date('d M Y', strtotime($enq['date_of_birth'])) : '';
                             $genderText = !empty($enq['gender']) ? ucfirst($enq['gender']) : '';
-                            $submittedDate = !empty($enq['submitted_at']) ? date('d M Y', strtotime($enq['submitted_at'])) : (!empty($enq['created_at']) ? date('d M Y', strtotime($enq['created_at'])) : 'Recent');
+                            $submittedDate = !empty($enq['submitted_at']) ? date('d M Y', strtotime($enq['submitted_at'])) : 'Recent';
                         ?>
                         <tr>
                             <td>
