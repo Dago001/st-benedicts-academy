@@ -96,11 +96,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($formData['address'] === '') $errors[] = 'Address is required';
 
         $dob = valid_date($formData['child_dob']);
-        if (!$dob) {
-            $errors[] = "Child's date of birth is required";
-        } else {
-            $age = (new DateTime())->diff(new DateTime($dob))->y;
-            if ($dob > date('Y-m-d') || $age < 2 || $age > 7) $errors[] = 'Child must be between 2 and 7 years old';
+        if (!$dob || $dob > date('Y-m-d')) {
+            $errors[] = "A valid child's date of birth is required";
         }
 
         // Uploads: validated by real content type, stored outside the public web root
@@ -444,9 +441,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <input type="date" id="child_dob" name="child_dob"
                                    value="<?php echo htmlspecialchars($_POST['child_dob'] ?? ''); ?>"
                                    class="form-control" required
-                                   max="<?php echo date('Y-m-d', strtotime('-2 years')); ?>"
-                                   min="<?php echo date('Y-m-d', strtotime('-7 years')); ?>">
-                            <small class="form-text">Child must be between 2 and 7 years old</small>
+                                   max="<?php echo date('Y-m-d'); ?>">
+                            <small class="form-text">All age groups and classes accepted</small>
                         </div>
 
                         <div class="form-group">
@@ -1170,9 +1166,8 @@ function validateStep(step) {
 
             const dob = new Date(childDob);
             const today = new Date();
-            const age = today.getFullYear() - dob.getFullYear();
-            if (age < 2 || age > 7) {
-                alert('Child must be between 2 and 7 years old');
+            if (dob > today) {
+                alert('Please enter a valid date of birth');
                 return false;
             }
             break;
