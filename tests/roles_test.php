@@ -354,6 +354,54 @@ test('application-components.php completely removed seqActiveDocBanner section',
 test('public/apply.php has compact professional styling for form-navigation buttons', strpos($applyContent, '.form-navigation .btn,') !== false && strpos($applyContent, 'padding: 10px 22px !important;') !== false);
 test('public/apply.php form has novalidate attribute to prevent silent validation aborts', strpos($applyContent, 'id="applicationForm" novalidate') !== false);
 
+echo "\n=== 13. MANDATORY PASSWORD CHANGE ENFORCEMENT & HORIZONTAL HEADER ACTIONS ===\n";
+
+test('change-password.php exists', file_exists(__DIR__ . '/../change-password.php'));
+$cpContent = file_get_contents(__DIR__ . '/../change-password.php');
+test('change-password.php verifies CSRF token', strpos($cpContent, 'verifyCSRFToken') !== false);
+test('change-password.php verifies strong password rule', strpos($cpContent, 'strong_password') !== false);
+test('change-password.php clears must_change_password upon update', strpos($cpContent, "\$_SESSION['must_change_password'] = 0") !== false);
+test('change-password.php provides logout link', strpos($cpContent, 'BASE_URL . \'/logout\'') !== false || strpos($cpContent, '/logout') !== false);
+
+$secContent = file_get_contents(__DIR__ . '/../config/security.php');
+test('Security::requireLogin() enforces password change redirection', strpos($secContent, 'must_change_password') !== false && strpos($secContent, 'BASE_URL . \'/change-password\'') !== false);
+test('Security::requireLogin() permits change-password.php and logout.php', strpos($secContent, 'change-password') !== false && strpos($secContent, 'logout') !== false);
+
+$authContent = file_get_contents(__DIR__ . '/../includes/auth.php');
+test('Auth::startSession() redirects to /change-password if must_change_password is true', strpos($authContent, 'BASE_URL . \'/change-password\'') !== false);
+
+$loginContent = file_get_contents(__DIR__ . '/../login.php');
+test('login.php redirects already-authenticated users with must_change_password to /change-password', strpos($loginContent, 'must_change_password') !== false && strpos($loginContent, 'BASE_URL . \'/change-password\'') !== false);
+
+$polishCSS = file_get_contents(__DIR__ . '/../assets/css/polish.css');
+test('polish.css styles .header-right-cluster with inline-flex and nowrap', strpos($polishCSS, '.header-right-cluster') !== false && strpos($polishCSS, 'flex-wrap: nowrap !important;') !== false);
+test('polish.css styles .dashboard-header .header-actions with inline-flex', strpos($polishCSS, 'body .dashboard-header .header-actions') !== false && strpos($polishCSS, 'display: inline-flex !important;') !== false);
+
+$mobileCSS = file_get_contents(__DIR__ . '/../assets/css/mobile.css');
+test('mobile.css desktop view prevents header-actions and dashboard-header wrapping', strpos($mobileCSS, 'body .dashboard-header { flex-wrap: nowrap !important;') !== false);
+
+$hdrContent = file_get_contents(__DIR__ . '/../includes/header.php');
+test('includes/header.php has bumped assetVersion to 34 for cache busting', strpos($hdrContent, "\$assetVersion = '34';") !== false);
+
+$teacherDashContent = file_get_contents(__DIR__ . '/../teacher/dashboard.php');
+test('teacher/dashboard.php renders desktop user dropdown inside header-right-cluster', strpos($teacherDashContent, 'header-right-cluster') !== false && strpos($teacherDashContent, 'render_user_dropdown()') !== false);
+
+// Strict check: zero colored border-left across all css
+$cssFiles = glob(__DIR__ . '/../assets/css/*.css');
+$foundColoredBorderLeft = false;
+foreach ($cssFiles as $cf) {
+    $c = file_get_contents($cf);
+    if (preg_match_all('/border-left\s*:\s*([^;]+);/i', $c, $matches)) {
+        foreach ($matches[1] as $val) {
+            $valClean = trim(str_replace('!important', '', strtolower($val)));
+            if ($valClean !== 'none' && $valClean !== '0' && strpos($valClean, 'transparent') === false) {
+                $foundColoredBorderLeft = true;
+                break 2;
+            }
+        }
+    }
+}
+test('Strict compliance: zero colored border-left properties across all CSS files', !$foundColoredBorderLeft);
 
 echo "\n==========================================\n";
 echo "$pass passed, $fail failed\n";

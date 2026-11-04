@@ -154,10 +154,14 @@ class Auth {
         );
         Security::logAudit('LOGIN_SUCCESS', 'users', $user['id']);
 
+        $redirectUrl = !empty($user['must_change_password'])
+            ? (BASE_URL . '/change-password')
+            : $this->safeRedirect($redirect, $user['role']);
+
         return [
             'success' => true,
             'role' => $user['role'],
-            'redirect' => $this->safeRedirect($redirect, $user['role']),
+            'redirect' => $redirectUrl,
             'user' => [
                 'id' => (int)$user['id'],
                 'name' => $_SESSION['user_name'],

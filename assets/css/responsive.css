@@ -306,12 +306,15 @@
     }
 
     .header-actions {
-        width: 100%;
+        width: auto;
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 8px;
     }
 
     .header-actions .btn {
-        width: 100%;
-        margin-bottom: 10px;
+        width: auto;
+        margin-bottom: 0;
     }
 
     /* Tables */

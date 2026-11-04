@@ -306,8 +306,9 @@ body input[type="file"] { width: 100%; }
 /* Desktop: the main column may shrink below its content so wide tables scroll inside their cards */
 @media (min-width: 992px) {
     body .dashboard-main { min-width: 0; max-width: calc(100% - var(--sidebar-width, 280px)); box-sizing: border-box; }
-    body .dashboard-header { flex-wrap: wrap; gap: 12px; }
-    body .header-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    body .dashboard-header { flex-wrap: nowrap !important; gap: 16px !important; }
+    body .dashboard-header .header-right-cluster { display: inline-flex !important; flex-direction: row !important; align-items: center !important; gap: 12px !important; flex-wrap: nowrap !important; margin-left: auto !important; width: auto !important; }
+    body .dashboard-header .header-actions, body .header-actions { display: inline-flex !important; flex-wrap: nowrap !important; gap: 8px !important; width: auto !important; }
 }
 
 @media (min-width: 1121px) {

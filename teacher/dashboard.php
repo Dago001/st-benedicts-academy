@@ -719,14 +719,20 @@ $announcements = $db->getRows(
     <main class="dashboard-main">
         <div class="dashboard-header">
             <h1>Welcome, <?php echo htmlspecialchars($teacher['first_name'] . ' ' . $teacher['last_name']); ?>! 👋</h1>
-            <div class="user-info">
-                <i class="fas fa-chalkboard-teacher"></i>
-                <div>
-                    <span><?php echo htmlspecialchars($teacher['employee_id']); ?></span>
-                    <small style="display: block; font-size: 0.7rem;"><?php echo e($today); ?></small>
-                </div>
+            <div class="header-right-cluster">
+                <?php echo render_user_dropdown(); ?>
             </div>
+
         </div>
+
+        <?php
+        [$dashFlash, $dashFlashType] = flash_get();
+        if (!empty($dashFlash)):
+        ?>
+        <div class="alert alert-<?php echo e($dashFlashType === 'error' ? 'danger' : $dashFlashType); ?>" style="margin-bottom: 20px;">
+            <i class="fas fa-check-circle" style="margin-right: 8px;"></i> <?php echo e($dashFlash); ?>
+        </div>
+        <?php endif; ?>
 
         <!-- Quick Stats -->
         <div class="stats-grid">

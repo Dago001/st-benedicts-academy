@@ -208,6 +208,31 @@ class Security {
             header('Location: ' . BASE_URL . '/login');
             exit;
         }
+
+        // Enforce password change for first-time logins with generated credentials
+        if (!empty($_SESSION['must_change_password'])) {
+            $script = basename($_SERVER['SCRIPT_NAME'] ?? '');
+            $uri = $_SERVER['REQUEST_URI'] ?? '';
+            $isChangePass = ($script === 'change-password.php'
+                || strpos($uri, 'change-password') !== false
+                || $script === 'logout.php'
+                || strpos($uri, 'logout') !== false);
+            if (!$isChangePass) {
+                if (self::wantsJson()) {
+                    http_response_code(403);
+                    header('Content-Type: application/json');
+                    echo json_encode([
+                        'success' => false,
+                        'must_change_password' => true,
+                        'message' => 'You must change your temporary password before accessing the system.',
+                        'redirect' => BASE_URL . '/change-password'
+                    ]);
+                    exit;
+                }
+                header('Location: ' . BASE_URL . '/change-password');
+                exit;
+            }
+        }
     }
 
     public static function requireRole($role) {
