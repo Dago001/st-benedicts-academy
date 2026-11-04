@@ -196,14 +196,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             color: #92400e;
             display: flex;
             align-items: center;
-            gap: 7px;
+            justify-content: center;
+            text-align: center;
             line-height: 1.3;
-        }
-
-        .cp-compact-notice i {
-            color: var(--gold, #d97706);
-            font-size: 0.85rem;
-            flex-shrink: 0;
         }
 
         .alert-error {
@@ -282,12 +277,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 24px;
-            height: 24px;
+            width: 26px;
+            height: 26px;
+            z-index: 2;
         }
 
         .toggle-password:hover {
             color: var(--navy, #002855);
+        }
+
+        .toggle-password i {
+            pointer-events: none;
         }
 
         .btn-primary {
@@ -379,9 +379,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
             </div>
 
-            <!-- Compact Notice -->
+            <!-- Compact Notice (Shield icon removed) -->
             <div class="cp-compact-notice">
-                <i class="fas fa-shield-alt"></i>
                 <span>Set your personal password (min. 8 chars, letters &amp; numbers)</span>
             </div>
 
@@ -399,7 +398,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <label for="current_password"><i class="fas fa-key"></i> Current OTP Password</label>
                     <div class="password-wrapper">
                         <input type="password" id="current_password" name="current_password" required autocomplete="current-password" placeholder="Enter temporary OTP">
-                        <button type="button" class="toggle-password" onclick="toggleVisibility('current_password', this)" aria-label="Toggle password">
+                        <button type="button" class="toggle-password" data-toggle="current_password" aria-label="Toggle password visibility">
                             <i class="fas fa-eye"></i>
                         </button>
                     </div>
@@ -409,7 +408,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <label for="new_password"><i class="fas fa-lock"></i> New Password</label>
                     <div class="password-wrapper">
                         <input type="password" id="new_password" name="new_password" required minlength="8" autocomplete="new-password" placeholder="Min. 8 chars with letters &amp; numbers">
-                        <button type="button" class="toggle-password" onclick="toggleVisibility('new_password', this)" aria-label="Toggle password">
+                        <button type="button" class="toggle-password" data-toggle="new_password" aria-label="Toggle password visibility">
                             <i class="fas fa-eye"></i>
                         </button>
                     </div>
@@ -419,7 +418,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <label for="confirm_password"><i class="fas fa-check-double"></i> Confirm New Password</label>
                     <div class="password-wrapper">
                         <input type="password" id="confirm_password" name="confirm_password" required minlength="8" autocomplete="new-password" placeholder="Re-enter new password">
-                        <button type="button" class="toggle-password" onclick="toggleVisibility('confirm_password', this)" aria-label="Toggle password">
+                        <button type="button" class="toggle-password" data-toggle="confirm_password" aria-label="Toggle password visibility">
                             <i class="fas fa-eye"></i>
                         </button>
                     </div>
@@ -438,33 +437,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </div>
 
-    <script>
-        function toggleVisibility(inputId, btn) {
-            const input = document.getElementById(inputId);
-            if (!input) return;
-            const icon = btn.querySelector('i');
-            if (input.type === 'password') {
-                input.type = 'text';
-                if (icon) {
-                    icon.classList.remove('fa-eye');
-                    icon.classList.add('fa-eye-slash');
-                }
-            } else {
-                input.type = 'password';
-                if (icon) {
-                    icon.classList.remove('fa-eye-slash');
-                    icon.classList.add('fa-eye');
-                }
-            }
-        }
+    <script nonce="<?php echo CSP_NONCE; ?>">
+        document.addEventListener('DOMContentLoaded', function() {
+            // CSP-compliant password toggle
+            document.querySelectorAll('.toggle-password').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const targetId = this.getAttribute('data-toggle');
+                    const input = document.getElementById(targetId);
+                    if (!input) return;
+                    const isPassword = input.getAttribute('type') === 'password';
+                    input.setAttribute('type', isPassword ? 'text' : 'password');
+                    const icon = this.querySelector('i');
+                    if (icon) {
+                        if (isPassword) {
+                            icon.classList.remove('fa-eye');
+                            icon.classList.add('fa-eye-slash');
+                        } else {
+                            icon.classList.remove('fa-eye-slash');
+                            icon.classList.add('fa-eye');
+                        }
+                    }
+                });
+            });
 
-        document.getElementById('changePasswordForm').addEventListener('submit', function(e) {
-            const p1 = document.getElementById('new_password').value;
-            const p2 = document.getElementById('confirm_password').value;
-            if (p1 !== p2) {
-                e.preventDefault();
-                alert('The new password and confirmation password do not match.');
-                document.getElementById('confirm_password').focus();
+            // Client-side confirmation guard
+            const changePasswordForm = document.getElementById('changePasswordForm');
+            if (changePasswordForm) {
+                changePasswordForm.addEventListener('submit', function(e) {
+                    const p1 = document.getElementById('new_password').value;
+                    const p2 = document.getElementById('confirm_password').value;
+                    if (p1 !== p2) {
+                        e.preventDefault();
+                        alert('The new password and confirmation password do not match.');
+                        document.getElementById('confirm_password').focus();
+                    }
+                });
             }
         });
     </script>
