@@ -84,7 +84,7 @@ render_alert($message, $messageType);
     <div class="card-body">
         <form method="POST" action="">
             <?php echo csrf_field(); ?>
-            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:16px;">
+            <div class="expense-form-grid form-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:16px;">
                 <div class="form-group">
                     <label for="title"><strong>Expense Title / Purpose *</strong></label>
                     <input type="text" name="title" id="title" class="form-control" required placeholder="e.g. Science Laboratory Consumables">
@@ -111,7 +111,7 @@ render_alert($message, $messageType);
                 </div>
             </div>
 
-            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:16px; margin-top:8px;">
+            <div class="expense-form-grid form-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:16px; margin-top:8px;">
                 <div class="form-group">
                     <label for="payment_method"><strong>Payment Channel</strong></label>
                     <select name="payment_method" id="payment_method" class="form-control">
@@ -130,7 +130,7 @@ render_alert($message, $messageType);
                 </div>
             </div>
 
-            <div style="margin-top:12px; display:flex; justify-content:flex-end;">
+            <div class="expense-form-actions" style="margin-top:16px; display:flex; justify-content:flex-end;">
                 <button type="submit" class="btn btn-primary" style="font-weight:700;">
                     <i class="fas fa-check"></i> Post Expense Voucher
                 </button>

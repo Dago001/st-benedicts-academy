@@ -40,7 +40,8 @@ pre, code { white-space: pre-wrap; word-break: break-word; }
 .sidebar-toggle-mobile, .sidebar-overlay, .sidebar-close { display: none; }
 
 /* ---- Tables: always scroll inside their own box, never the page ----------- */
-body .table-responsive, body .dataTables_wrapper { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+body .table-responsive { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+body .dataTables_wrapper { max-width: 100%; overflow-x: visible; box-sizing: border-box; }
 body .data-table, body .table { width: 100%; }
 
 /* ==========================================================================
@@ -123,18 +124,20 @@ body .data-table, body .table { width: 100%; }
     body .page-header { padding: 28px 16px; }
     body .page-header h1 { font-size: 1.5rem !important; line-height: 1.25 !important; height: auto !important; display: block; }
 
-    /* Dashboard header: title on left, user profile pill on right (ONE balanced row on mobile) */
+    /* Dashboard header: title full width on row 1, action buttons on row 2 */
     body .dashboard-header {
         display: flex !important;
-        flex-direction: row !important;
-        justify-content: space-between !important;
-        align-items: center !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        justify-content: flex-start !important;
         text-align: left !important;
         gap: 10px !important;
-        margin-bottom: 16px !important;
+        margin-bottom: 14px !important;
         padding-bottom: 12px !important;
         border-bottom: 1px solid #e2e8f0 !important;
         width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
     }
     body .dashboard-header h1 {
         display: block !important;
@@ -143,22 +146,53 @@ body .data-table, body .table { width: 100%; }
         color: var(--navy, #002147) !important;
         margin: 0 !important;
         text-align: left !important;
-        line-height: 1.2 !important;
+        line-height: 1.25 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        word-break: break-word !important;
     }
-    body .dashboard-header .header-actions, body .header-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-    body .header-actions .btn, body .header-actions button { flex: 1 1 calc(50% - 8px); justify-content: center; text-align: center; }
-    body .dashboard-header .user-info {
+    body .dashboard-header .header-right-cluster,
+    body .dashboard-header .header-actions,
+    body .header-actions {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        margin-left: 0 !important;
+        padding: 0 !important;
+        justify-content: flex-start !important;
+    }
+    body .dashboard-header .header-actions .btn,
+    body .dashboard-header .header-actions button,
+    body .header-actions .btn,
+    body .header-actions button {
+        flex: 1 1 calc(50% - 4px) !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        height: 38px !important;
+        padding: 0 10px !important;
+        font-size: 12.5px !important;
+        font-weight: 600 !important;
+        border-radius: 8px !important;
+        white-space: nowrap !important;
+        text-align: center !important;
+        justify-content: center !important;
         display: inline-flex !important;
         align-items: center !important;
-        gap: 6px !important;
-        padding: 4px 10px !important;
-        background: #ffffff !important;
-        border: 1px solid #e2e8f0 !important;
-        border-radius: 999px !important;
-        font-size: 0.75rem !important;
-        color: #334155 !important;
-        flex-shrink: 0 !important;
-        margin: 0 0 0 auto !important;
+        box-sizing: border-box !important;
+    }
+    body .dashboard-header .header-actions > :only-child,
+    body .header-actions > :only-child {
+        flex: 1 1 100% !important;
+        width: 100% !important;
+    }
+    body .dashboard-header .user-info,
+    body .dashboard-header .user-dropdown-wrapper {
+        display: none !important;
     }
 
     /* Cards and grids: stats in a clean 2x2 grid on mobile instead of 4 giant stacked cards */
@@ -232,8 +266,27 @@ body .data-table, body .table { width: 100%; }
     body .message-content { max-width: 92%; }
     body .check-grid, body .child-cards { grid-template-columns: 1fr; }
 
-    /* Pages with inline multi-column grids: two columns on phones, one on very small screens */
-    body [style*="grid-template-columns"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+    /* Pages with inline multi-column grids: two columns for non-forms on phones, forms strictly 1 column */
+    body:not(form) div:not(form div)[style*="grid-template-columns"]:not(.expense-form-grid):not(.form-grid) {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+    body form [style*="grid-template-columns"],
+    body .expense-form-grid,
+    body .form-grid,
+    body .form-row {
+        grid-template-columns: 1fr !important;
+        display: grid !important;
+        gap: 12px !important;
+        width: 100% !important;
+    }
+    body form [style*="grid-column"],
+    body .expense-form-grid .form-group,
+    body .form-row > div,
+    body .form-grid > div {
+        grid-column: span 1 / -1 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
     body [style*="display: flex"][style*="gap"] { flex-wrap: wrap; }
 
     /* Charts keep a sensible height */
@@ -256,7 +309,10 @@ body .data-table, body .table { width: 100%; }
     body .stat-card { gap: 12px; }
     body .stat-icon { width: 46px; height: 46px; flex: 0 0 46px; }
     body .logo .school-name { display: none; }
-    body [style*="grid-template-columns"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
+    body:not(form) div:not(form div)[style*="grid-template-columns"]:not(.expense-form-grid):not(.form-grid) {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 10px !important;
+    }
     body .footer-grid { gap: 24px; }
 }
 

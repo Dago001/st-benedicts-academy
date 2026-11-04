@@ -3,7 +3,7 @@
 // Expects config/config.php + config/security.php to be loaded by the page.
 require_once __DIR__ . '/layout.php';
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
-$assetVersion = '34';
+$assetVersion = '35';
 
 /** <link>/<script nonce="<?php echo CSP_NONCE; ?>"> only for assets that actually exist, so a missing file never causes a 404. */
 if (!function_exists('asset_exists')) {

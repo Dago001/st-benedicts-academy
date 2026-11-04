@@ -1365,38 +1365,190 @@ button.close:hover {
     100% { width: 100%; transform: translateX(100%); }
 }
 
-/* ---- Mobile Responsive Polish: Balanced Dashboard Header & 2x2 Stats Grid ---- */
+/* ---- Mobile Responsive Polish: Stacked Dashboard Header, Clean Forms, & 2x2 Stats Grid ---- */
 @media (max-width: 768px) {
     body .dashboard-header,
     .dashboard-header {
         display: flex !important;
-        flex-direction: row !important;
-        justify-content: space-between !important;
-        align-items: center !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        justify-content: flex-start !important;
         text-align: left !important;
         width: 100% !important;
-        margin-bottom: 16px !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        margin-bottom: 14px !important;
         padding-bottom: 12px !important;
         border-bottom: 1px solid #e2e8f0 !important;
-        gap: 8px !important;
+        gap: 10px !important;
     }
 
     body .dashboard-header h1,
     .dashboard-header h1 {
         display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
         font-size: 1.35rem !important;
         font-weight: 800 !important;
         color: var(--brand, #002147) !important;
         margin: 0 !important;
         text-align: left !important;
-        line-height: 1.2 !important;
+        line-height: 1.25 !important;
         letter-spacing: -0.01em !important;
+        word-break: break-word !important;
+    }
+
+    body .dashboard-header .header-right-cluster,
+    .dashboard-header .header-right-cluster,
+    body .dashboard-header .header-actions,
+    .dashboard-header .header-actions {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        margin-left: 0 !important;
+        padding: 0 !important;
+        justify-content: flex-start !important;
+    }
+
+    body .dashboard-header .header-actions .btn,
+    body .dashboard-header .header-actions a.btn,
+    body .dashboard-header .header-actions button,
+    .dashboard-header .header-actions .btn,
+    .dashboard-header .header-actions a.btn,
+    .dashboard-header .header-actions button,
+    .header-right-cluster .header-actions .btn,
+    .header-right-cluster .header-actions a.btn,
+    .header-right-cluster .header-actions button {
+        flex: 1 1 calc(50% - 4px) !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        height: 38px !important;
+        padding: 0 10px !important;
+        font-size: 12.5px !important;
+        font-weight: 600 !important;
+        border-radius: 8px !important;
+        white-space: nowrap !important;
+        text-align: center !important;
+        justify-content: center !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        box-sizing: border-box !important;
+    }
+
+    body .dashboard-header .header-actions > :only-child,
+    .dashboard-header .header-actions > :only-child,
+    .header-right-cluster .header-actions > :only-child {
+        flex: 1 1 100% !important;
+        width: 100% !important;
     }
 
     /* On mobile view (< 769px): completely hide the user dropdown pill so header is clean and native app-like */
     body .dashboard-header .user-dropdown-wrapper,
     .dashboard-header .user-dropdown-wrapper,
     #userDropdownWrapper {
+        display: none !important;
+    }
+
+    body .dashboard-header .header-right-cluster:empty,
+    .dashboard-header .header-right-cluster:empty,
+    body .dashboard-header .header-actions:empty,
+    .dashboard-header .header-actions:empty {
+        display: none !important;
+    }
+
+    /* Mobile Viewport & Container Zero-Overflow Protection */
+    html, body {
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+    }
+
+    body .dashboard-container,
+    .dashboard-container {
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+        box-sizing: border-box !important;
+    }
+
+    body .dashboard-main,
+    .dashboard-main {
+        max-width: 100% !important;
+        min-width: 0 !important;
+        overflow-x: hidden !important;
+        box-sizing: border-box !important;
+        padding: 14px 12px 60px 12px !important;
+    }
+
+    body .card,
+    .card {
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    body .card-body,
+    .card-body {
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Form Grids collapse to single clean column on mobile */
+    body form [style*="grid-template-columns"],
+    form [style*="grid-template-columns"],
+    body .form-row,
+    body .form-grid,
+    .form-row,
+    .form-grid,
+    .expense-form-grid {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+        width: 100% !important;
+    }
+
+    body form [style*="grid-column"],
+    form [style*="grid-column"],
+    body .form-row > div,
+    body .form-row > .form-group,
+    body .form-grid > div,
+    body .form-grid > .form-group,
+    .expense-form-grid .form-group,
+    body [class*="col-md-"],
+    body [class*="col-lg-"],
+    body [class*="col-sm-"] {
+        grid-column: span 1 / -1 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        flex: 1 1 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    body .form-control,
+    body input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]),
+    body select,
+    body textarea {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    body form .btn[type="submit"],
+    body form button[type="submit"],
+    .expense-form-actions .btn {
+        width: 100% !important;
+        display: flex !important;
+        justify-content: center !important;
+    }
+
+    /* Hide empty spacer labels in filter forms on mobile */
+    body .filter-btn-spacer,
+    .filter-btn-spacer {
         display: none !important;
     }
 
@@ -1408,6 +1560,58 @@ button.close:hover {
         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
         gap: 10px !important;
         margin-bottom: 20px !important;
+    }
+
+    body.in-portal .stats-grid > :last-child:nth-child(odd),
+    .dashboard-main .stats-grid > :last-child:nth-child(odd),
+    body .stats-grid > :last-child:nth-child(odd) {
+        grid-column: span 2 / -1 !important;
+    }
+
+    /* Tables scroll within table-responsive, never shifting page */
+    body .table-responsive {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        margin-bottom: 12px !important;
+        display: block !important;
+    }
+
+    body .dataTables_wrapper {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: visible !important;
+        box-sizing: border-box !important;
+    }
+
+    body .dataTables_length,
+    body .dataTables_filter {
+        float: none !important;
+        text-align: left !important;
+        width: 100% !important;
+        margin-bottom: 8px !important;
+    }
+
+    body .dataTables_filter input {
+        width: 100% !important;
+        margin-left: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    body .dataTables_info,
+    body .dataTables_paginate {
+        float: none !important;
+        text-align: center !important;
+        width: 100% !important;
+        margin-top: 10px !important;
+    }
+
+    body .dataTables_paginate {
+        display: flex !important;
+        justify-content: center !important;
+        flex-wrap: wrap !important;
+        gap: 4px !important;
     }
 
     body .stats-grid .stat-card {
@@ -1512,73 +1716,6 @@ body.in-portal .main-footer,
         min-height: 100vh !important;
         box-sizing: border-box !important;
     }
-}
-
-/* Universal Header Right Cluster: Guarantees action buttons (+ New Message, Reports, Add Teacher)
-   and the User Profile Dropdown Pill remain in ONE seamless horizontal flex row */
-.header-right-cluster,
-body .dashboard-header .header-right-cluster,
-.dashboard-header .header-right-cluster {
-    display: inline-flex !important;
-    flex-direction: row !important;
-    align-items: center !important;
-    justify-content: flex-end !important;
-    gap: 12px !important;
-    margin-left: auto !important;
-    flex-wrap: nowrap !important;
-    flex-shrink: 0 !important;
-    width: auto !important;
-    max-width: 100% !important;
-}
-
-body .dashboard-header .header-actions,
-.dashboard-header .header-actions,
-.header-right-cluster .header-actions {
-    display: inline-flex !important;
-    flex-direction: row !important;
-    align-items: center !important;
-    gap: 8px !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    width: auto !important;
-    flex-shrink: 0 !important;
-    flex-wrap: nowrap !important;
-}
-
-body .dashboard-header .header-actions .btn,
-body .dashboard-header .header-actions a.btn,
-body .dashboard-header .header-actions button,
-.dashboard-header .header-actions .btn,
-.dashboard-header .header-actions a.btn,
-.dashboard-header .header-actions button,
-.header-right-cluster .header-actions .btn,
-.header-right-cluster .header-actions a.btn,
-.header-right-cluster .header-actions button {
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 6px !important;
-    height: 38px !important;
-    padding: 0 14px !important;
-    font-size: 13px !important;
-    font-weight: 600 !important;
-    border-radius: 8px !important;
-    white-space: nowrap !important;
-    margin: 0 !important;
-    width: auto !important;
-    flex: 0 0 auto !important;
-    box-sizing: border-box !important;
-}
-
-body .dashboard-header .user-dropdown-wrapper,
-.dashboard-header .user-dropdown-wrapper,
-.header-right-cluster .user-dropdown-wrapper {
-    display: inline-flex !important;
-    position: relative !important;
-    margin: 0 !important;
-    align-items: center !important;
-    flex-shrink: 0 !important;
-    width: auto !important;
 }
 
 /* 3. Desktop User Dropdown Header Pill (>= 769px): Visible at top-right on ALL desktop pages */

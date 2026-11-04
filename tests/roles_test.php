@@ -381,11 +381,21 @@ $mobileCSS = file_get_contents(__DIR__ . '/../assets/css/mobile.css');
 test('mobile.css desktop view prevents header-actions and dashboard-header wrapping', strpos($mobileCSS, 'body .dashboard-header { flex-wrap: nowrap !important;') !== false);
 
 $hdrContent = file_get_contents(__DIR__ . '/../includes/header.php');
-test('includes/header.php has bumped assetVersion to 34 for cache busting', strpos($hdrContent, "\$assetVersion = '34';") !== false);
+test('includes/header.php has bumped assetVersion to 35 for cache busting', (bool)preg_match('/\$assetVersion\s*=\s*[\'"](?:3[5-9]|[4-9]\d)[\'"];/', $hdrContent));
 
 $teacherDashContent = file_get_contents(__DIR__ . '/../teacher/dashboard.php');
 test('teacher/dashboard.php renders desktop user dropdown inside header-right-cluster', strpos($teacherDashContent, 'header-right-cluster') !== false && strpos($teacherDashContent, 'render_user_dropdown()') !== false);
 test('teacher/dashboard.php removed redundant Quick Actions section', strpos($teacherDashContent, 'class="quick-actions"') === false && strpos($teacherDashContent, '<h3>Quick Actions</h3>') === false);
+
+echo "\n=== 14. CLASS DISTRIBUTION REDESIGN & MOBILE RESPONSIVE POLISH ===\n";
+$dashContent = file_get_contents(__DIR__ . '/../admin/dashboard.php');
+test('admin/dashboard.php deduplicates class distribution by class_name and section', strpos($dashContent, 'GROUP BY c.class_name, COALESCE(c.section') !== false);
+test('admin/dashboard.php renders modern class-distribution-grid with class-enrollment-card', strpos($dashContent, 'class-distribution-grid') !== false && strpos($dashContent, 'class-enrollment-card') !== false);
+test('admin/dashboard.php prevents 0% progress bar sliver glitch when student count is zero', strpos($dashContent, '<?php if ($count > 0): ?>') !== false);
+
+$polishCSS = file_get_contents(__DIR__ . '/../assets/css/polish.css');
+test('polish.css stacks dashboard-header vertically on mobile view (< 769px)', strpos($polishCSS, 'flex-direction: column !important;') !== false);
+test('polish.css scopes desktop horizontal header cluster strictly inside min-width media query', strpos($polishCSS, '@media (min-width: 769px)') !== false);
 
 // Strict check: zero colored border-left across all css
 $cssFiles = glob(__DIR__ . '/../assets/css/*.css');

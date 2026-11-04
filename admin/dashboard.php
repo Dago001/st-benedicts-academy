@@ -100,15 +100,27 @@ try {
          GROUP BY gender"
     ) ?: [];
 
-    // Get class distribution
+    // Get class distribution (deduplicated by class name & section, with actual capacity & student enrollment)
     $classDistribution = $db->getRows(
-        "SELECT c.class_name, c.section, COUNT(s.id) as student_count
+        "SELECT MIN(c.id) as id,
+                c.class_name,
+                COALESCE(c.section, '') as section,
+                MAX(COALESCE(c.capacity, 25)) as capacity,
+                COUNT(s.id) as student_count
          FROM classes c
          LEFT JOIN students s ON c.id = s.class_id
          WHERE c.is_active = 1
-         GROUP BY c.id
-         ORDER BY c.class_name, c.section"
+         GROUP BY c.class_name, COALESCE(c.section, '')
+         ORDER BY c.class_name, section"
     ) ?: [];
+
+    $totalClassStudents = 0;
+    $totalClassCapacity = 0;
+    foreach ($classDistribution as $cd) {
+        $totalClassStudents += (int)$cd['student_count'];
+        $totalClassCapacity += (int)$cd['capacity'];
+    }
+    $overallFillPercent = $totalClassCapacity > 0 ? round(($totalClassStudents / $totalClassCapacity) * 100) : 0;
 
 } catch (Exception $e) {
     error_log("Dashboard error: " . $e->getMessage());
@@ -126,6 +138,9 @@ try {
     $feeData = [];
     $genderStats = [];
     $classDistribution = [];
+    $totalClassStudents = 0;
+    $totalClassCapacity = 0;
+    $overallFillPercent = 0;
 }
 
 // Helper function for currency formatting if not defined
@@ -361,24 +376,93 @@ if (!function_exists('timeAgo')) {
             </div>
         </div>
 
-        <!-- Class Distribution -->
+        <!-- Class Distribution & Enrollment -->
         <?php if (!empty($classDistribution)): ?>
-        <div class="card mt-4">
-            <div class="card-header">
-                <h3><i class="fas fa-users"></i> Class Distribution</h3>
+        <div class="card mt-4 class-distribution-card" style="margin-top:24px; border:1px solid #e2e8f0; border-radius:14px; box-shadow:0 1px 4px rgba(0,33,71,0.06); background:#ffffff; overflow:hidden;">
+            <div class="card-header" style="padding:16px 20px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div style="width:38px; height:38px; border-radius:10px; background:rgba(0,33,71,0.08); color:#002147; display:flex; align-items:center; justify-content:center; font-size:17px;">
+                        <i class="fas fa-chalkboard-teacher"></i>
+                    </div>
+                    <div>
+                        <h3 style="margin:0; font-size:1.15rem; font-weight:700; color:#0f172a;">Class Distribution &amp; Enrollment</h3>
+                        <p style="margin:2px 0 0; font-size:0.8rem; color:#64748b;">Active classes, student enrollment, and capacity utilization</p>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <span style="display:inline-flex; align-items:center; gap:6px; background:#eff6ff; color:#1e40af; font-size:12px; font-weight:600; padding:5px 12px; border-radius:999px; border:1px solid #bfdbfe;">
+                        <i class="fas fa-layer-group"></i> <?php echo count($classDistribution); ?> Classes
+                    </span>
+                    <span style="display:inline-flex; align-items:center; gap:6px; background:#f0fdf4; color:#166534; font-size:12px; font-weight:600; padding:5px 12px; border-radius:999px; border:1px solid #bbf7d0;">
+                        <i class="fas fa-user-graduate"></i> <?php echo $totalClassStudents; ?> / <?php echo $totalClassCapacity; ?> Enrolled (<?php echo $overallFillPercent; ?>%)
+                    </span>
+                    <a href="classes" class="btn btn-sm btn-outline" style="font-size:12px; padding:5px 12px; border-radius:8px;">
+                        <i class="fas fa-cog"></i> Manage Classes
+                    </a>
+                </div>
             </div>
-            <div class="card-body">
-                <div class="class-distribution">
-                    <?php foreach ($classDistribution as $class): ?>
-                    <div class="class-stat">
-                        <div class="class-info">
-                            <span class="class-name"><?php echo htmlspecialchars($class['class_name'] . ' ' . $class['section']); ?></span>
-                            <span class="student-count"><?php echo e($class['student_count']); ?> students</span>
-                        </div>
-                        <div class="progress-bar-container">
-                            <div class="progress-bar-fill" style="width: <?php echo min(100, ($class['student_count'] / 30) * 100); ?>%;">
-                                <span class="progress-percentage"><?php echo round(($class['student_count'] / 30) * 100); ?>%</span>
+            <div class="card-body" style="padding:20px;">
+                <div class="class-distribution-grid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:16px;">
+                    <?php foreach ($classDistribution as $class):
+                        $capacity = max(1, (int)$class['capacity']);
+                        $count = (int)$class['student_count'];
+                        $pct = min(100, round(($count / $capacity) * 100));
+                        $section = trim((string)($class['section'] ?? ''));
+                        $availableSeats = max(0, $capacity - $count);
+                    ?>
+                    <div class="class-enrollment-card" style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:16px; transition:all 0.2s ease; display:flex; flex-direction:column; gap:12px; box-shadow:0 1px 2px rgba(0,0,0,0.03);">
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <div style="width:34px; height:34px; border-radius:8px; background:rgba(0,40,85,0.06); color:#002855; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700;">
+                                    <i class="fas fa-chalkboard"></i>
+                                </div>
+                                <div>
+                                    <h4 style="margin:0; font-size:0.95rem; font-weight:700; color:#0f172a; line-height:1.2;">
+                                        <?php echo htmlspecialchars($class['class_name']); ?>
+                                    </h4>
+                                    <?php if ($section !== '' && strtolower($section) !== 'null'): ?>
+                                    <span style="display:inline-block; margin-top:3px; font-size:11px; font-weight:600; color:#0284c7; background:#e0f2fe; padding:1px 7px; border-radius:4px;">
+                                        Section <?php echo htmlspecialchars($section); ?>
+                                    </span>
+                                    <?php endif; ?>
+                                </div>
                             </div>
+                            <div style="text-align:right;">
+                                <span style="font-size:1.15rem; font-weight:800; color:<?php echo $count > 0 ? '#002855' : '#64748b'; ?>; line-height:1;">
+                                    <?php echo $count; ?>
+                                </span>
+                                <span style="font-size:0.75rem; color:#94a3b8; font-weight:600;">/ <?php echo $capacity; ?></span>
+                                <div style="font-size:11px; font-weight:700; color:<?php echo $pct >= 90 ? '#dc2626' : ($pct >= 50 ? '#d97706' : '#64748b'); ?>;">
+                                    <?php echo $pct; ?>% full
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Progress Bar (Zero-sliver on 0%) -->
+                        <div style="width:100%; height:7px; background:#f1f5f9; border-radius:999px; overflow:hidden; position:relative;">
+                            <?php if ($count > 0): ?>
+                            <div style="height:100%; width:<?php echo $pct; ?>%; background:linear-gradient(90deg, #002855, #2563eb); border-radius:999px; transition:width 0.4s ease;"></div>
+                            <?php endif; ?>
+                        </div>
+
+                        <div style="display:flex; align-items:center; justify-content:space-between; font-size:11.5px; padding-top:2px;">
+                            <?php if ($pct >= 100): ?>
+                                <span style="color:#dc2626; font-weight:600; display:inline-flex; align-items:center; gap:5px;">
+                                    <i class="fas fa-circle" style="font-size:7px;"></i> Class Full
+                                </span>
+                            <?php elseif ($count > 0): ?>
+                                <span style="color:#16a34a; font-weight:600; display:inline-flex; align-items:center; gap:5px;">
+                                    <i class="fas fa-circle" style="font-size:7px;"></i> <?php echo $availableSeats; ?> seats available
+                                </span>
+                            <?php else: ?>
+                                <span style="color:#94a3b8; font-weight:500; display:inline-flex; align-items:center; gap:5px;">
+                                    <i class="far fa-circle" style="font-size:7px;"></i> All <?php echo $capacity; ?> seats open
+                                </span>
+                            <?php endif; ?>
+
+                            <a href="students?class_id=<?php echo (int)$class['id']; ?>" style="color:#2563eb; font-weight:600; text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
+                                View <i class="fas fa-chevron-right" style="font-size:9px;"></i>
+                            </a>
                         </div>
                     </div>
                     <?php endforeach; ?>
@@ -664,60 +748,40 @@ if (feeCtx) {
     font-size: 11px;
 }
 
-/* Class Distribution Styles */
-.class-distribution {
+/* Modern Class Distribution & Enrollment Styles */
+.class-distribution-card {
+    transition: box-shadow 0.2s ease;
+}
+
+.class-distribution-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+.class-enrollment-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 12px;
+    box-shadow: 0 1px 3px rgba(0, 33, 71, 0.04);
 }
 
-.class-stat {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
+.class-enrollment-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 33, 71, 0.08);
+    border-color: #cbd5e1;
 }
 
-.class-info {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.class-name {
-    font-weight: 600;
-    color: var(--navy);
-}
-
-.student-count {
-    font-size: 14px;
-    color: var(--gray);
-}
-
-.progress-bar-container {
-    width: 100%;
-    height: 25px;
-    background-color: var(--light-gray);
-    border-radius: 12px;
-    overflow: hidden;
-    position: relative;
-}
-
-.progress-bar-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--navy), var(--gold));
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    padding-right: 10px;
-    color: white;
-    font-size: 12px;
-    font-weight: 600;
-    transition: width 0.5s ease;
-}
-
-.progress-percentage {
-    text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+@media (max-width: 768px) {
+    .class-distribution-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
 }
 
 /* Responsive */

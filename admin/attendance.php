@@ -170,14 +170,14 @@ if ($monthlySummary && $monthlySummary['school_days'] > 0) {
                     </div>
 
                     <div class="form-group col-md-2">
-                        <label>&nbsp;</label>
+                        <label class="filter-btn-spacer">&nbsp;</label>
                         <button type="submit" class="btn btn-primary form-control">
                             <i class="fas fa-filter"></i> Apply Filters
                         </button>
                     </div>
 
                     <div class="form-group col-md-2">
-                        <label>&nbsp;</label>
+                        <label class="filter-btn-spacer">&nbsp;</label>
                         <a href="attendance" class="btn btn-outline form-control">
                             <i class="fas fa-redo"></i> Reset
                         </a>
