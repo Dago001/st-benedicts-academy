@@ -972,37 +972,6 @@ $announcements = $db->getRows(
                 </table>
             </div>
         </div>
-
-        <!-- Quick Actions -->
-        <div class="quick-actions">
-            <h3>Quick Actions</h3>
-            <div class="actions-grid">
-                <a href="attendance" class="action-card">
-                    <i class="fas fa-calendar-check"></i>
-                    <span>Mark Attendance</span>
-                </a>
-                <a href="results?action=add" class="action-card">
-                    <i class="fas fa-plus-circle"></i>
-                    <span>Add Results</span>
-                </a>
-                <a href="assignments?action=add" class="action-card">
-                    <i class="fas fa-upload"></i>
-                    <span>Post Assignment</span>
-                </a>
-                <a href="messages?compose" class="action-card">
-                    <i class="fas fa-paper-plane"></i>
-                    <span>Send Message</span>
-                </a>
-                <a href="students" class="action-card">
-                    <i class="fas fa-user-graduate"></i>
-                    <span>View Students</span>
-                </a>
-                <a href="profile" class="action-card">
-                    <i class="fas fa-user-cog"></i>
-                    <span>Update Profile</span>
-                </a>
-            </div>
-        </div>
     </main>
 </div>
 

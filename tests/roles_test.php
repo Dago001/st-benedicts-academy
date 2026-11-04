@@ -385,6 +385,7 @@ test('includes/header.php has bumped assetVersion to 34 for cache busting', strp
 
 $teacherDashContent = file_get_contents(__DIR__ . '/../teacher/dashboard.php');
 test('teacher/dashboard.php renders desktop user dropdown inside header-right-cluster', strpos($teacherDashContent, 'header-right-cluster') !== false && strpos($teacherDashContent, 'render_user_dropdown()') !== false);
+test('teacher/dashboard.php removed redundant Quick Actions section', strpos($teacherDashContent, 'class="quick-actions"') === false && strpos($teacherDashContent, '<h3>Quick Actions</h3>') === false);
 
 // Strict check: zero colored border-left across all css
 $cssFiles = glob(__DIR__ . '/../assets/css/*.css');
