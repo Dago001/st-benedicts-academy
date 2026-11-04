@@ -108,7 +108,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$errors) {
             $privateDir = PRIVATE_PATH . 'applications/';
             if (!is_dir($privateDir)) { @mkdir($privateDir, 0750, true); }
+
+            // Handle dedicated Step 1 Child Passport Photograph
+            if (isset($_FILES['child_passport_photo']) && $_FILES['child_passport_photo']['error'] !== UPLOAD_ERR_NO_FILE) {
+                $checkPhoto = Security::validateFileUpload($_FILES['child_passport_photo'], ['jpg', 'jpeg', 'png']);
+                if (!$checkPhoto['valid']) {
+                    $errors[] = "Child's Passport Photograph: " . $checkPhoto['message'];
+                } else {
+                    $photoName = 'passport_photo_' . bin2hex(random_bytes(12)) . '.' . $checkPhoto['extension'];
+                    if (move_uploaded_file($_FILES['child_passport_photo']['tmp_name'], $privateDir . $photoName)) {
+                        @chmod($privateDir . $photoName, 0640);
+                        $stored['passport_photo'] = $photoName;
+                        $pubPassportsDir = __DIR__ . '/../uploads/passports/';
+                        if (!is_dir($pubPassportsDir)) { @mkdir($pubPassportsDir, 0755, true); }
+                        @copy($privateDir . $photoName, $pubPassportsDir . $photoName);
+                    } else {
+                        $errors[] = "Could not store Child's Passport Photograph";
+                    }
+                }
+            }
+
             foreach ($catalog as $field => $meta) {
+                if ($field === 'passport_photo' && !empty($stored['passport_photo'])) continue;
                 if (!isset($_FILES[$field]) || $_FILES[$field]['error'] === UPLOAD_ERR_NO_FILE) continue;
                 $check = Security::validateFileUpload($_FILES[$field], $meta['allowed']);
                 if (!$check['valid']) {
@@ -125,14 +146,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
+        if (empty($stored['passport_photo'])) {
+            $errors[] = "Child's Passport Photograph is required (Step 1)";
+        }
+
         if (!$errors) {
             try {
                 $appNumber     = generateApplicationNumber();
                 $receiptNumber = ApplicationHelper::generateReceiptNumber();
                 $receiptToken  = ApplicationHelper::generateReceiptToken($appNumber, $formData['parent_email']);
                 $amountPaid    = ApplicationHelper::APPLICATION_FEE;
-                $paidAt        = date('Y-m-d H:i:s');
-                $payStatus     = ($formData['payment_method'] === 'bank_transfer') ? 'pending_verification' : 'paid';
+                $payMethod     = $formData['payment_method'];
+
+                if ($payMethod === 'pay_at_school') {
+                    $payStatus = 'pending_school_payment';
+                    $paidAt    = null;
+                } elseif ($payMethod === 'bank_transfer') {
+                    $payStatus = 'pending_verification';
+                    $paidAt    = null;
+                } else {
+                    // Paystack Online: Strictly validate that payment was completed before proceeding!
+                    $ref = $formData['payment_reference'];
+                    $isVerified = ApplicationHelper::isPaymentVerified($ref);
+                    if (!$isVerified) {
+                        $vRes = paystack_verify_transaction($ref, (float)$amountPaid);
+                        if (!empty($vRes['success'])) {
+                            ApplicationHelper::recordPaymentVerification($ref, $vRes);
+                            $isVerified = true;
+                        }
+                    }
+                    if (!$isVerified) {
+                        throw new RuntimeException("PAYMENT_NOT_VERIFIED");
+                    }
+                    $payStatus = 'paid';
+                    $paidAt    = date('Y-m-d H:i:s');
+                }
 
                 $db->insert(
                     "INSERT INTO applications (
@@ -188,15 +236,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     . "<p><strong>Admissions Office</strong><br>" . e(SCHOOL_NAME) . "</p></div>");
 
                 $applied = [
-                    'number'      => $appNumber,
-                    'receipt'     => $receiptNumber,
-                    'reference'   => $formData['payment_reference'],
-                    'amount'      => $amountPaid,
-                    'email'       => $formData['parent_email'],
-                    'receipt_url' => $receiptUrl
+                    'number'         => $appNumber,
+                    'receipt'        => $receiptNumber,
+                    'reference'      => $formData['payment_reference'],
+                    'amount'         => $amountPaid,
+                    'payment_status' => $payStatus,
+                    'payment_method' => $formData['payment_method'],
+                    'email'          => $formData['parent_email'],
+                    'receipt_url'    => $receiptUrl
                 ];
                 $messageType = 'success';
                 $_POST = [];
+            } catch (RuntimeException $re) {
+                foreach ($stored as $f) { if ($f) @unlink(PRIVATE_PATH . 'applications/' . $f); }
+                if ($re->getMessage() === 'PAYMENT_NOT_VERIFIED') {
+                    $errors[] = "Online Payment Required: You selected online payment via Paystack, but payment of ₦" . number_format(ApplicationHelper::APPLICATION_FEE, 2) . " has not been verified. Please click 'Pay ₦" . number_format(ApplicationHelper::APPLICATION_FEE, 2) . " on Paystack' before submitting, or select 'Pay at School & Print Application Slip' to pay at the school admissions office.";
+                } else {
+                    $errors[] = 'An error occurred during submission: ' . $re->getMessage();
+                }
             } catch (Exception $e) {
                 foreach ($stored as $f) { if ($f) @unlink(PRIVATE_PATH . 'applications/' . $f); }
                 error_log('Application error: ' . $e->getMessage());
@@ -229,34 +286,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <section class="application-section">
     <div class="container">
         <?php if ($messageType === 'success'): ?>
+        <?php $isSchoolPayment = (($applied['payment_status'] ?? '') === 'pending_school_payment'); ?>
         <div class="success-card">
             <div style="text-align:center">
-                <i class="fas fa-check-circle" style="font-size:4rem;color:#28a745;margin-bottom:20px"></i>
-                <h3>Application Submitted Successfully!</h3>
+                <?php if ($isSchoolPayment): ?>
+                    <i class="fas fa-file-invoice" style="font-size:3.8rem; color:#d97706; margin-bottom:16px;"></i>
+                    <h3 style="color:#002147; font-size:1.45rem;">Application Registered &mdash; Official Application Slip Ready!</h3>
+                    <p style="color:#475569; font-size:0.95rem;">Your admission application has been recorded. Please print your official application slip below and take it to the school admissions office to complete payment and validate your child's application.</p>
+                    <div style="display:inline-flex; align-items:center; gap:6px; background:#fef3c7; color:#92400e; padding:6px 16px; border-radius:999px; font-weight:700; font-size:0.85rem; margin-bottom:16px;">
+                        <i class="fas fa-clock"></i> Payment Pending &mdash; Pay at School Admissions Office
+                    </div>
+                <?php else: ?>
+                    <i class="fas fa-check-circle" style="font-size:3.8rem; color:#16a34a; margin-bottom:16px;"></i>
+                    <h3 style="color:#002147; font-size:1.45rem;">Application Submitted &amp; Fee Payment Verified!</h3>
+                    <p style="color:#475569; font-size:0.95rem;">Thank you! Your application and payment have been successfully verified.</p>
+                    <div style="display:inline-flex; align-items:center; gap:6px; background:#dcfce7; color:#15803d; padding:6px 16px; border-radius:999px; font-weight:700; font-size:0.85rem; margin-bottom:16px;">
+                        <i class="fas fa-shield-alt"></i> Official Receipt Issued
+                    </div>
+                <?php endif; ?>
+
                 <?php if (!empty($applied)): ?>
-                <p>Your application number is: <strong><?php echo e($applied['number']); ?></strong></p>
                 <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:12px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:16px; margin:18px 0; text-align:left;">
                     <div>
-                        <div style="font-size:0.75rem; color:#64748b; text-transform:uppercase; font-weight:700;">Official Receipt No.</div>
-                        <div style="font-size:1.05rem; font-weight:800; color:#002147;"><?php echo e($applied['receipt']); ?></div>
+                        <div style="font-size:0.75rem; color:#64748b; text-transform:uppercase; font-weight:700;">Application Number</div>
+                        <div style="font-size:1.05rem; font-weight:800; color:#002147;"><?php echo e($applied['number']); ?></div>
                     </div>
                     <div>
-                        <div style="font-size:0.75rem; color:#64748b; text-transform:uppercase; font-weight:700;">Payment Reference</div>
-                        <div style="font-size:0.95rem; font-weight:700; color:#0f172a;"><?php echo e($applied['reference']); ?></div>
+                        <div style="font-size:0.75rem; color:#64748b; text-transform:uppercase; font-weight:700;">Document Ref / Receipt</div>
+                        <div style="font-size:0.95rem; font-weight:700; color:#0f172a;"><?php echo e($applied['receipt']); ?></div>
                     </div>
                     <div>
-                        <div style="font-size:0.75rem; color:#64748b; text-transform:uppercase; font-weight:700;">Amount Paid</div>
-                        <div style="font-size:1.05rem; font-weight:800; color:#15803d;">&#8358;<?php echo number_format($applied['amount'], 2); ?></div>
+                        <div style="font-size:0.75rem; color:#64748b; text-transform:uppercase; font-weight:700;">Amount <?php echo $isSchoolPayment ? 'Payable' : 'Paid'; ?></div>
+                        <div style="font-size:1.05rem; font-weight:800; color:<?php echo $isSchoolPayment ? '#d97706' : '#15803d'; ?>;">&#8358;<?php echo number_format($applied['amount'], 2); ?></div>
                     </div>
                 </div>
-                <p>We have sent a confirmation email to <strong><?php echo e($applied['email']); ?></strong>.</p>
+
+                <?php if ($isSchoolPayment): ?>
+                <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:12px; padding:18px 20px; text-align:left; margin:18px 0;">
+                    <div style="font-weight:800; color:#002147; font-size:0.95rem; margin-bottom:8px;">
+                        <i class="fas fa-university" style="color:#c8102e;"></i> Next Steps to Complete Admission &amp; Validate Application:
+                    </div>
+                    <ol style="margin:0; padding-left:20px; font-size:0.88rem; color:#334155; line-height:1.65;">
+                        <li>Click <strong>Print Official Admission Application Slip</strong> below and print or save the PDF slip.</li>
+                        <li>Take the printed slip to St. Benedict's Early Years British Academy Admissions Office (No 560 A A New G.R.A Trans-Ekulu, Enugu).</li>
+                        <li>Pay the <strong>&#8358;15,000</strong> fee via POS / Cash at the bursary or via bank transfer to Zenith Bank: <strong>1310057496</strong> (St. Benedict's Early Years British Academy).</li>
+                        <li>The Admissions Office validates the application and confirms the child's entrance interview schedule with teachers.</li>
+                    </ol>
+                </div>
                 <?php endif; ?>
-                <p>Our admissions team will contact you within 3-5 working days.</p>
+
+                <p>We have sent a copy of this confirmation to <strong><?php echo e($applied['email']); ?></strong>.</p>
+                <?php endif; ?>
             </div>
-            <div style="margin-top: 30px; display:flex; justify-content:center; gap:12px; flex-wrap:wrap;">
+            <div style="margin-top: 26px; display:flex; justify-content:center; gap:12px; flex-wrap:wrap;">
                 <?php if (!empty($applied['receipt_url'])): ?>
-                <a href="<?php echo e($applied['receipt_url']); ?>" target="_blank" class="btn btn-primary" style="background:#002147; color:#FFD700;">
-                    <i class="fas fa-print"></i> View &amp; Print Official Receipt
+                <a href="<?php echo e($applied['receipt_url']); ?>" target="_blank" class="btn btn-primary" style="background:#002147; color:#FFD700; font-weight:700; padding:12px 24px;">
+                    <i class="fas fa-print"></i> <?php echo $isSchoolPayment ? 'Print Official Admission Application Slip (PDF)' : 'View &amp; Print Official Receipt'; ?>
                 </a>
                 <?php endif; ?>
                 <a href="<?php echo BASE_URL; ?>/" class="btn btn-primary">Return to Home</a>
@@ -298,6 +383,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <!-- Step 1: Child Information -->
                 <div class="form-step active" id="step1">
                     <h3><i class="fas fa-child"></i> Child's Information</h3>
+
+                    <!-- Dedicated Step 1 Child Passport Photograph Upload with Live Preview -->
+                    <div class="child-passport-card" id="childPassportCard">
+                        <div class="passport-avatar-wrap">
+                            <div class="passport-avatar-box" id="passportAvatarBox">
+                                <img id="passportLivePreviewImg" src="" alt="Child Passport Preview" style="display:none;">
+                                <div id="passportPlaceholderBox" class="passport-placeholder-box">
+                                    <i class="fas fa-camera"></i>
+                                    <span>Passport Photo</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="passport-details-wrap">
+                            <label class="passport-input-title" for="child_passport_photo">
+                                <i class="fas fa-id-badge"></i> Child's Passport Photograph <span style="color:#dc2626;">*</span>
+                            </label>
+                            <p class="passport-input-hint">
+                                Upload a clear, recent color passport-sized photograph of the child with a white or plain light background (JPG or PNG, max 5MB). This official photograph will appear on the printed application slip and candidate file.
+                            </p>
+                            <div class="passport-action-controls">
+                                <label for="child_passport_photo" class="btn-passport-pick">
+                                    <i class="fas fa-upload"></i> Choose Passport Photograph
+                                </label>
+                                <input type="file" id="child_passport_photo" name="child_passport_photo" accept=".jpg,.jpeg,.png,image/jpeg,image/png" class="passport-hidden-input">
+                                <span id="passportSelectedFilename" class="passport-filename-label">No photo chosen yet</span>
+                                <button type="button" id="clearPassportPhotoBtn" class="btn-passport-clear" style="display:none;">
+                                    <i class="fas fa-times"></i> Change
+                                </button>
+                            </div>
+                        </div>
+                    </div>
 
                     <div class="form-row">
                         <div class="form-group">
@@ -592,6 +708,134 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </section>
 
 <style>
+/* Step 1 Child Passport Card */
+.child-passport-card {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 14px;
+    padding: 18px 22px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.03);
+}
+.passport-avatar-wrap {
+    flex-shrink: 0;
+}
+.passport-avatar-box {
+    width: 110px;
+    height: 130px;
+    border: 2px dashed #94a3b8;
+    border-radius: 12px;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+    box-shadow: inset 0 2px 6px rgba(0,0,0,0.05);
+}
+.passport-avatar-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.passport-placeholder-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 8px;
+    color: #64748b;
+}
+.passport-placeholder-box i {
+    font-size: 2rem;
+    color: #94a3b8;
+    margin-bottom: 6px;
+}
+.passport-placeholder-box span {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #475569;
+}
+.passport-details-wrap {
+    flex: 1;
+}
+.passport-input-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #002147;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.passport-input-hint {
+    font-size: 0.85rem;
+    color: #475569;
+    margin-bottom: 12px;
+    line-height: 1.45;
+}
+.passport-action-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.btn-passport-pick {
+    background: #002147;
+    color: #FFD700;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    margin-bottom: 0;
+}
+.btn-passport-pick:hover {
+    background: #003366;
+    color: #ffffff;
+}
+.passport-hidden-input {
+    display: none;
+}
+.passport-filename-label {
+    font-size: 0.82rem;
+    color: #64748b;
+    font-weight: 600;
+}
+.btn-passport-clear {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+@media (max-width: 640px) {
+    .child-passport-card {
+        flex-direction: column;
+        text-align: center;
+        gap: 14px;
+    }
+    .passport-input-title {
+        justify-content: center;
+    }
+    .passport-action-controls {
+        justify-content: center;
+    }
+}
+
 /* Application Progress */
 .application-progress {
     display: flex;
@@ -795,6 +1039,84 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <script nonce="<?php echo CSP_NONCE; ?>">
 let currentStep = 1;
 
+// Step 1 Child Passport Photo Live Preview & Sync
+document.addEventListener('DOMContentLoaded', function() {
+    const passportInput = document.getElementById('child_passport_photo');
+    const liveImg = document.getElementById('passportLivePreviewImg');
+    const placeholder = document.getElementById('passportPlaceholderBox');
+    const filenameLabel = document.getElementById('passportSelectedFilename');
+    const clearBtn = document.getElementById('clearPassportPhotoBtn');
+    const avatarBox = document.getElementById('passportAvatarBox');
+
+    if (passportInput) {
+        passportInput.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                const file = this.files[0];
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('Photo file size exceeds 5MB limit. Please select a smaller photo.');
+                    this.value = '';
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    liveImg.src = e.target.result;
+                    liveImg.style.display = 'block';
+                    placeholder.style.display = 'none';
+                    avatarBox.style.border = '2px solid #002147';
+                    filenameLabel.textContent = file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
+                    clearBtn.style.display = 'inline-block';
+
+                    // Sync with Step 4 native passport_photo input if available
+                    const step4Inp = document.getElementById('doc_input_passport_photo');
+                    if (step4Inp && window.DataTransfer) {
+                        try {
+                            const dt = new DataTransfer();
+                            dt.items.add(file);
+                            step4Inp.files = dt.files;
+                            step4Inp.dispatchEvent(new Event('change'));
+                        } catch(e) {}
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            if (passportInput) passportInput.value = '';
+            liveImg.src = '';
+            liveImg.style.display = 'none';
+            placeholder.style.display = 'flex';
+            avatarBox.style.border = '2px dashed #94a3b8';
+            filenameLabel.textContent = 'No photo chosen yet';
+            clearBtn.style.display = 'none';
+        });
+    }
+
+    // Guard on Form Submission: Require online payment to be completed if Paystack is selected
+    const appForm = document.getElementById('applicationForm');
+    if (appForm) {
+        appForm.addEventListener('submit', function(e) {
+            const selectedMethodRadio = document.querySelector('input[name="payment_method"]:checked');
+            const methodVal = selectedMethodRadio ? selectedMethodRadio.value : 'paystack_card';
+            const verifiedUi = document.getElementById('input_payment_verified_ui')?.value;
+
+            const isOnlineMethod = (methodVal.indexOf('paystack') !== -1 || methodVal === 'online_card');
+
+            if (isOnlineMethod && verifiedUi !== '1') {
+                e.preventDefault();
+                alert("Online Payment Required Before Submission:\n\nYou selected online payment via Paystack, but payment of ₦15,000 has not been made or verified.\n\nPlease click the 'Pay ₦15,000 on Paystack' button to complete payment before submitting.\n\nAlternatively, if you prefer to make payment at the school admissions office, please select 'Pay at School & Print Application Slip'.");
+                const paySec = document.getElementById('onlinePaymentSection');
+                if (paySec) {
+                    paySec.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                return false;
+            }
+        });
+    }
+});
+
 function nextStep(step) {
     if (!validateStep(step)) {
         return;
@@ -831,8 +1153,18 @@ function validateStep(step) {
             const childGender = document.getElementById('child_gender').value;
             const classApply = document.getElementById('class_applying').value;
 
+            const passportInp = document.getElementById('child_passport_photo');
+            const liveImg = document.getElementById('passportLivePreviewImg');
+            const hasPassport = (passportInp && passportInp.files && passportInp.files.length > 0) || (liveImg && liveImg.src && liveImg.src.indexOf('data:') === 0);
+
             if (!childFirst || !childLast || !childDob || !childGender || !classApply) {
                 alert('Please fill in all required fields');
+                return false;
+            }
+
+            if (!hasPassport) {
+                alert("Please select and upload the Child's Passport Photograph on Step 1 before proceeding.");
+                document.getElementById('childPassportCard')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 return false;
             }
 

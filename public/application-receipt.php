@@ -49,6 +49,25 @@ if ($appQuery !== '') {
 }
 
 $docCatalog = ApplicationHelper::getDocumentCatalog();
+
+$photoBase64 = null;
+if ($application) {
+    $photoName = $application['documents']['passport_photo'] ?? ($application['passport_photo_path'] ?? null);
+    if ($photoName) {
+        $candidates = [
+            PRIVATE_PATH . 'applications/' . basename($photoName),
+            __DIR__ . '/../uploads/passports/' . basename($photoName),
+            PUBLIC_PATH . '/../uploads/passports/' . basename($photoName)
+        ];
+        foreach ($candidates as $cPath) {
+            if (is_file($cPath)) {
+                $mime = mime_content_type($cPath) ?: 'image/jpeg';
+                $photoBase64 = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($cPath));
+                break;
+            }
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -476,18 +495,53 @@ $docCatalog = ApplicationHelper::getDocumentCatalog();
             </div>
 
             <div class="receipt-badge-box">
-                <span class="receipt-title-pill">Official Application &amp; Fee Receipt</span>
-                <div class="receipt-no"><?php echo htmlspecialchars($application['receipt_number']); ?></div>
-                <div class="receipt-date">Issued: <?php echo date('d M Y, h:i A', strtotime($application['paid_at'])); ?></div>
-                <?php $isPaid = in_array(strtolower($application['payment_status']), ['paid', 'verified'], true); ?>
-                <div class="status-stamp <?php echo $isPaid ? 'paid' : 'pending'; ?>">
-                    <i class="fas <?php echo $isPaid ? 'fa-check-circle' : 'fa-clock'; ?>"></i>
-                    <?php echo $isPaid ? 'PAYMENT VERIFIED - PAID' : 'VERIFICATION PENDING'; ?>
-                </div>
+                <?php
+                $isPaid = in_array(strtolower($application['payment_status']), ['paid', 'verified'], true);
+                $isSchoolSlip = (strtolower($application['payment_status']) === 'pending_school_payment' || $application['payment_method'] === 'pay_at_school');
+                ?>
+                <span class="receipt-title-pill"><?php echo $isSchoolSlip ? 'Official Admission Application Slip' : 'Official Application &amp; Fee Receipt'; ?></span>
+                <div class="receipt-no"><?php echo htmlspecialchars($application['receipt_number'] ?: $application['application_number']); ?></div>
+                <div class="receipt-date"><?php echo $isPaid ? 'Issued: ' . date('d M Y, h:i A', strtotime($application['paid_at'])) : 'Registered: ' . date('d M Y, h:i A', strtotime($application['created_at'])); ?></div>
+                <?php if ($isPaid): ?>
+                    <div class="status-stamp paid">
+                        <i class="fas fa-check-circle"></i> PAYMENT VERIFIED &mdash; PAID
+                    </div>
+                <?php elseif ($isSchoolSlip): ?>
+                    <div class="status-stamp pending" style="background:#fef3c7; color:#92400e; border:1px solid #fcd34d;">
+                        <i class="fas fa-clock"></i> PAYMENT PENDING &mdash; PAY AT SCHOOL
+                    </div>
+                <?php else: ?>
+                    <div class="status-stamp pending">
+                        <i class="fas fa-clock"></i> VERIFICATION PENDING
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
 
         <div class="receipt-body">
+            <?php if ($isSchoolSlip): ?>
+            <!-- Official School Slip Action Banner -->
+            <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:12px; padding:18px 22px; margin-bottom:24px;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                    <span style="background:#d97706; color:#fff; width:30px; height:30px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:0.95rem;"><i class="fas fa-exclamation"></i></span>
+                    <strong style="color:#92400e; font-size:1.05rem;">Admissions Office Action Required: Complete Payment to Validate Application</strong>
+                </div>
+                <p style="color:#78350f; font-size:0.88rem; line-height:1.6; margin-bottom:12px;">
+                    This is your official <strong>Admission Application Slip</strong>. Please present this printed slip at St. Benedict's Early Years British Academy Admissions Office along with payment of <strong>&#8358;15,000.00</strong> to complete your payment, validate the application, and confirm your child's entrance assessment / teacher interview schedule.
+                </p>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:12px; background:#fff; border:1px solid #fcd34d; border-radius:8px; padding:12px 16px;">
+                    <div>
+                        <div style="font-size:0.75rem; text-transform:uppercase; color:#64748b; font-weight:700;">In-Person Bursary Payment</div>
+                        <div style="font-size:0.88rem; color:#0f172a; margin-top:2px;">POS or Cash at Admissions Office (No. 560 A.A. New G.R.A, Trans-Ekulu, Enugu)</div>
+                    </div>
+                    <div>
+                        <div style="font-size:0.75rem; text-transform:uppercase; color:#64748b; font-weight:700;">Direct Zenith Bank Deposit / Transfer</div>
+                        <div style="font-size:0.88rem; color:#0f172a; margin-top:2px;">Zenith Bank &bull; Acct: <strong style="color:#c8102e;">1310057496</strong><br>St. Benedict's Early Years British Academy</div>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+
             <div class="meta-summary-bar">
                 <div class="meta-item">
                     <div class="label">Application Number</div>
@@ -510,6 +564,27 @@ $docCatalog = ApplicationHelper::getDocumentCatalog();
             <div class="info-grid-2">
                 <div class="info-card">
                     <div class="section-heading"><i class="fas fa-user-graduate"></i> Candidate Details</div>
+
+                    <div style="display:flex; align-items:center; gap:16px; margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid #e2e8f0;">
+                        <div style="width:74px; height:88px; border:2px solid #002147; border-radius:8px; overflow:hidden; background:#f8fafc; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                            <?php if ($photoBase64): ?>
+                                <img src="<?php echo $photoBase64; ?>" alt="Candidate Passport Photo" style="width:100%; height:100%; object-fit:cover;">
+                            <?php else: ?>
+                                <i class="fas fa-user" style="font-size:2.2rem; color:#94a3b8;"></i>
+                            <?php endif; ?>
+                        </div>
+                        <div>
+                            <div style="font-size:1.05rem; font-weight:800; color:#002147;"><?php echo htmlspecialchars($application['child_full_name']); ?></div>
+                            <div style="font-size:0.82rem; color:#475569; margin-top:2px;">
+                                Class: <strong><?php echo htmlspecialchars($application['class_applying']); ?></strong> &bull;
+                                <?php echo htmlspecialchars($application['gender']); ?>
+                            </div>
+                            <div style="font-size:0.75rem; color:#64748b; margin-top:3px;">
+                                <i class="fas fa-camera"></i> Official Passport Photograph
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="kv-row">
                         <span class="k">Full Name</span>
                         <span class="v"><?php echo htmlspecialchars($application['child_full_name']); ?></span>
@@ -582,8 +657,8 @@ $docCatalog = ApplicationHelper::getDocumentCatalog();
                         <td style="text-align: right; font-weight: 700;">&#8358;<?php echo number_format($application['amount_paid'], 2); ?></td>
                     </tr>
                     <tr class="total-row">
-                        <td colspan="3" style="text-align: right;">TOTAL AMOUNT PAID</td>
-                        <td style="text-align: right;">&#8358;<?php echo number_format($application['amount_paid'], 2); ?></td>
+                        <td colspan="3" style="text-align: right;"><?php echo $isPaid ? 'TOTAL AMOUNT PAID' : 'TOTAL AMOUNT PAYABLE AT SCHOOL'; ?></td>
+                        <td style="text-align: right; color:<?php echo $isPaid ? '#15803d' : '#d97706'; ?>;">&#8358;<?php echo number_format($application['amount_paid'], 2); ?></td>
                     </tr>
                 </tbody>
             </table>
@@ -606,6 +681,22 @@ $docCatalog = ApplicationHelper::getDocumentCatalog();
             </div>
 
             <div class="receipt-footer">
+                <?php if ($isSchoolSlip): ?>
+                <div class="receipt-note" style="max-width:520px;">
+                    <strong>Admissions Office Instructions:</strong><br>
+                    1. Present this official slip at St. Benedict's Academy Admissions Office or Bursary.<br>
+                    2. Complete fee payment of &#8358;15,000 via POS, Cash, or Zenith Bank Transfer (1310057496).<br>
+                    3. The Admissions Office validates payment and issues your confirmed official receipt &amp; interview appointment.
+                </div>
+                <div class="signature-block">
+                    <div style="font-size:0.75rem; color:#64748b; margin-bottom:4px;">Admissions &amp; Bursary Verification Sign-off</div>
+                    <div style="border:1px dashed #cbd5e1; border-radius:8px; padding:8px 14px; text-align:left; font-size:0.75rem; color:#334155;">
+                        <div>Staff Name: _____________________</div>
+                        <div style="margin-top:4px;">Receipt No: _____________________</div>
+                        <div style="margin-top:4px;">Date &amp; Stamp: _____________________</div>
+                    </div>
+                </div>
+                <?php else: ?>
                 <div class="receipt-note">
                     <strong>Important Notice:</strong> Please bring a printed or digital copy of this receipt along with original copies of the uploaded documents when invited for the Entrance Assessment &amp; Family Interview.
                 </div>
@@ -613,6 +704,7 @@ $docCatalog = ApplicationHelper::getDocumentCatalog();
                     <div class="signature-line">Admissions &amp; Bursary Office</div>
                     <div class="signature-label">Authorized Digital Stamp &bull; <?php echo date('Y'); ?></div>
                 </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>

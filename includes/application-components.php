@@ -161,8 +161,17 @@ function renderOnlinePaymentSection(): void
                 <input type="radio" name="payment_method" value="<?php echo htmlspecialchars($verifiedMethodCode); ?>" checked>
                 <div class="pm-icon"><i class="fas fa-bolt"></i></div>
                 <div class="pm-text">
-                    <strong>Pay Online with Paystack (Card / Transfer / USSD)</strong>
-                    <span>Instant online verification &amp; official receipt</span>
+                    <strong>Pay Online with Paystack</strong>
+                    <span>Debit/Credit card, instant transfer, USSD &mdash; instant receipt</span>
+                </div>
+            </label>
+
+            <label class="pay-method-option" data-method="pay_at_school">
+                <input type="radio" name="payment_method" value="pay_at_school">
+                <div class="pm-icon" style="background:rgba(217,119,6,0.15); color:#d97706;"><i class="fas fa-file-invoice"></i></div>
+                <div class="pm-text">
+                    <strong>Pay at School &amp; Print Application Slip</strong>
+                    <span>Submit now, print official slip, pay at admissions office or Zenith Bank</span>
                 </div>
             </label>
 
@@ -170,10 +179,34 @@ function renderOnlinePaymentSection(): void
                 <input type="radio" name="payment_method" value="bank_transfer">
                 <div class="pm-icon"><i class="fas fa-university"></i></div>
                 <div class="pm-text">
-                    <strong>Direct Transfer to <?php echo htmlspecialchars($bankName); ?> (<?php echo htmlspecialchars($acctNum); ?>)</strong>
+                    <strong>Direct Transfer to Zenith Bank (<?php echo htmlspecialchars($acctNum); ?>)</strong>
                     <span>Enter bank transfer session ID / teller reference</span>
                 </div>
             </label>
+        </div>
+
+        <!-- Mode C: Pay at School & Print Application Slip Panel -->
+        <div id="payAtSchoolPanel" class="pay-at-school-panel" style="display:none; margin-bottom:16px;">
+            <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:12px; padding:18px 20px;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                    <span style="background:#d97706; color:#fff; width:34px; height:34px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:1rem;"><i class="fas fa-print"></i></span>
+                    <strong style="color:#92400e; font-size:1.02rem;">Official Application Slip &amp; School Admissions Office Payment</strong>
+                </div>
+                <p style="color:#78350f; font-size:0.88rem; line-height:1.55; margin-bottom:12px;">
+                    You can submit your application now without paying online. Immediately after clicking <strong>Submit Application</strong>, you will receive your <strong>Official Admission Application Slip</strong> with your child's photograph and application reference number. Take this slip to the school admissions office to complete payment and validate your child's application.
+                </p>
+                <div style="background:#ffffff; border:1px solid #fcd34d; border-radius:10px; padding:14px 16px; margin-bottom:10px;">
+                    <div style="font-weight:700; color:#002147; font-size:0.9rem; margin-bottom:6px;">
+                        <i class="fas fa-school" style="color:#c8102e;"></i> Steps to Complete Your Admission at the School:
+                    </div>
+                    <ol style="margin:0; padding-left:20px; font-size:0.86rem; color:#334155; line-height:1.6;">
+                        <li><strong>Submit &amp; Print:</strong> Submit this form to generate your printable <strong>Official Admission Application Slip</strong>.</li>
+                        <li><strong>Present at School:</strong> Bring the slip to St. Benedict's Academy Admissions Office (No. 560 A.A. New G.R.A Trans-Ekulu, Enugu).</li>
+                        <li><strong>Complete Payment:</strong> Pay the <strong>&#8358;15,000</strong> application fee in person via POS / Cash, or transfer to the official Zenith Bank Account: <strong style="color:#c8102e;">1310057496</strong> (St. Benedict's Early Years British Academy).</li>
+                        <li><strong>Validation &amp; Interview:</strong> The Admissions Office validates the payment on the portal, issues your official payment receipt, and confirms your child's teacher assessment schedule.</li>
+                    </ol>
+                </div>
+            </div>
         </div>
 
         <!-- Mode A: Paystack Online Gateway Checkout -->
@@ -596,7 +629,7 @@ function renderApplicationComponentsAssets(): void
 
         .payment-method-selector {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
             gap: 12px;
             margin-bottom: 16px;
         }
@@ -963,8 +996,10 @@ function renderApplicationComponentsAssets(): void
         const methodOptions = document.querySelectorAll('.pay-method-option');
         const onlineGatewayPanel = document.getElementById('onlineGatewayPanel');
         const bankTransferPanel = document.getElementById('bankTransferPanel');
+        const payAtSchoolPanel = document.getElementById('payAtSchoolPanel');
         const paymentRefInput = document.getElementById('input_payment_reference');
         const paymentStatusInput = document.getElementById('input_payment_status');
+        const verifiedUiInput = document.getElementById('input_payment_verified_ui');
         const openModalBtn = document.getElementById('openPaymentModalBtn');
 
         // If user just returned from Paystack Checkout, restore their form draft and scroll to payment section
@@ -1000,21 +1035,38 @@ function renderApplicationComponentsAssets(): void
                 if (radio) radio.checked = true;
                 const method = this.getAttribute('data-method');
 
-                if (method === 'bank_transfer') {
+                if (method === 'pay_at_school') {
+                    if (onlineGatewayPanel) onlineGatewayPanel.style.display = 'none';
+                    if (bankTransferPanel) bankTransferPanel.style.display = 'none';
+                    if (payAtSchoolPanel) payAtSchoolPanel.style.display = 'block';
+                    if (paymentRefInput) {
+                        paymentRefInput.readOnly = true;
+                        paymentRefInput.value = 'SCH-SLIP-' + Math.floor(100000 + Math.random() * 900000);
+                    }
+                    if (paymentStatusInput) paymentStatusInput.value = 'pending_school_payment';
+                } else if (method === 'bank_transfer') {
                     if (onlineGatewayPanel) onlineGatewayPanel.style.display = 'none';
                     if (bankTransferPanel) bankTransferPanel.style.display = 'block';
+                    if (payAtSchoolPanel) payAtSchoolPanel.style.display = 'none';
                     if (paymentRefInput) {
                         paymentRefInput.readOnly = false;
-                        if (paymentRefInput.value.indexOf('PSTK-STB-') === 0 || paymentRefInput.value.indexOf('TXN-STB-') === 0) {
+                        if (paymentRefInput.value.indexOf('PSTK-STB-') === 0 || paymentRefInput.value.indexOf('TXN-STB-') === 0 || paymentRefInput.value.indexOf('SCH-SLIP-') === 0) {
                             paymentRefInput.value = 'ZENITH-TRF-' + Math.floor(100000 + Math.random() * 900000);
                         }
                         paymentRefInput.focus();
                     }
-                    if (paymentStatusInput) paymentStatusInput.value = 'paid';
+                    if (paymentStatusInput) paymentStatusInput.value = 'pending_verification';
                 } else {
                     if (onlineGatewayPanel) onlineGatewayPanel.style.display = 'block';
                     if (bankTransferPanel) bankTransferPanel.style.display = 'none';
-                    if (paymentRefInput) paymentRefInput.readOnly = true;
+                    if (payAtSchoolPanel) payAtSchoolPanel.style.display = 'none';
+                    if (paymentRefInput) {
+                        paymentRefInput.readOnly = true;
+                        if (paymentRefInput.value.indexOf('ZENITH-TRF-') === 0 || paymentRefInput.value.indexOf('SCH-SLIP-') === 0) {
+                            paymentRefInput.value = 'PSTK-STB-' + Math.floor(100000 + Math.random() * 900000);
+                        }
+                    }
+                    if (paymentStatusInput) paymentStatusInput.value = 'paid';
                 }
             });
         });

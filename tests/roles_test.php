@@ -307,6 +307,39 @@ test('index.php pillars-grid has 1fr column layout on mobile', strpos($indexCont
 $mobileCss = file_get_contents(__DIR__ . '/../assets/css/mobile.css');
 test('mobile.css enforces 1fr for pillars-grid on <= 767px', strpos($mobileCss, 'body .core-pillars-section .pillars-grid') !== false && strpos($mobileCss, 'grid-template-columns: 1fr !important;') !== false);
 
+echo "\n=== 12. ADMISSION APPLICATION DUAL PAYMENT, PASSPORT UPLOAD, INTERVIEWS & PARENT LOGINS ===\n";
+$applyContent = file_get_contents(__DIR__ . '/../public/apply.php');
+test('public/apply.php has child_passport_photo input in Step 1', strpos($applyContent, 'id="child_passport_photo"') !== false);
+test('public/apply.php has child-passport-card preview frame', strpos($applyContent, 'id="childPassportCard"') !== false && strpos($applyContent, 'id="passportLivePreviewImg"') !== false);
+test('public/apply.php validates child passport photo in validateStep(1)', strpos($applyContent, 'Child\'s Passport Photograph on Step 1') !== false);
+test('public/apply.php handles pay_at_school payment status pending_school_payment', strpos($applyContent, "payStatus = 'pending_school_payment'") !== false);
+test('public/apply.php blocks unverified online Paystack payments before submission', strpos($applyContent, 'PAYMENT_NOT_VERIFIED') !== false);
+test('public/apply.php has client-side submit guard checking payment verification', strpos($applyContent, 'Online Payment Required Before Submission') !== false);
+test('public/apply.php displays Print Official Admission Application Slip on success', strpos($applyContent, 'Print Official Admission Application Slip') !== false);
+
+$componentsContent = file_get_contents(__DIR__ . '/../includes/application-components.php');
+test('application-components.php includes pay_at_school option', strpos($componentsContent, 'value="pay_at_school"') !== false);
+test('application-components.php includes payAtSchoolPanel with Zenith bank details', strpos($componentsContent, 'id="payAtSchoolPanel"') !== false && strpos($componentsContent, '1310057496') !== false);
+
+$receiptContent = file_get_contents(__DIR__ . '/../public/application-receipt.php');
+test('public/application-receipt.php resolves and displays candidate passport photo', strpos($receiptContent, '$photoBase64') !== false && strpos($receiptContent, 'Candidate Passport Photo') !== false);
+test('public/application-receipt.php supports Official Admission Application Slip header', strpos($receiptContent, 'Official Admission Application Slip') !== false);
+test('public/application-receipt.php displays PAYMENT PENDING - PAY AT SCHOOL badge for slips', strpos($receiptContent, 'PAYMENT PENDING &mdash; PAY AT SCHOOL') !== false);
+test('public/application-receipt.php includes admissions verification sign-off section', strpos($receiptContent, 'Admissions &amp; Bursary Verification Sign-off') !== false);
+
+$adminAppsContent = file_get_contents(__DIR__ . '/../admin/applications.php');
+test('admin/applications.php has confirm_school_payment post action', strpos($adminAppsContent, "'confirm_school_payment'") !== false);
+test('admin/applications.php has interview_decision post action (accept/reject)', strpos($adminAppsContent, "'interview_decision'") !== false);
+test('admin/applications.php has create_parent_login post action', strpos($adminAppsContent, "'create_parent_login'") !== false);
+test('admin/applications.php displays child passport thumbnail', strpos($adminAppsContent, 'app-photo-thumb') !== false);
+test('admin/applications.php displays interview decision and teacher notes form', strpos($adminAppsContent, 'Teacher Interview Evaluation &amp; Admissions Decision') !== false);
+test('admin/applications.php displays parent credentials modal with WhatsApp share', strpos($adminAppsContent, 'credModalBackdrop') !== false && strpos($adminAppsContent, 'https://wa.me/') !== false);
+
+$parentFeesContent = file_get_contents(__DIR__ . '/../parent/fees.php');
+test('parent/fees.php has Pay Fees for Another Student / Ward section', strpos($parentFeesContent, 'Pay School Fees for Another Student / Ward') !== false);
+test('parent/fees.php allows student lookup by admission number', strpos($parentFeesContent, 'other_student') !== false && strpos($parentFeesContent, 'other_student_admission') !== false);
+test('parent/fees.php provides payment narration format for other students', strpos($parentFeesContent, 'FEE - ') !== false);
+
 echo "\n==========================================\n";
 echo "$pass passed, $fail failed\n";
 exit($fail ? 1 : 0);

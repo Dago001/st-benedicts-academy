@@ -47,6 +47,31 @@ if (isset($_GET['child']) && in_array((int)$_GET['child'], array_map('intval', a
 }
 $selectedYear = $_GET['year'] ?? (currentAcademicYear());
 
+// Support searching and paying fees for another student / ward
+$otherStudentQuery = trim($_GET['other_student'] ?? $_POST['other_student_admission'] ?? '');
+$otherStudent = null;
+$otherStudentFees = [];
+$otherStudentError = '';
+
+if ($otherStudentQuery !== '') {
+    $otherStudent = $db->getRow(
+        "SELECT s.*, u.first_name, u.last_name, u.email, c.class_name, c.section, c.id as class_id
+         FROM students s
+         JOIN users u ON s.user_id = u.id
+         LEFT JOIN classes c ON s.class_id = c.id
+         WHERE s.admission_number = ? OR s.admission_number = ? LIMIT 1",
+        [$otherStudentQuery, strtoupper($otherStudentQuery)]
+    );
+    if ($otherStudent && !empty($otherStudent['class_id'])) {
+        $otherStudentFees = $db->getRows(
+            "SELECT * FROM fee_structure WHERE class_id = ? AND academic_year = ? ORDER BY term, is_mandatory DESC",
+            [$otherStudent['class_id'], $selectedYear]
+        );
+    } elseif (!$otherStudent) {
+        $otherStudentError = "No student found with admission number '{$otherStudentQuery}'. Please verify the student's admission number.";
+    }
+}
+
 // Get academic years for filter
 $academicYears = $db->getRows(
     "SELECT DISTINCT academic_year FROM fee_structure ORDER BY academic_year DESC"
@@ -312,6 +337,110 @@ if ($selectedChildId) {
                         <?php endif; ?>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Pay Fees for Another Student / Ward (Benefactor & Community Support) -->
+        <div class="card" id="payOtherStudentSection" style="margin-bottom:20px;">
+            <div class="card-header" style="background:#002147; color:#fff; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                <h3 style="color:#FFD700; margin:0; font-size:1.1rem;">
+                    <i class="fas fa-hand-holding-heart"></i> Pay School Fees for Another Student / Ward
+                </h3>
+                <span style="font-size:0.8rem; color:rgba(255,255,255,0.85);">Support other parents, relatives, or sponsor a student at St. Benedict's</span>
+            </div>
+            <div class="card-body">
+                <p style="font-size:0.9rem; color:#475569; margin-bottom:16px;">
+                    Parents and guardians can pay school fees, tuition, and development levies for other students, wards, or relatives directly through the portal using their official Admission Number.
+                </p>
+
+                <form method="GET" action="#payOtherStudentSection" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px;">
+                    <div style="flex:1; min-width:240px;">
+                        <input type="text" name="other_student" class="form-control"
+                               placeholder="Enter Student Admission Number (e.g. STB/2026/001)"
+                               value="<?php echo htmlspecialchars($otherStudentQuery); ?>" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="background:#002147; color:#FFD700; font-weight:700;">
+                        <i class="fas fa-search"></i> Look Up Student
+                    </button>
+                    <?php if ($otherStudentQuery !== ''): ?>
+                        <a href="fees#payOtherStudentSection" class="btn btn-outline">Clear</a>
+                    <?php endif; ?>
+                </form>
+
+                <?php if ($otherStudentError !== ''): ?>
+                    <div class="alert alert-warning" style="background:#fffbeb; border:1px solid #fde68a; color:#92400e; padding:12px 16px; border-radius:8px;">
+                        <i class="fas fa-exclamation-triangle"></i> <?php echo htmlspecialchars($otherStudentError); ?>
+                    </div>
+                <?php endif; ?>
+
+                <?php if ($otherStudent): ?>
+                    <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:18px 20px; margin-bottom:20px;">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:14px; border-bottom:1px solid #e2e8f0; padding-bottom:12px;">
+                            <div>
+                                <span class="badge badge-success" style="font-size:0.75rem; text-transform:uppercase;"><i class="fas fa-check-circle"></i> Student Verified</span>
+                                <h4 style="color:#002147; margin:6px 0 2px; font-size:1.15rem;">
+                                    <?php echo htmlspecialchars($otherStudent['first_name'] . ' ' . $otherStudent['last_name']); ?>
+                                </h4>
+                                <div style="font-size:0.85rem; color:#475569;">
+                                    Admission No: <strong style="color:#002147;"><?php echo htmlspecialchars($otherStudent['admission_number']); ?></strong> &bull;
+                                    Class: <strong><?php echo htmlspecialchars($otherStudent['class_name'] . ' ' . $otherStudent['section']); ?></strong>
+                                </div>
+                            </div>
+                            <div style="text-align:right;">
+                                <span style="font-size:0.75rem; color:#64748b; text-transform:uppercase; font-weight:700;">Academic Session</span>
+                                <div style="font-size:1.05rem; font-weight:800; color:#002147;"><?php echo htmlspecialchars($selectedYear); ?></div>
+                            </div>
+                        </div>
+
+                        <h5 style="color:#002147; margin-bottom:10px; font-size:0.95rem;">Applicable Fees for <?php echo htmlspecialchars($otherStudent['first_name']); ?>:</h5>
+                        <?php if (!empty($otherStudentFees)): ?>
+                            <table class="table table-sm" style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:16px;">
+                                <thead>
+                                    <tr style="background:#f1f5f9;">
+                                        <th>Fee Item</th>
+                                        <th>Term</th>
+                                        <th class="text-right">Amount (₦)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php $totalOther = 0; foreach ($otherStudentFees as $of): $totalOther += (float)$of['amount']; ?>
+                                    <tr>
+                                        <td><?php echo htmlspecialchars($of['fee_type']); ?></td>
+                                        <td><?php echo htmlspecialchars($of['term']); ?></td>
+                                        <td class="text-right font-weight-bold">₦<?php echo number_format($of['amount'], 2); ?></td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                                <tfoot>
+                                    <tr style="background:#f8fafc; font-weight:800;">
+                                        <td colspan="2">Total Term Fees</td>
+                                        <td class="text-right" style="color:#002147; font-size:1.05rem;">₦<?php echo number_format($totalOther, 2); ?></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        <?php else: ?>
+                            <p class="text-muted" style="font-size:0.88rem;">Standard terminal tuition &amp; maintenance fees apply for this class.</p>
+                        <?php endif; ?>
+
+                        <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:14px 18px; margin-top:14px;">
+                            <div style="font-weight:700; color:#1e40af; margin-bottom:6px; font-size:0.9rem;">
+                                <i class="fas fa-university"></i> How to Pay Fees for <?php echo htmlspecialchars($otherStudent['first_name'] . ' ' . $otherStudent['last_name']); ?>:
+                            </div>
+                            <p style="font-size:0.86rem; color:#1e3a8a; margin:0 0 8px;">
+                                Transfer directly to the official school bank account using the student's admission number as payment narration:
+                            </p>
+                            <div style="background:#fff; border:1px solid #cbd5e1; border-radius:8px; padding:10px 14px; font-size:0.88rem; color:#0f172a;">
+                                <div><strong>Bank Name:</strong> <?php echo htmlspecialchars(school_bank_name()); ?></div>
+                                <div><strong>Account Name:</strong> St. Benedict's Early Years British Academy</div>
+                                <div><strong>Account Number:</strong> <span style="color:#c8102e; font-weight:800; font-size:1.05rem;"><?php echo htmlspecialchars(school_account_number()); ?></span></div>
+                                <div><strong>Payment Narration:</strong> <code style="color:#002147; font-weight:700;">FEE - <?php echo htmlspecialchars($otherStudent['admission_number']); ?> - <?php echo htmlspecialchars($parent['first_name'] . ' ' . $parent['last_name']); ?></code></div>
+                            </div>
+                            <p style="font-size:0.8rem; color:#64748b; margin:8px 0 0;">
+                                <i class="fas fa-info-circle"></i> Once payment is completed, the school bursary will automatically record your sponsorship payment under <?php echo htmlspecialchars($otherStudent['first_name']); ?>'s ledger and issue an official payment receipt.
+                            </p>
+                        </div>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
 

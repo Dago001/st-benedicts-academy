@@ -112,7 +112,18 @@ class ApplicationHelper
                 'amount_paid'            => "DECIMAL(10,2) DEFAULT 15000.00",
                 'payment_status'         => "VARCHAR(30) DEFAULT 'paid'",
                 'receipt_token'          => "VARCHAR(64) DEFAULT NULL",
-                'paid_at'                => "DATETIME DEFAULT NULL"
+                'paid_at'                => "DATETIME DEFAULT NULL",
+                'interview_result'       => "VARCHAR(50) DEFAULT 'pending'",
+                'interview_notes'        => "TEXT DEFAULT NULL",
+                'interview_date'         => "DATE DEFAULT NULL",
+                'interview_teacher'      => "VARCHAR(150) DEFAULT NULL",
+                'admitted_class'         => "VARCHAR(100) DEFAULT NULL",
+                'parent_user_id'         => "INT DEFAULT NULL",
+                'student_id'             => "INT DEFAULT NULL",
+                'school_payment_confirmed_by' => "INT DEFAULT NULL",
+                'school_payment_confirmed_at' => "DATETIME DEFAULT NULL",
+                'school_payment_receipt' => "VARCHAR(60) DEFAULT NULL",
+                'school_payment_channel' => "VARCHAR(50) DEFAULT NULL"
             ];
 
             self::addMissingColumns($db, 'admissions', $commonExtraColumns);
@@ -188,6 +199,7 @@ class ApplicationHelper
             'online_card'       => 'Paystack Online Card Payment (Debit / Credit Card)',
             'online_transfer'   => 'Paystack Instant Bank Transfer',
             'online_ussd'       => 'Paystack USSD Instant Channel',
+            'pay_at_school'     => 'Pay at School Admissions Office (Application Slip / Zenith Bank)',
             'bank_transfer'     => 'Direct Bank Transfer (' . (defined('SCHOOL_BANK_NAME') ? SCHOOL_BANK_NAME : 'Zenith Bank') . ' - ' . (defined('SCHOOL_ACCOUNT_NUMBER') ? SCHOOL_ACCOUNT_NUMBER : '1310057496') . ')'
         ];
         return $map[$method ?? 'paystack_card'] ?? ucwords(str_replace('_', ' ', (string)$method));
@@ -427,6 +439,63 @@ class ApplicationHelper
     /**
      * Update payment status across `application_payments`, `admissions`, and `applications`.
      */
+    /**
+     * Check if a payment reference has been recorded as paid or verified.
+     */
+    public static function isPaymentVerified(string $reference): bool
+    {
+        self::ensureSchema();
+        $reference = trim($reference);
+        if ($reference === '') {
+            return false;
+        }
+        try {
+            $db = Database::getInstance()->getConnection();
+            $stmt = $db->prepare("SELECT payment_status FROM application_payments WHERE payment_reference = ? LIMIT 1");
+            $stmt->execute([$reference]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($row && in_array(strtolower((string)$row['payment_status']), ['verified', 'paid'], true)) {
+                return true;
+            }
+        } catch (Throwable $e) {
+            error_log("ApplicationHelper::isPaymentVerified error: " . $e->getMessage());
+        }
+        return false;
+    }
+
+    /**
+     * Confirm school-received payment for an application slip brought to the school.
+     */
+    public static function confirmSchoolPayment(string $appNumber, string $receiptNumber, string $channel = 'cash_at_school', ?int $adminUserId = null): bool
+    {
+        self::ensureSchema();
+        $appNumber = trim($appNumber);
+        if ($appNumber === '') {
+            return false;
+        }
+        try {
+            $db = Database::getInstance()->getConnection();
+            $now = date('Y-m-d H:i:s');
+
+            // Update applications
+            $stmt1 = $db->prepare("UPDATE applications SET payment_status = 'paid', payment_method = 'pay_at_school', receipt_number = COALESCE(NULLIF(receipt_number, ''), ?), school_payment_confirmed_by = ?, school_payment_confirmed_at = ?, school_payment_channel = ?, paid_at = COALESCE(paid_at, ?) WHERE application_number = ?");
+            $stmt1->execute([$receiptNumber, $adminUserId, $now, $channel, $now, $appNumber]);
+
+            // Update admissions
+            $stmt2 = $db->prepare("UPDATE admissions SET payment_status = 'paid', payment_method = 'pay_at_school', receipt_number = COALESCE(NULLIF(receipt_number, ''), ?), school_payment_confirmed_by = ?, school_payment_confirmed_at = ?, school_payment_channel = ?, paid_at = COALESCE(paid_at, ?) WHERE application_number = ?");
+            $stmt2->execute([$receiptNumber, $adminUserId, $now, $channel, $now, $appNumber]);
+
+            // Update application_payments ledger
+            $stmt3 = $db->prepare("UPDATE application_payments SET payment_status = 'verified', payment_channel = ?, gateway_response = 'Confirmed by Admissions/Bursary at School', verified_by = ?, paid_at = COALESCE(paid_at, ?) WHERE application_number = ?");
+            $stmt3->execute([$channel, $adminUserId, $now, $appNumber]);
+
+            return true;
+        } catch (Throwable $e) {
+            error_log("ApplicationHelper::confirmSchoolPayment error: " . $e->getMessage());
+            return false;
+        }
+    }
+
     public static function updatePaymentStatus(string $reference, string $newStatus, ?int $adminUserId = null): bool
     {
         self::ensureSchema();
