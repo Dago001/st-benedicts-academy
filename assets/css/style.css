@@ -4083,3 +4083,24 @@ textarea.form-control {
     50% { width: 80%; transform: translateX(0%); }
     100% { width: 100%; transform: translateX(100%); }
 }
+
+/* Cloudflare Turnstile Verification - Seamless Transparent Wrapper & Light Integration */
+.cf-turnstile-wrapper {
+    margin: 12px 0 14px !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    min-height: 65px;
+}
+.cf-turnstile {
+    background: transparent !important;
+    border: none !important;
+}
+.cf-turnstile iframe {
+    border: none !important;
+    background: transparent !important;
+    border-radius: 6px !important;
+}

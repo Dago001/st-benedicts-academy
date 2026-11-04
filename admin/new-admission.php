@@ -4,19 +4,44 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/security.php';
 require_once __DIR__ . '/../includes/Student.php';
 require_once __DIR__ . '/../includes/SystemSchema.php';
+require_once __DIR__ . '/../includes/ApplicationHelper.php';
 
 Security::requireRole(['super_admin', 'admin', 'head_teacher']);
 SystemSchema::ensureAll();
+ApplicationHelper::ensureSchema();
 
 $db = db();
 [$message, $messageType] = flash_get();
 
 // Auto-fill from enquiry / application if requested
 $enquiryId = (int)($_GET['enquiry_id'] ?? 0);
-$prefill = [];
+$appNo     = trim((string)($_GET['app_no'] ?? ''));
+$prefill   = [];
+
 if ($enquiryId > 0) {
     $enq = $db->getRow("SELECT * FROM admissions WHERE id = ?", [$enquiryId]);
-    if ($enq) {
+    if (!$enq) {
+        $enq = $db->getRow("SELECT * FROM applications WHERE id = ?", [$enquiryId]);
+        if ($enq) {
+            $norm = ApplicationHelper::normalizeAdmissionRow($enq, 'applications');
+            $prefill = [
+                'form_no'         => $norm['application_number'],
+                'first_name'      => $norm['child_first_name'],
+                'middle_name'     => $norm['child_middle_name'],
+                'last_name'       => $norm['child_last_name'],
+                'dob'             => $norm['date_of_birth'],
+                'gender'          => $norm['gender'],
+                'class_applying'  => $norm['class_applying'],
+                'parent_name'     => $norm['parent_name'],
+                'parent_email'    => $norm['parent_email'],
+                'parent_phone'    => $norm['parent_phone'],
+                'address'         => $norm['address'],
+                'state'           => $norm['state_of_origin'] ?: 'Enugu',
+                'lga'             => $norm['lga'] ?: '',
+                'previous_school' => $norm['previous_school'] ?: '',
+            ];
+        }
+    } else {
         $prefill = [
             'form_no'         => $enq['application_number'],
             'first_name'      => $enq['first_name'],
@@ -29,7 +54,48 @@ if ($enquiryId > 0) {
             'parent_email'    => $enq['parent_email'],
             'parent_phone'    => $enq['parent_phone'],
             'address'         => $enq['address'],
-            'state'           => $enq['state'] ?? '',
+            'state'           => $enq['state'] ?? 'Enugu',
+            'lga'             => $enq['lga'] ?? '',
+            'previous_school' => $enq['previous_school'] ?? '',
+        ];
+    }
+} elseif ($appNo !== '') {
+    $enq = $db->getRow("SELECT * FROM admissions WHERE application_number = ?", [$appNo]);
+    if (!$enq) {
+        $enq = $db->getRow("SELECT * FROM applications WHERE application_number = ?", [$appNo]);
+        if ($enq) {
+            $norm = ApplicationHelper::normalizeAdmissionRow($enq, 'applications');
+            $prefill = [
+                'form_no'         => $norm['application_number'],
+                'first_name'      => $norm['child_first_name'],
+                'middle_name'     => $norm['child_middle_name'],
+                'last_name'       => $norm['child_last_name'],
+                'dob'             => $norm['date_of_birth'],
+                'gender'          => $norm['gender'],
+                'class_applying'  => $norm['class_applying'],
+                'parent_name'     => $norm['parent_name'],
+                'parent_email'    => $norm['parent_email'],
+                'parent_phone'    => $norm['parent_phone'],
+                'address'         => $norm['address'],
+                'state'           => $norm['state_of_origin'] ?: 'Enugu',
+                'lga'             => $norm['lga'] ?: '',
+                'previous_school' => $norm['previous_school'] ?: '',
+            ];
+        }
+    } else {
+        $prefill = [
+            'form_no'         => $enq['application_number'],
+            'first_name'      => $enq['first_name'],
+            'middle_name'     => $enq['middle_name'] ?? '',
+            'last_name'       => $enq['last_name'],
+            'dob'             => $enq['date_of_birth'],
+            'gender'          => $enq['gender'],
+            'class_applying'  => $enq['class_applying_for'],
+            'parent_name'     => $enq['parent_name'],
+            'parent_email'    => $enq['parent_email'],
+            'parent_phone'    => $enq['parent_phone'],
+            'address'         => $enq['address'],
+            'state'           => $enq['state'] ?? 'Enugu',
             'lga'             => $enq['lga'] ?? '',
             'previous_school' => $enq['previous_school'] ?? '',
         ];
@@ -179,9 +245,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ]
             );
 
-            // If converted from enquiry, mark enquiry as accepted
+            // If converted from enquiry / application, mark enquiry as accepted in both admissions & applications
+            $formNo = trim((string)($_POST['enquiry_number'] ?? ''));
+            $admitRemarks = " [Admitted with Adm No: {$admNo}]";
             if ($enquiryId > 0) {
-                $db->query("UPDATE admissions SET status = 'accepted', remarks = CONCAT(COALESCE(remarks, ''), ' [Admitted with Adm No: ', ?) WHERE id = ?", [$admNo, $enquiryId]);
+                $db->query("UPDATE admissions SET status = 'accepted', remarks = CONCAT(COALESCE(remarks, ''), ?) WHERE id = ?", [$admitRemarks, $enquiryId]);
+                $enqRow = $db->getRow("SELECT application_number FROM admissions WHERE id = ?", [$enquiryId]);
+                if ($enqRow && !empty($enqRow['application_number'])) {
+                    $db->query("UPDATE applications SET status = 'accepted', remarks = CONCAT(COALESCE(remarks, ''), ?) WHERE application_number = ?", [$admitRemarks, $enqRow['application_number']]);
+                }
+            }
+            if ($formNo !== '') {
+                $db->query("UPDATE admissions SET status = 'accepted', remarks = CONCAT(COALESCE(remarks, ''), ?) WHERE application_number = ?", [$admitRemarks, $formNo]);
+                $db->query("UPDATE applications SET status = 'accepted', remarks = CONCAT(COALESCE(remarks, ''), ?) WHERE application_number = ?", [$admitRemarks, $formNo]);
             }
 
             $db->commit();

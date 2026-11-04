@@ -68,8 +68,8 @@ $csrf_token = Security::generateCSRFToken();
     <title>Login - <?php echo SITE_NAME; ?></title>
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/fonts.css">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/vendor/fontawesome/all.min.css">
-    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css">
-    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/mobile.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css?v=37">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/mobile.css?v=37">
     <?php if (function_exists('turnstile_script')) echo turnstile_script(); ?>
     <style>
         /* Page-specific styles - Compact & Balanced (Reduced height by 3 steps) */
@@ -215,6 +215,11 @@ $csrf_token = Security::generateCSRFToken();
             margin: 8px 0 10px !important;
             display: flex;
             justify-content: center;
+            background: transparent !important;
+        }
+
+        .cf-turnstile {
+            background: transparent !important;
         }
 
         .btn-primary {
@@ -390,7 +395,7 @@ $csrf_token = Security::generateCSRFToken();
                     </div>
                 </div>
 
-                <?php if (function_exists('turnstile_widget')) echo turnstile_widget('auto', 'login'); ?>
+                <?php if (function_exists('turnstile_widget')) echo turnstile_widget('light', 'login'); ?>
                 <div class="form-group">
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-sign-in-alt"></i> Sign In

@@ -141,8 +141,148 @@ class ApplicationHelper
                 INDEX `idx_app_pay_appno` (`application_number`),
                 INDEX `idx_app_pay_status` (`payment_status`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+            // Bidirectionally sync admissions and applications tables
+            self::syncAdmissionsTables();
         } catch (Throwable $e) {
             error_log("ApplicationHelper::ensureSchema warning: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Bidirectional sync between `applications` and `admissions` so every online application
+     * appears immediately in both `admin/admissions-enquiry` and `admin/applications`.
+     */
+    public static function syncAdmissionsTables(): void
+    {
+        try {
+            $db = Database::getInstance()->getConnection();
+
+            // 1. Sync from `applications` into `admissions`
+            $apps = $db->query("SELECT * FROM applications ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($apps as $app) {
+                $appNo = $app['application_number'] ?? '';
+                if ($appNo === '') continue;
+
+                $chk = $db->prepare("SELECT id FROM admissions WHERE application_number = ? LIMIT 1");
+                $chk->execute([$appNo]);
+                if (!$chk->fetchColumn()) {
+                    $norm = self::normalizeAdmissionRow($app, 'applications');
+                    $ins = $db->prepare("INSERT INTO admissions (
+                        application_number, first_name, middle_name, last_name, date_of_birth, gender,
+                        class_applying_for, academic_session, entry_term, blood_group, genotype, medical_conditions,
+                        parent_title, parent_name, parent_relationship, parent_occupation, parent_email, parent_phone,
+                        address, city, state, lga, country,
+                        emergency_name, emergency_phone, emergency_relationship,
+                        previous_school, documents_path,
+                        payment_method, payment_reference, receipt_number, amount_paid, payment_status, receipt_token, paid_at,
+                        status, submitted_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    $ins->execute([
+                        $norm['application_number'],
+                        $norm['child_first_name'],
+                        $norm['child_middle_name'] ?: null,
+                        $norm['child_last_name'],
+                        $norm['date_of_birth'],
+                        $norm['gender'],
+                        $norm['class_applying'],
+                        $norm['academic_session'],
+                        $norm['entry_term'],
+                        $norm['blood_group'] ?: null,
+                        $norm['genotype'] ?: null,
+                        $norm['medical_conditions'] ?: null,
+                        $app['parent_title'] ?? null,
+                        $norm['parent_name'],
+                        $norm['parent_relationship'] ?: 'Parent',
+                        $norm['parent_occupation'] ?: null,
+                        $norm['parent_email'],
+                        $norm['parent_phone'],
+                        $norm['address'],
+                        $norm['city'] ?: null,
+                        $norm['state_of_origin'] ?: '',
+                        $norm['lga'] ?: '',
+                        $norm['nationality'] ?: 'Nigeria',
+                        $norm['emergency_name'] ?: null,
+                        $norm['emergency_phone'] ?: null,
+                        $norm['emergency_relationship'] ?: null,
+                        $norm['previous_school'] ?: null,
+                        !empty($norm['documents']) ? json_encode($norm['documents']) : null,
+                        $norm['payment_method'],
+                        $norm['payment_reference'],
+                        $norm['receipt_number'],
+                        $norm['amount_paid'],
+                        $norm['payment_status'],
+                        $norm['receipt_token'],
+                        $norm['paid_at'],
+                        $norm['status'] ?: 'pending',
+                        $norm['created_at'] ?: date('Y-m-d H:i:s')
+                    ]);
+                }
+            }
+
+            // 2. Sync from `admissions` into `applications`
+            $adms = $db->query("SELECT * FROM admissions ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($adms as $adm) {
+                $appNo = $adm['application_number'] ?? '';
+                if ($appNo === '') continue;
+
+                $chk = $db->prepare("SELECT id FROM applications WHERE application_number = ? LIMIT 1");
+                $chk->execute([$appNo]);
+                if (!$chk->fetchColumn()) {
+                    $norm = self::normalizeAdmissionRow($adm, 'admissions');
+                    $ins = $db->prepare("INSERT INTO applications (
+                        application_number, child_first_name, child_middle_name, child_last_name, child_dob, child_gender,
+                        class_applying, academic_session, entry_term, blood_group, genotype, medical_conditions,
+                        parent_title, parent_first_name, parent_last_name, parent_relationship,
+                        parent_email, parent_phone, parent_occupation, address, city, state, lga, country,
+                        previous_school, emergency_name, emergency_phone, emergency_relationship,
+                        documents_path, payment_method, payment_reference, receipt_number, amount_paid, payment_status, receipt_token, paid_at,
+                        status, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    $ins->execute([
+                        $norm['application_number'],
+                        $norm['child_first_name'],
+                        $norm['child_middle_name'] ?: null,
+                        $norm['child_last_name'],
+                        $norm['date_of_birth'],
+                        $norm['gender'],
+                        $norm['class_applying'],
+                        $norm['academic_session'],
+                        $norm['entry_term'],
+                        $norm['blood_group'] ?: null,
+                        $norm['genotype'] ?: null,
+                        $norm['medical_conditions'] ?: null,
+                        $adm['parent_title'] ?? null,
+                        $adm['first_name'] ?? '',
+                        $adm['last_name'] ?? '',
+                        $norm['parent_relationship'] ?: 'Parent',
+                        $norm['parent_email'],
+                        $norm['parent_phone'],
+                        $norm['parent_occupation'] ?: null,
+                        $norm['address'],
+                        $norm['city'] ?: null,
+                        $norm['state_of_origin'] ?: '',
+                        $norm['lga'] ?: '',
+                        $norm['nationality'] ?: 'Nigeria',
+                        $norm['previous_school'] ?: null,
+                        $norm['emergency_name'] ?: null,
+                        $norm['emergency_phone'] ?: null,
+                        $norm['emergency_relationship'] ?: null,
+                        !empty($norm['documents']) ? json_encode($norm['documents']) : null,
+                        $norm['payment_method'],
+                        $norm['payment_reference'],
+                        $norm['receipt_number'],
+                        $norm['amount_paid'],
+                        $norm['payment_status'],
+                        $norm['receipt_token'],
+                        $norm['paid_at'],
+                        $norm['status'] ?: 'pending',
+                        $norm['created_at'] ?: date('Y-m-d H:i:s')
+                    ]);
+                }
+            }
+        } catch (Throwable $e) {
+            error_log("ApplicationHelper::syncAdmissionsTables: " . $e->getMessage());
         }
     }
 

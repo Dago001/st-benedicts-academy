@@ -62,7 +62,7 @@ auth_page_start('Forgot Password'); ?>
         <label for="email">Email address</label>
         <input type="email" id="email" name="email" required autofocus autocomplete="username" inputmode="email" value="<?php echo e($_POST['email'] ?? ''); ?>">
     </div>
-    <?php echo turnstile_widget('auto', 'forgot_password'); ?>
+    <?php echo turnstile_widget('light', 'forgot_password'); ?>
     <button type="submit" class="btn btn-primary">Send reset link</button>
 </form>
 <?php endif; ?>

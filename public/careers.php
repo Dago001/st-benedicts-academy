@@ -798,7 +798,7 @@ include __DIR__ . '/../includes/header.php';
                         </div>
 
                         <div style="margin-top: 20px;">
-                            <?php if (function_exists('turnstile_widget')) echo turnstile_widget('auto', 'careers'); ?>
+                            <?php if (function_exists('turnstile_widget')) echo turnstile_widget('light', 'careers'); ?>
                         </div>
                         <div style="margin-top: 20px; text-align: right;">
                             <button type="submit" class="btn btn-primary" style="padding: 14px 32px; font-size: 1.05rem; font-weight: 700; border-radius: 8px;">

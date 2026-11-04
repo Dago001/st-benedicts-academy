@@ -89,21 +89,26 @@ function turnstile_script() {
 /**
  * Renders the Turnstile widget inside a form.
  *
- * @param string $theme 'auto' | 'light' | 'dark'
+ * @param string $theme 'light' | 'auto' | 'dark' (defaults to 'light' for seamless integration with light cards)
  * @param string $action Optional action name for analytics (e.g. 'login', 'contact')
+ * @param string $size 'flexible' | 'normal' | 'compact'
  * @return string HTML markup
  */
-function turnstile_widget($theme = 'auto', $action = '') {
+function turnstile_widget($theme = 'light', $action = '', $size = 'flexible') {
     if (!turnstile_enabled()) {
         return '';
     }
 
     $siteKey = turnstile_site_key();
+    // Default to 'light' theme so the widget renders cleanly on light cards instead of harsh dark/black blocks
+    $safeTheme = ($theme === 'dark') ? 'dark' : 'light';
     $actionAttr = $action !== '' ? ' data-action="' . htmlspecialchars($action, ENT_QUOTES, 'UTF-8') . '"' : '';
+    $sizeAttr = in_array($size, ['flexible', 'normal', 'compact'], true) ? ' data-size="' . $size . '"' : ' data-size="flexible"';
 
-    return '<div class="cf-turnstile-wrapper" style="margin: 15px 0;">'
+    return '<div class="cf-turnstile-wrapper" style="margin: 12px 0; display:flex; justify-content:center; background:transparent;">'
         . '<div class="cf-turnstile" data-sitekey="' . htmlspecialchars($siteKey, ENT_QUOTES, 'UTF-8') . '"'
-        . ' data-theme="' . htmlspecialchars($theme, ENT_QUOTES, 'UTF-8') . '"'
+        . ' data-theme="' . htmlspecialchars($safeTheme, ENT_QUOTES, 'UTF-8') . '"'
+        . $sizeAttr
         . $actionAttr
         . '></div></div>';
 }

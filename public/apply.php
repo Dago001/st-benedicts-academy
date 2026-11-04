@@ -202,6 +202,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ]
                 );
 
+                // Dual-write into admissions table so landing page applications immediately appear in Admission Enquiries
+                try {
+                    $parentFullName = trim(($formData['parent_title'] ? $formData['parent_title'] . ' ' : '') . $formData['parent_first_name'] . ' ' . $formData['parent_last_name']);
+                    $db->insert(
+                        "INSERT INTO admissions (
+                            application_number, first_name, middle_name, last_name, date_of_birth, gender,
+                            class_applying_for, academic_session, entry_term, blood_group, genotype, medical_conditions,
+                            parent_title, parent_name, parent_relationship, parent_occupation, parent_email, parent_phone,
+                            address, city, state, lga, country,
+                            emergency_name, emergency_phone, emergency_relationship,
+                            previous_school, documents_path,
+                            payment_method, payment_reference, receipt_number, amount_paid, payment_status, receipt_token, paid_at,
+                            status
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')",
+                        [
+                            $appNumber, $formData['child_first_name'], $formData['child_middle_name'] ?: null, $formData['child_last_name'], $dob, $formData['child_gender'],
+                            $formData['class_applying'], $formData['academic_session'], $formData['entry_term'], $formData['blood_group'] ?: null, $formData['genotype'] ?: null, $formData['medical_conditions'] ?: null,
+                            $formData['parent_title'] ?: null, $parentFullName, $formData['parent_relationship'], $formData['parent_occupation'] ?: null, $formData['parent_email'], $formData['parent_phone'],
+                            $formData['address'], $formData['city'] ?: null, $loc['state'] ?? '', $loc['lga'] ?? '', $loc['country'] ?? 'Nigeria',
+                            $formData['emergency_name'] ?: null, $formData['emergency_phone'] ?: null, $formData['emergency_relationship'] ?: null,
+                            $formData['previous_school'] ?: null, json_encode($stored),
+                            $formData['payment_method'], $formData['payment_reference'], $receiptNumber, $amountPaid, $payStatus, $receiptToken, $paidAt
+                        ]
+                    );
+                } catch (Throwable $eAdm) {
+                    error_log("apply.php admissions mirror: " . $eAdm->getMessage());
+                }
+
                 ApplicationHelper::syncApplicationPayment(
                     $appNumber,
                     $receiptNumber,
@@ -691,7 +719,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <button type="button" class="btn btn-outline" onclick="prevStep(4)">
                             <i class="fas fa-arrow-left"></i> Previous
                         </button>
-                        <?php if (function_exists('turnstile_widget')) echo turnstile_widget('auto', 'apply'); ?>
+                        <?php if (function_exists('turnstile_widget')) echo turnstile_widget('light', 'apply'); ?>
                         <button type="submit" class="btn btn-success">
                             <i class="fas fa-paper-plane"></i> Submit Application &amp; Generate Receipt
                         </button>

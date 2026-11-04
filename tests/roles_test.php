@@ -416,6 +416,27 @@ foreach ($cssFiles as $cf) {
 }
 test('Strict compliance: zero colored border-left properties across all CSS files', !$foundColoredBorderLeft);
 
+echo "\n=== 15. CLOUDFLARE TURNSTILE THEME INTEGRATION & ADMISSION SYNC ===\n";
+$tsContent = file_get_contents(__DIR__ . '/../includes/turnstile.php');
+test('turnstile_widget defaults to light theme', strpos($tsContent, "\$safeTheme = (\$theme === 'dark') ? 'dark' : 'light';") !== false);
+test('turnstile_widget specifies transparent wrapper style', strpos($tsContent, 'background:transparent;') !== false);
+
+$loginContent = file_get_contents(__DIR__ . '/../login.php');
+test('login.php renders light turnstile widget', strpos($loginContent, "turnstile_widget('light', 'login')") !== false);
+test('login.php contains transparent turnstile wrapper CSS', strpos($loginContent, '.cf-turnstile-wrapper') !== false && strpos($loginContent, 'background: transparent !important;') !== false);
+
+$styleContent = file_get_contents(__DIR__ . '/../assets/css/style.css');
+test('style.css defines transparent cf-turnstile-wrapper', strpos($styleContent, '.cf-turnstile-wrapper') !== false);
+
+$appHelpContent = file_get_contents(__DIR__ . '/../includes/ApplicationHelper.php');
+test('ApplicationHelper has syncAdmissionsTables method', strpos($appHelpContent, 'function syncAdmissionsTables()') !== false);
+
+$admEnqContent = file_get_contents(__DIR__ . '/../admin/admissions-enquiry.php');
+test('admissions-enquiry.php calls syncAdmissionsTables', strpos($admEnqContent, 'ApplicationHelper::syncAdmissionsTables()') !== false);
+
+$newAdmContent = file_get_contents(__DIR__ . '/../admin/new-admission.php');
+test('new-admission.php supports prefill from admissions and applications', strpos($newAdmContent, 'normalizeAdmissionRow') !== false);
+
 echo "\n==========================================\n";
 echo "$pass passed, $fail failed\n";
 exit($fail ? 1 : 0);

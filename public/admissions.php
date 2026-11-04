@@ -156,6 +156,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ]
                 );
 
+                // Dual-write into applications table for unified synchronization
+                try {
+                    $db->insert(
+                        "INSERT INTO applications (
+                            application_number, child_first_name, child_middle_name, child_last_name, child_dob, child_gender,
+                            class_applying, academic_session, entry_term, blood_group, genotype, medical_conditions,
+                            parent_title, parent_first_name, parent_last_name, parent_relationship,
+                            parent_email, parent_phone, parent_occupation, address, city, state, lga, country,
+                            previous_school, emergency_name, emergency_phone, emergency_relationship,
+                            documents_path, payment_method, payment_reference, receipt_number, amount_paid, payment_status, receipt_token, paid_at,
+                            status
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')",
+                        [
+                            $appNumber, $firstName, $middleName ?: null, $lastName, $dob, $gender,
+                            $class, $academicSession, $entryTerm, $bloodGroup ?: null, $genotype ?: null, $medicalConditions ?: null,
+                            $parentTitle ?: null, $firstName, $lastName, $parentRelationship,
+                            $parentEmail, $parentPhone, $parentOccupation ?: null, $address, $city ?: null, $loc['state'] ?? '', $loc['lga'] ?? '', $loc['country'] ?? 'Nigeria',
+                            $previousSchool ?: null, $emergencyName ?: null, $emergencyPhone ?: null, $emergencyRel ?: null,
+                            json_encode($stored), $paymentMethod, $paymentReference, $receiptNumber, $amountPaid, $paymentStatus, $receiptToken, $paidAt
+                        ]
+                    );
+                } catch (Throwable $eApp) {
+                    error_log("admissions.php applications mirror: " . $eApp->getMessage());
+                }
+
                 $_SESSION['recent_application_receipts'][] = $appNumber;
                 $receiptUrl = BASE_URL . '/public/application-receipt?app=' . urlencode($appNumber) . '&token=' . urlencode($receiptToken);
 
@@ -982,7 +1007,7 @@ if (empty($classes)) {
                 </label>
             </div>
 
-            <?php if (function_exists('turnstile_widget')) echo turnstile_widget('auto', 'admissions'); ?>
+            <?php if (function_exists('turnstile_widget')) echo turnstile_widget('light', 'admissions'); ?>
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary btn-large" id="submitBtn">
                     <i class="fas fa-paper-plane"></i> Submit Application &amp; Generate Receipt

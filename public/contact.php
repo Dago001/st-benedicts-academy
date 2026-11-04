@@ -940,7 +940,7 @@ $businessHours = school_hours();
                                       placeholder="Type your message here..." required><?php echo htmlspecialchars($_POST['message'] ?? ''); ?></textarea>
                         </div>
 
-                        <?php if (function_exists('turnstile_widget')) echo turnstile_widget('auto', 'contact'); ?>
+                        <?php if (function_exists('turnstile_widget')) echo turnstile_widget('light', 'contact'); ?>
                         <button type="submit" class="btn btn-primary btn-block">
                             <i class="fas fa-paper-plane"></i> Send Message
                         </button>
