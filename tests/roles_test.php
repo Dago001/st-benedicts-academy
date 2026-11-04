@@ -396,6 +396,8 @@ test('admin/dashboard.php prevents 0% progress bar sliver glitch when student co
 $polishCSS = file_get_contents(__DIR__ . '/../assets/css/polish.css');
 test('polish.css stacks dashboard-header vertically on mobile view (< 769px)', strpos($polishCSS, 'flex-direction: column !important;') !== false);
 test('polish.css scopes desktop horizontal header cluster strictly inside min-width media query', strpos($polishCSS, '@media (min-width: 769px)') !== false);
+test('polish.css provides generous vertical breathing room for dataTables_length and dataTables_filter', strpos($polishCSS, 'margin-bottom: 18px !important;') !== false);
+test('polish.css clears table and adds top margin in dataTables_wrapper', strpos($polishCSS, 'margin-top: 18px !important;') !== false);
 
 // Strict check: zero colored border-left across all css
 $cssFiles = glob(__DIR__ . '/../assets/css/*.css');

@@ -472,8 +472,21 @@ if (!function_exists('timeAgo')) {
         <?php endif; ?>
 
         <!-- Recent Activities -->
-        <div class="recent-activities">
-            <h3><i class="fas fa-history"></i> Recent Activities</h3>
+        <div class="recent-activities" style="margin-top: 24px; border: 1px solid #e2e8f0; border-radius: 14px; box-shadow: 0 1px 4px rgba(0,33,71,0.06); padding: 22px 24px; background: #ffffff;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid #f1f5f9; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(0,33,71,0.08); color: #002147; display: flex; align-items: center; justify-content: center; font-size: 16px;">
+                        <i class="fas fa-history"></i>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #0f172a;">Recent Activities</h3>
+                        <p style="margin: 2px 0 0; font-size: 0.8rem; color: #64748b;">Latest administrative events and security audit trail</p>
+                    </div>
+                </div>
+                <a href="audit-logs" class="btn btn-sm btn-outline" style="font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 8px;">
+                    <i class="fas fa-shield-alt"></i> View All Audit Logs
+                </a>
+            </div>
             <div class="activities-table">
                 <?php if (!empty($stats['recent_activities'])): ?>
                 <table class="data-table">
